@@ -2,9 +2,10 @@ import supabase from '../../lib/supabase.js'
 import { format } from 'date-fns'
 import { sendTelegramMessage, sendTelegramMessages } from '../../lib/helpers.js'
 
-function inTZ(date, tzOffsetMinutes = 480) {
+function inTZ(date) {
+  const offset = parseInt(process.env.APP_TZ_OFFSET_MINUTES || '480', 10) // default UTC+8
   const utc = date.getTime() + date.getTimezoneOffset() * 60000
-  return new Date(utc + tzOffsetMinutes * 60000)
+  return new Date(utc + offset * 60000)
 }
 
 async function computeLeaderboards(forDate) {

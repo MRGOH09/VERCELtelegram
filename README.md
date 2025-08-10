@@ -12,7 +12,7 @@
 - SUPABASE_SERVICE_ROLE
 - DEFAULT_BRANCH（默认：MAIN）
 - DEFAULT_CURRENCY（默认：MYR）
-- TZ（建议：Asia/Kuala_Lumpur 或 Asia/Shanghai）
+- APP_TZ_OFFSET_MINUTES（默认 480=UTC+8）
 - ADMIN_TG_IDS（逗号分隔 Telegram 数字 ID，用于 /broadcast 鉴权）
 - MAX_SEND_PER_RUN（每次 Cron 最大推送条数，默认 120）
 
