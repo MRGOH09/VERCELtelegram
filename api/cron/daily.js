@@ -170,7 +170,7 @@ async function dailyReports(forDate) {
 export default async function handler(req, res) {
   try {
     const now = new Date()
-    const local = inTZ(now, 480) // UTC+8
+    const local = inTZ(now)
     const hhmm = `${local.getHours().toString().padStart(2,'0')}:${local.getMinutes().toString().padStart(2,'0')}`
 
     if (hhmm === '03:00') {
