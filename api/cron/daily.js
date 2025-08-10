@@ -109,7 +109,7 @@ async function usersWithoutRecordToday(forDate) {
 async function monthlySnapshotsIfNeeded(forDate) {
   const d = new Date(forDate)
   const hh = d.getHours(), mm = d.getMinutes()
-  if (d.getDate() === 1 && hh === 0 && mm === 5) {
+  if (d.getDate() === 1) {
     const yyyymm = format(d, 'yyyy-MM')
     const { data: profs } = await supabase
       .from('user_profile')

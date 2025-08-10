@@ -48,7 +48,7 @@ curl -s "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
 - 发送 `/record`（按钮式：选择 A/B/C → 分类 → 金额 → 备注 → 预览 → 确认）。
 - 发送 `/my month` 查看月度统计与目标进度。
 
-部署到 Vercel 后，`vercel.json` 已配置 4 个 Cron（UTC：19:00、02:00、12:00、12:30）。
+部署到 Vercel 后，`vercel.json` 已精简为 2 个 Cron（UTC：19:00/02:00/12:00 合并一条；另有 12:30 一条），符合免费计划上限 2 条。
 
 注意：此起步包优先后端 API 与数据口径的落地，Telegram 向导为最小可用（命令式），便于今晚快速起跑。后续可平滑升级为全量状态机与按钮交互。
 
