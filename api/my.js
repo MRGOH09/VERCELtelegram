@@ -70,12 +70,14 @@ export default async function handler(req, res) {
       return acc
     }, { a: 0, b: 0, c: 0 })
 
-    const mtd = (await supabase
+    const { data: mtdData, error: mtdErr } = await supabase
       .from('daily_summary')
       .select('sum_a,sum_b,sum_c')
       .gte('ymd', `${yyyyMM}-01`)
       .lte('ymd', endDate)
-      .eq('user_id', userId)).data || []
+      .eq('user_id', userId)
+    if (mtdErr) throw mtdErr
+    const mtd = mtdData || []
 
     const mtdTotals = mtd.reduce((acc, r) => {
       acc.a += Number(r.sum_a || 0)

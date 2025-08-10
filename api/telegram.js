@@ -235,10 +235,15 @@ export async function handleCallback(update, req, res) {
     if (data === 'rec:confirm') {
       if (st.step !== 'confirm') { await sendTelegramMessage(chatId, '状态已过期，请重新 /record'); await clearState(userId); return res.status(200).json({ ok: true }) }
       const payload = st.payload || {}
-      const { error: recErr } = await supabase
-        .from('records')
-        .insert([{ user_id: userId, category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) }])
-      if (recErr) { await sendTelegramMessage(chatId, '写入失败，请重试'); return res.status(200).json({ ok: true }) }
+      // 调用后端 /api/record 执行入库 + 聚合 + streak
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const resp = await fetch(`${base}/api/record`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ userId: userId, category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) })
+      })
+      if (!resp.ok) { await sendTelegramMessage(chatId, '写入失败，请重试'); return res.status(200).json({ ok: true }) }
       await clearState(userId)
       await sendTelegramMessage(chatId, `✅ 已记录：${payload.group} ${Number(payload.amount).toFixed(2)}`)
       return res.status(200).json({ ok: true })

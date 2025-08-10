@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const todayYmd = formatYMD(new Date())
     const { data: profile, error: profErr } = await supabase
       .from('user_profile')
-      .select('current_streak, max_streak, last_record')
+      .select('current_streak, max_streak, last_record, total_records')
       .eq('user_id', userId)
       .single()
     if (profErr) throw profErr
