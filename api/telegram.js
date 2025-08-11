@@ -75,7 +75,19 @@ export default async function handler(req, res) {
     const text = (msg.text || '').trim()
 
     if (text.startsWith('/start')) {
+      // If already registered (has profile with income or a_pct/b_pct), go to settings instead of re-register
       const userId = await getOrCreateUserByTelegram(from, chatId)
+      const { data: prof } = await supabase
+        .from('user_profile')
+        .select('monthly_income,a_pct,b_pct')
+        .eq('user_id', userId)
+        .maybeSingle()
+      const isRegistered = prof && ((prof.monthly_income||0) > 0 || (prof.a_pct||0) > 0 || (prof.b_pct||0) > 0)
+      if (isRegistered) {
+        await sendTelegramMessage(chatId, zh.registration.alreadyRegistered)
+        // TODO: 可切换到 /settings 状态机
+        return res.status(200).json({ ok: true })
+      }
       await setState(userId, 'start', 'nickname', {})
       await sendTelegramMessage(chatId, zh.registration.nickname.prompt)
       return res.status(200).json({ ok: true })
