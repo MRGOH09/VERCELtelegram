@@ -157,7 +157,7 @@ export default async function handler(req, res) {
         cap_b: data.snapshotView.cap_b,
         cap_c: data.snapshotView.cap_c,
         epf: data.snapshotView.epf,
-        travel: '-' // 若需要展示旅游(月)请在此补齐
+        travel: data.snapshotView.travelMonthly
       })
       await sendTelegramMessage(chatId, msg)
       return res.status(200).json({ ok: true })

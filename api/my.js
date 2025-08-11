@@ -86,8 +86,17 @@ export default async function handler(req, res) {
       return acc
     }, { a: 0, b: 0, c: 0 })
 
+    // travel monthly from profile (annual / 12) contributes to B progress only
+    const { data: prof, error: profErr2 } = await supabase
+      .from('user_profile')
+      .select('travel_budget_annual')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (profErr2) throw profErr2
+    const travelMonthlyNum = Number(prof?.travel_budget_annual || 0) / 12
+
     const aProgress = snapshot.cap_a_amount > 0 ? Math.min(100, Math.round((mtdTotals.a / snapshot.cap_a_amount) * 100)) : 0
-    const bProgress = snapshot.cap_b_amount > 0 ? Math.min(100, Math.round((mtdTotals.b / snapshot.cap_b_amount) * 100)) : 0
+    const bProgress = snapshot.cap_b_amount > 0 ? Math.min(100, Math.round(((mtdTotals.b + travelMonthlyNum) / snapshot.cap_b_amount) * 100)) : 0
     const cProgress = snapshot.cap_c_amount > 0 ? Math.min(100, Math.round(((mtdTotals.c + (snapshot.epf_amount || 0)) / snapshot.cap_c_amount) * 100)) : 0
 
     return res.status(200).json({
@@ -103,7 +112,8 @@ export default async function handler(req, res) {
         cap_a: Number(snapshot.cap_a_amount || 0).toFixed(2),
         cap_b: Number(snapshot.cap_b_amount || 0).toFixed(2),
         cap_c: Number(snapshot.cap_c_amount || 0).toFixed(2),
-        epf: Number(snapshot.epf_amount || 0).toFixed(2)
+        epf: Number(snapshot.epf_amount || 0).toFixed(2),
+        travelMonthly: Number(travelMonthlyNum || 0).toFixed(2)
       }
     })
   } catch (e) {

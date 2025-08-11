@@ -163,8 +163,16 @@ async function dailyReports(forDate) {
       .select('travel_budget_annual')
       .eq('user_id', p.user_id)
       .maybeSingle()
-    const travelMonthly = prof ? Number((prof.travel_budget_annual || 0) / 12).toFixed(2) : '0.00'
-    const text = formatTemplate(zh.cron.daily_report, { a: ta.toFixed(2), b: tb.toFixed(2), c: tc.toFixed(2), pa, pb, pc, travel: travelMonthly })
+    const travelMonthlyNum = prof ? Number((prof.travel_budget_annual || 0) / 12) : 0
+    const text = formatTemplate(zh.cron.daily_report, {
+      a: ta.toFixed(2),
+      b: tb.toFixed(2),
+      c: tc.toFixed(2),
+      pa,
+      pb: (snap?.cap_b_amount > 0 ? Math.min(100, Math.round(((m.b + travelMonthlyNum) / snap.cap_b_amount) * 100)) : 0),
+      pc,
+      travel: travelMonthlyNum.toFixed(2)
+    })
     await sendTelegramMessage(p.chat_id, text)
   }
 }

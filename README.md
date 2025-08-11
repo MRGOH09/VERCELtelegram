@@ -50,5 +50,5 @@ curl -s "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
 
 部署到 Vercel 后，`vercel.json` 已精简为 2 个 Cron（UTC：19:00/02:00/12:00 合并一条；另有 12:30 一条），符合免费计划上限 2 条。
 
-注意：此起步包优先后端 API 与数据口径的落地，Telegram 向导为最小可用（命令式），便于今晚快速起跑。后续可平滑升级为全量状态机与按钮交互。
+注意：此起步包优先后端 API 与数据口径的落地，Telegram 向导已支持分步注册/记录/设置。完整规则见 docs/RULES.md。
 
