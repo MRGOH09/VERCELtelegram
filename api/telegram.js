@@ -112,7 +112,24 @@ export default async function handler(req, res) {
       const a = data.progress?.a ?? 0
       const b = data.progress?.b ?? 0
       const c = data.progress?.c ?? 0
-      await sendTelegramMessage(chatId, formatTemplate(zh.my.summary, { range, a: data.totals.a.toFixed(2), b: data.totals.b.toFixed(2), c: data.totals.c.toFixed(2), pa: a, pb: b, pc: c }))
+      const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
+      const msg = formatTemplate(zh.my.summary_with_snapshot, {
+        range,
+        a: data.totals.a.toFixed(2),
+        b: data.totals.b.toFixed(2),
+        c: data.totals.c.toFixed(2),
+        pa: a, pb: b, pc: c,
+        income: data.snapshotView.income,
+        a_pct: data.snapshotView.a_pct,
+        b_pct: data.snapshotView.b_pct,
+        c_pct: data.snapshotView.c_pct,
+        cap_a: data.snapshotView.cap_a,
+        cap_b: data.snapshotView.cap_b,
+        cap_c: data.snapshotView.cap_c,
+        epf: data.snapshotView.epf,
+        travel: '-' // 若需要展示旅游(月)请在此补齐
+      })
+      await sendTelegramMessage(chatId, msg)
       return res.status(200).json({ ok: true })
     }
 

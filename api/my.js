@@ -94,7 +94,17 @@ export default async function handler(req, res) {
       range,
       totals,
       snapshot,
-      progress: { a: aProgress, b: bProgress, c: cProgress }
+      progress: { a: aProgress, b: bProgress, c: cProgress },
+      snapshotView: {
+        income: Number(snapshot.income || 0).toFixed(2),
+        a_pct: Number(snapshot.a_pct || 0).toFixed(2),
+        b_pct: Number(snapshot.b_pct || 0).toFixed(2),
+        c_pct: Number(100 - (snapshot.a_pct || 0) - (snapshot.b_pct || 0)).toFixed(2),
+        cap_a: Number(snapshot.cap_a_amount || 0).toFixed(2),
+        cap_b: Number(snapshot.cap_b_amount || 0).toFixed(2),
+        cap_c: Number(snapshot.cap_c_amount || 0).toFixed(2),
+        epf: Number(snapshot.epf_amount || 0).toFixed(2)
+      }
     })
   } catch (e) {
     console.error(e)
