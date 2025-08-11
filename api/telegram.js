@@ -84,14 +84,14 @@ export default async function handler(req, res) {
     if (text.startsWith('/record')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'record', 'choose_group', {})
-      await sendTelegramMessage(chatId, '请选择分组（A/B/C）', { reply_markup: groupKeyboard() })
+      await sendTelegramMessage(chatId, zh.record.choose_group, { reply_markup: groupKeyboard() })
       return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('/my')) {
       const range = (text.split(/\s+/)[1] || 'month').toLowerCase()
       const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
-      if (uErr) { await sendTelegramMessage(chatId, '请先 /start'); return res.status(200).json({ ok: true }) }
+      if (uErr) { await sendTelegramMessage(chatId, zh.my.need_start); return res.status(200).json({ ok: true }) }
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
       const r = await fetch(`${base}/api/my?userId=${u.id}&range=${encodeURIComponent(range)}`)
@@ -100,18 +100,18 @@ export default async function handler(req, res) {
       const a = data.progress?.a ?? 0
       const b = data.progress?.b ?? 0
       const c = data.progress?.c ?? 0
-      await sendTelegramMessage(chatId, `📊 ${range} 统计\nA=${data.totals.a.toFixed(2)} B=${data.totals.b.toFixed(2)} C=${data.totals.c.toFixed(2)}\n🎯 进度：A ${a}%｜B ${b}%｜C ${c}%（含 EPF）`)
+      await sendTelegramMessage(chatId, formatTemplate(zh.my.summary, { range, a: data.totals.a.toFixed(2), b: data.totals.b.toFixed(2), c: data.totals.c.toFixed(2), pa: a, pb: b, pc: c }))
       return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('/broadcast')) {
       const admins = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
       if (!admins.includes(String(from.id))) {
-        await sendTelegramMessage(chatId, '无权限')
+        await sendTelegramMessage(chatId, zh.admin.no_perm)
         return res.status(200).json({ ok: true })
       }
       const content = text.replace('/broadcast', '').trim()
-      if (!content) { await sendTelegramMessage(chatId, '用法：/broadcast 文本'); return res.status(200).json({ ok: true }) }
+      if (!content) { await sendTelegramMessage(chatId, zh.admin.usage); return res.status(200).json({ ok: true }) }
       const { data: profs } = await supabase.from('user_profile').select('chat_id').not('chat_id', 'is', null)
       const chatIds = (profs || []).map(p => p.chat_id)
       let sent = 0
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
         sent += 1
         if (sent % 25 === 0) await new Promise(r => setTimeout(r, 1100))
       }
-      await sendTelegramMessage(chatId, `已发送：${sent}`)
+      await sendTelegramMessage(chatId, formatTemplate(zh.admin.sent, { n: sent }))
       return res.status(200).json({ ok: true })
     }
 
@@ -178,17 +178,17 @@ export default async function handler(req, res) {
     if (st?.flow === 'record') {
       if (st.step === 'amount') {
         const amt = parseAmountInput(text)
-        if (amt == null) { await sendTelegramMessage(chatId, '请输入合法金额（0-1,000,000，最多两位小数）'); return res.status(200).json({ ok: true }) }
+        if (amt == null) { await sendTelegramMessage(chatId, zh.record.amount_invalid); return res.status(200).json({ ok: true }) }
         const payload = { ...st.payload, amount: amt }
         await setState(userIdForState, 'record', 'note', payload)
-        await sendTelegramMessage(chatId, '请输入备注（可直接发送 /skip 跳过）')
+        await sendTelegramMessage(chatId, zh.record.note_prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'note') {
         const note = text === '/skip' ? '' : text.slice(0, 200)
         const payload = { ...st.payload, note }
         await setState(userIdForState, 'record', 'confirm', payload)
-        const preview = `请确认：\n组别：${payload.group}\n分类：${payload.category}\n金额：${payload.amount.toFixed(2)}\n备注：${note || '—'}`
+        const preview = formatTemplate(zh.record.preview, { group: payload.group, category: payload.category, amount: payload.amount.toFixed(2), note: note || '—' })
         await sendTelegramMessage(chatId, preview, { reply_markup: { inline_keyboard: [[{ text: '✅ 确认', callback_data: 'rec:confirm' }, { text: '❌ 取消', callback_data: 'rec:cancel' }]] } })
         return res.status(200).json({ ok: true })
       }
@@ -252,7 +252,7 @@ export default async function handler(req, res) {
     }
 
     // fallback
-    await sendTelegramMessage(chatId, '可用命令：/start /record /my')
+    await sendTelegramMessage(chatId, zh.help)
     return res.status(200).json({ ok: true })
   } catch (e) {
     console.error(e)
@@ -277,14 +277,14 @@ export async function handleCallback(update, req, res) {
     if (data.startsWith('rec:grp:')) {
       const grp = data.split(':').pop()
       await setState(userId, 'record', 'choose_category', { group: grp })
-      await sendTelegramMessage(chatId, `已选择 ${grp}，请选择分类：`, { reply_markup: categoryKeyboard(grp) })
+      await sendTelegramMessage(chatId, formatTemplate(zh.record.choose_category, { group: grp }), { reply_markup: categoryKeyboard(grp) })
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:cat:')) {
       const cat = data.split(':').pop()
       const payload = { ...(st.payload || {}), category: cat, group: (st.payload||{}).group }
       await setState(userId, 'record', 'amount', payload)
-      await sendTelegramMessage(chatId, '请输入金额（两位小数，可整数）')
+      await sendTelegramMessage(chatId, zh.record.amount_prompt)
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:confirm') {
@@ -298,14 +298,14 @@ export async function handleCallback(update, req, res) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ userId: userId, category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) })
       })
-      if (!resp.ok) { await sendTelegramMessage(chatId, '写入失败，请重试'); return res.status(200).json({ ok: true }) }
+      if (!resp.ok) { await sendTelegramMessage(chatId, zh.record.save_failed); return res.status(200).json({ ok: true }) }
       await clearState(userId)
-      await sendTelegramMessage(chatId, `✅ 已记录：${payload.group} ${Number(payload.amount).toFixed(2)}`)
+      await sendTelegramMessage(chatId, formatTemplate(zh.record.saved, { group: payload.group, amount: Number(payload.amount).toFixed(2) }))
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:cancel') {
       await clearState(userId)
-      await sendTelegramMessage(chatId, '已取消。')
+      await sendTelegramMessage(chatId, zh.record.canceled)
       return res.status(200).json({ ok: true })
     }
 

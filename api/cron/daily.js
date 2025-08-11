@@ -1,6 +1,8 @@
 import supabase from '../../lib/supabase.js'
 import { format } from 'date-fns'
 import { sendTelegramMessage, sendTelegramMessages } from '../../lib/helpers.js'
+import { zh } from '../../lib/i18n.js'
+import { formatTemplate } from '../../lib/helpers.js'
 
 function inTZ(date) {
   const offset = parseInt(process.env.APP_TZ_OFFSET_MINUTES || '480', 10) // default UTC+8
@@ -56,7 +58,7 @@ async function pushBranchLeaderboards(forDate) {
   for (const row of leads || []) {
     const stat = map.get(row.branch_code)
     if (!stat) continue
-    const text = `🏅 分行完成率 ${row.branch_code}：${stat.rate || 0}% (已打卡 ${stat.done||0}/${stat.total||0})`
+    const text = formatTemplate(zh.cron.branch_lead, { code: row.branch_code, rate: stat.rate || 0, done: stat.done || 0, total: stat.total || 0 })
     for (const chatId of row.leader_chat_ids || []) {
       await sendTelegramMessage(chatId, text)
     }
@@ -88,7 +90,7 @@ async function personalMorningReports(forDate) {
     const entry = Array.from(chatMap.entries()).find(([, c]) => c === chatId)
     const userId = entry?.[0]
     const myRank = userId ? (rankMap.get(userId) || '暂未上榜') : '—'
-    return `🌅 个人早报\n我的排名：${myRank}\nTOP15：\n${topText}`
+    return formatTemplate(zh.cron.morning_rank, { rank: myRank, top: topText })
   })
 }
 
@@ -162,7 +164,7 @@ async function dailyReports(forDate) {
       .eq('user_id', p.user_id)
       .maybeSingle()
     const travelMonthly = prof ? Number((prof.travel_budget_annual || 0) / 12).toFixed(2) : '0.00'
-    const text = `📅 今日：A ${ta.toFixed(2)}｜B ${tb.toFixed(2)}｜C ${tc.toFixed(2)}\n🎯 本月进度：A ${pa}%｜B ${pb}%｜C ${pc}%（含 EPF）\n💡 旅游预算(月)：RM ${travelMonthly}`
+    const text = formatTemplate(zh.cron.daily_report, { a: ta.toFixed(2), b: tb.toFixed(2), c: tc.toFixed(2), pa, pb, pc, travel: travelMonthly })
     await sendTelegramMessage(p.chat_id, text)
   }
 }
@@ -183,7 +185,7 @@ export default async function handler(req, res) {
     }
     if (hhmm === '20:00') {
       const chats = await usersWithoutRecordToday(local)
-      await sendTelegramMessages(chats, '⏰ 温馨提示：今天还没有记录，来一笔吧～')
+      await sendTelegramMessages(chats, zh.cron.reminder)
     }
     if (hhmm === '20:30') {
       await dailyReports(local)
