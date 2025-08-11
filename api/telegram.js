@@ -15,6 +15,10 @@ const GROUP_CATEGORIES = {
   ]
 }
 
+const BRANCH_CODES = [
+  'PJY','BLS','OTK','PU','UKT','TLK','M2','BP','MTK','HQ','VIVA','STL','SRD','PDMR','KK'
+]
+
 function groupKeyboard() {
   return { inline_keyboard: [[
     { text: 'A 开销', callback_data: 'rec:grp:A' },
@@ -31,6 +35,19 @@ function categoryKeyboard(group) {
     for (let j = i; j < Math.min(i + 2, items.length); j++) {
       const [code, label] = items[j]
       row.push({ text: label, callback_data: `rec:cat:${code}` })
+    }
+    rows.push(row)
+  }
+  return { inline_keyboard: rows }
+}
+
+function branchKeyboard() {
+  const rows = []
+  for (let i = 0; i < BRANCH_CODES.length; i += 3) {
+    const row = []
+    for (let j = i; j < Math.min(i + 3, BRANCH_CODES.length); j++) {
+      const code = BRANCH_CODES[j]
+      row.push({ text: code, callback_data: `start:branch:${code}` })
     }
     rows.push(row)
   }
@@ -58,31 +75,9 @@ export default async function handler(req, res) {
     const text = (msg.text || '').trim()
 
     if (text.startsWith('/start')) {
-      // Ensure user exists
-      const { data: u, error: uErr } = await supabase
-        .from('users')
-        .select('id, branch_code')
-        .eq('telegram_id', from.id)
-        .maybeSingle()
-      if (uErr) throw uErr
-      let userId = u?.id
-      if (!userId) {
-        const { data: newU, error: insUErr } = await supabase
-          .from('users')
-          .insert([{ telegram_id: from.id, name: from.first_name || from.username || 'user', branch_code: process.env.DEFAULT_BRANCH || 'MAIN' }])
-          .select('id')
-          .single()
-        if (insUErr) throw insUErr
-        userId = newU.id
-        const { error: insProfErr } = await supabase
-          .from('user_profile')
-          .insert([{ user_id: userId, display_name: from.first_name || from.username || 'user', chat_id: chatId }])
-        if (insProfErr) throw insProfErr
-      } else {
-        await supabase.from('user_profile').upsert({ user_id: userId, display_name: from.first_name || from.username || 'user', chat_id: chatId })
-      }
-
-      await sendTelegramMessage(chatId, `${zh.hello}\n\n${zh.start_hint}`)
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      await setState(userId, 'start', 'income', {})
+      await sendTelegramMessage(chatId, '请输入本月收入（RM）。例如 5000')
       return res.status(200).json({ ok: true })
     }
 
@@ -199,6 +194,49 @@ export default async function handler(req, res) {
       }
     }
 
+    if (st?.flow === 'start') {
+      if (st.step === 'income') {
+        const income = parseAmountInput(text)
+        if (income == null || income < 0) {
+          await sendTelegramMessage(chatId, '请输入合法收入金额（非负，最多两位小数）。例如 5000')
+          return res.status(200).json({ ok: true })
+        }
+        await setState(userIdForState, 'start', 'a_pct', { income })
+        await sendTelegramMessage(chatId, '请输入 A%（开销）。例如 60 或 60% 或 0.6')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'a_pct') {
+        const aPct = parsePercentageInput(text)
+        if (aPct == null) { await sendTelegramMessage(chatId, '请输入合法的 A%（0-100）。例如 60 或 60%') ; return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'b_pct', { ...st.payload, a_pct: aPct })
+        await sendTelegramMessage(chatId, '请输入 B%（学习）。例如 10 或 10%')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'b_pct') {
+        const bPct = parsePercentageInput(text)
+        if (bPct == null) { await sendTelegramMessage(chatId, '请输入合法的 B%（0-100）'); return res.status(200).json({ ok: true }) }
+        const aPct = st.payload?.a_pct || 0
+        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, `A%+B% 不得超过 100（当前 ${aPct + bPct}）。请重新输入 B%`); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'travel', { ...st.payload, b_pct: bPct })
+        await sendTelegramMessage(chatId, '请输入年度旅游预算（RM/年）。仅用于提示，不计入账。')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'travel') {
+        const travel = parseAmountInput(text)
+        if (travel == null || travel < 0) { await sendTelegramMessage(chatId, '请输入合法金额。例如 3600'); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'prev', { ...st.payload, travel_budget_annual: travel })
+        await sendTelegramMessage(chatId, '请输入上月开销（RM），用于首月对比。例如 2000')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'prev') {
+        const prev = parseAmountInput(text)
+        if (prev == null || prev < 0) { await sendTelegramMessage(chatId, '请输入合法金额。例如 2000'); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'branch', { ...st.payload, prev_month_spend: prev })
+        await sendTelegramMessage(chatId, '请选择分行代码：', { reply_markup: branchKeyboard() })
+        return res.status(200).json({ ok: true })
+      }
+    }
+
     // fallback
     await sendTelegramMessage(chatId, '可用命令：/start /record /my')
     return res.status(200).json({ ok: true })
@@ -254,6 +292,36 @@ export async function handleCallback(update, req, res) {
     if (data === 'rec:cancel') {
       await clearState(userId)
       await sendTelegramMessage(chatId, '已取消。')
+      return res.status(200).json({ ok: true })
+    }
+
+    // START flow: branch selection and finalize
+    if (data.startsWith('start:branch:')) {
+      const code = data.split(':').pop().toUpperCase()
+      const st = await getState(userId)
+      if (!st || st.flow !== 'start' || st.step !== 'branch') {
+        await sendTelegramMessage(chatId, '状态已过期，请重新 /start')
+        await clearState(userId)
+        return res.status(200).json({ ok: true })
+      }
+      const payload = st.payload || {}
+      // Persist
+      await supabase.from('users').upsert({ id: userId, branch_code: code }, { onConflict: 'id' })
+      await supabase.from('user_profile').upsert({
+        user_id: userId,
+        display_name: update.callback_query?.from?.first_name || update.callback_query?.from?.username || 'user',
+        chat_id: chatId,
+        monthly_income: payload.income || 0,
+        a_pct: payload.a_pct || 0,
+        b_pct: payload.b_pct || 0,
+        travel_budget_annual: payload.travel_budget_annual || 0,
+        prev_month_spend: payload.prev_month_spend || 0
+      })
+      const yyyymm = new Date().toISOString().slice(0,7)
+      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0 })
+      await clearState(userId)
+      const cPct = Math.max(0, 100 - (payload.a_pct || 0) - (payload.b_pct || 0))
+      await sendTelegramMessage(chatId, `✅ 资料已记录。\nA%=${payload.a_pct||0}, B%=${payload.b_pct||0}, C%=${cPct}；分行=${code}。\n现在可发送 /record 记一笔，或 /my month 查看统计。`)
       return res.status(200).json({ ok: true })
     }
     return res.status(200).json({ ok: true })
