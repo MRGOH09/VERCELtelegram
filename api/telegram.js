@@ -75,21 +75,32 @@ export default async function handler(req, res) {
     const text = (msg.text || '').trim()
 
     if (text.startsWith('/start')) {
-      // If already registered (has profile with income or a_pct/b_pct), go to settings instead of re-register
+      // 已注册的判定调整：优先以昵称是否存在为准（排行榜/交互展示依赖昵称）
       const userId = await getOrCreateUserByTelegram(from, chatId)
       const { data: prof } = await supabase
         .from('user_profile')
-        .select('monthly_income,a_pct,b_pct')
+        .select('display_name,monthly_income,a_pct,b_pct')
         .eq('user_id', userId)
         .maybeSingle()
-      const isRegistered = prof && ((prof.monthly_income||0) > 0 || (prof.a_pct||0) > 0 || (prof.b_pct||0) > 0)
+      const isRegistered = prof && !!(prof.display_name && prof.display_name.trim())
       if (isRegistered) {
         await sendTelegramMessage(chatId, zh.registration.alreadyRegistered)
-        // TODO: 可切换到 /settings 状态机
         return res.status(200).json({ ok: true })
       }
       await setState(userId, 'start', 'nickname', {})
       await sendTelegramMessage(chatId, zh.registration.nickname.prompt)
+      return res.status(200).json({ ok: true })
+    }
+    if (text.startsWith('/settings')) {
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      await setState(userId, 'settings', 'choose', {})
+      const kb = { inline_keyboard: [
+        [ { text: zh.settings.fields.nickname, callback_data: 'set:nickname' }, { text: zh.settings.fields.phone, callback_data: 'set:phone' } ],
+        [ { text: zh.settings.fields.income, callback_data: 'set:income' }, { text: zh.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
+        [ { text: zh.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: zh.settings.fields.travel, callback_data: 'set:travel' } ],
+        [ { text: zh.settings.fields.branch, callback_data: 'set:branch' } ]
+      ] }
+      await sendTelegramMessage(chatId, zh.settings.choose, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
@@ -279,6 +290,50 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
     }
+    if (st?.flow === 'settings') {
+      // 文本侧仅处理具体输入步骤，入口与选择走 callback
+      if (st.step === 'edit_nickname') {
+        const name = (text || '').trim().slice(1, 30)
+        if (!name) { await sendTelegramMessage(chatId, zh.registration.nickname.validation); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ display_name: name }).eq('user_id', userIdForState)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_phone') {
+        const phone = normalizePhoneE164(text)
+        if (!phone) { await sendTelegramMessage(chatId, zh.registration.phone.validation); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ phone_e164: phone }).eq('user_id', userIdForState)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_income') {
+        const income = parseAmountInput(text)
+        if (income == null || income <= 0) { await sendTelegramMessage(chatId, zh.registration.income.validation); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ monthly_income: income }).eq('user_id', userIdForState)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_a_pct' || st.step === 'edit_b_pct') {
+        const pct = parsePercentageInput(text)
+        if (pct == null) { await sendTelegramMessage(chatId, zh.registration.budgetA.validation); return res.status(200).json({ ok: true }) }
+        const field = st.step === 'edit_a_pct' ? { a_pct: pct } : { b_pct: pct }
+        await supabase.from('user_profile').update(field).eq('user_id', userIdForState)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_travel') {
+        const amt = parseAmountInput(text)
+        if (amt == null || amt < 0) { await sendTelegramMessage(chatId, zh.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ travel_budget_annual: amt }).eq('user_id', userIdForState)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+    }
 
     // fallback
     await sendTelegramMessage(chatId, zh.help)
@@ -299,6 +354,16 @@ export async function handleCallback(update, req, res) {
     const data = cq.data || ''
     const userId = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userId)
+    if (st && st.flow === 'settings') {
+      // settings callback entries
+      if (data === 'set:nickname') { await setState(userId, 'settings', 'edit_nickname', {}); await sendTelegramMessage(chatId, zh.registration.nickname.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:phone') { await setState(userId, 'settings', 'edit_phone', {}); await sendTelegramMessage(chatId, zh.registration.phone.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:income') { await setState(userId, 'settings', 'edit_income', {}); await sendTelegramMessage(chatId, zh.registration.income.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:b_pct') { await setState(userId, 'settings', 'edit_b_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetB.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'branch', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
+    }
     if (!st || st.flow !== 'record') {
       await sendTelegramMessage(chatId, '请发送 /record 开始记录')
       return res.status(200).json({ ok: true })
