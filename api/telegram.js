@@ -1,6 +1,6 @@
 import supabase from '../lib/supabase.js'
 import { zh } from '../lib/i18n.js'
-import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164 } from '../lib/helpers.js'
+import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState } from '../lib/state.js'
 
 const GROUP_CATEGORIES = {
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     if (text.startsWith('/start')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'start', 'nickname', {})
-      await sendTelegramMessage(chatId, '请输入昵称（排行榜展示用）。例如 小明')
+      await sendTelegramMessage(chatId, zh.registration.nickname.prompt)
       return res.status(200).json({ ok: true })
     }
 
@@ -197,56 +197,56 @@ export default async function handler(req, res) {
     if (st?.flow === 'start') {
       if (st.step === 'nickname') {
         const name = (text || '').trim().slice(0, 30)
-        if (!name) { await sendTelegramMessage(chatId, '昵称不能为空，请重新输入') ; return res.status(200).json({ ok: true }) }
+        if (!name) { await sendTelegramMessage(chatId, zh.registration.nickname.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'phone', { nickname: name })
-        await sendTelegramMessage(chatId, '请发送你的电话号码（可直接输入或在 Telegram 里分享联系人）。例如 0123456789 或 +60123456789')
+        await sendTelegramMessage(chatId, zh.registration.phone.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'phone') {
         const phone = normalizePhoneE164(text)
-        if (!phone) { await sendTelegramMessage(chatId, '手机号格式不正确，请重新输入。例如 0123456789 或 +60123456789') ; return res.status(200).json({ ok: true }) }
+        if (!phone) { await sendTelegramMessage(chatId, zh.registration.phone.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'income', { ...st.payload, phone_e164: phone })
-        await sendTelegramMessage(chatId, '请输入本月收入（RM）。例如 5000')
+        await sendTelegramMessage(chatId, zh.registration.income.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'income') {
         const income = parseAmountInput(text)
-        if (income == null || income < 0) {
-          await sendTelegramMessage(chatId, '请输入合法收入金额（非负，最多两位小数）。例如 5000')
+        if (income == null || income <= 0) {
+          await sendTelegramMessage(chatId, zh.registration.income.validation)
           return res.status(200).json({ ok: true })
         }
         await setState(userIdForState, 'start', 'a_pct', { ...st.payload, income })
-        await sendTelegramMessage(chatId, '请输入 A%（开销）。例如 60 或 60% 或 0.6')
+        await sendTelegramMessage(chatId, zh.registration.budgetA.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'a_pct') {
         const aPct = parsePercentageInput(text)
-        if (aPct == null) { await sendTelegramMessage(chatId, '请输入合法的 A%（0-100）。例如 60 或 60%') ; return res.status(200).json({ ok: true }) }
+        if (aPct == null) { await sendTelegramMessage(chatId, zh.registration.budgetA.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'b_pct', { ...st.payload, a_pct: aPct })
-        await sendTelegramMessage(chatId, '请输入 B%（学习）。例如 10 或 10%')
+        await sendTelegramMessage(chatId, zh.registration.budgetB.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'b_pct') {
         const bPct = parsePercentageInput(text)
-        if (bPct == null) { await sendTelegramMessage(chatId, '请输入合法的 B%（0-100）'); return res.status(200).json({ ok: true }) }
+        if (bPct == null) { await sendTelegramMessage(chatId, zh.registration.budgetB.validation); return res.status(200).json({ ok: true }) }
         const aPct = st.payload?.a_pct || 0
-        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, `A%+B% 不得超过 100（当前 ${aPct + bPct}）。请重新输入 B%`); return res.status(200).json({ ok: true }) }
+        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, formatTemplate(zh.registration.budgetOverflow, { total: aPct + bPct })); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'travel', { ...st.payload, b_pct: bPct })
-        await sendTelegramMessage(chatId, '请输入年度旅游预算（RM/年）。仅用于提示，不计入账。')
+        await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'travel') {
         const travel = parseAmountInput(text)
-        if (travel == null || travel < 0) { await sendTelegramMessage(chatId, '请输入合法金额。例如 3600'); return res.status(200).json({ ok: true }) }
+        if (travel == null || travel < 0) { await sendTelegramMessage(chatId, zh.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'prev', { ...st.payload, travel_budget_annual: travel })
-        await sendTelegramMessage(chatId, '请输入上月开销（RM），用于首月对比。例如 2000')
+        await sendTelegramMessage(chatId, zh.registration.lastMonthSpendingPct.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'prev') {
-        const prev = parseAmountInput(text)
-        if (prev == null || prev < 0) { await sendTelegramMessage(chatId, '请输入合法金额。例如 2000'); return res.status(200).json({ ok: true }) }
-        await setState(userIdForState, 'start', 'branch', { ...st.payload, prev_month_spend: prev })
-        await sendTelegramMessage(chatId, '请选择分行代码：', { reply_markup: branchKeyboard() })
+        const prevPct = parsePercentageInput(text)
+        if (prevPct == null) { await sendTelegramMessage(chatId, zh.registration.lastMonthSpendingPct.validation); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'branch', { ...st.payload, prev_month_spend_pct: prevPct })
+        await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() })
         return res.status(200).json({ ok: true })
       }
     }
@@ -330,13 +330,14 @@ export async function handleCallback(update, req, res) {
         a_pct: payload.a_pct || 0,
         b_pct: payload.b_pct || 0,
         travel_budget_annual: payload.travel_budget_annual || 0,
-        prev_month_spend: payload.prev_month_spend || 0
+        prev_month_spend: payload.prev_month_spend || 0,
+        prev_month_spend_pct: payload.prev_month_spend_pct || null
       })
       const yyyymm = new Date().toISOString().slice(0,7)
       await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0 })
       await clearState(userId)
       const cPct = Math.max(0, 100 - (payload.a_pct || 0) - (payload.b_pct || 0))
-      await sendTelegramMessage(chatId, `✅ 资料已记录。\nA%=${payload.a_pct||0}, B%=${payload.b_pct||0}, C%=${cPct}；分行=${code}。\n现在可发送 /record 记一笔，或 /my month 查看统计。`)
+      await sendTelegramMessage(chatId, formatTemplate(zh.registration.success, { budgetA: payload.a_pct||0, budgetB: payload.b_pct||0, budgetC: cPct, branch: code }))
       return res.status(200).json({ ok: true })
     }
     return res.status(200).json({ ok: true })
