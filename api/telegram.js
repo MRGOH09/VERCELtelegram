@@ -39,7 +39,10 @@ function categoryKeyboard(group) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  if (!assertTelegramSecret(req.headers)) return res.status(401).json({ error: zh.bad_secret })
+  if (!assertTelegramSecret(req.headers)) {
+    console.error('Bad secret', { expected: !!process.env.TELEGRAM_WEBHOOK_SECRET, got: req.headers['x-telegram-bot-api-secret-token'] || req.headers['X-Telegram-Bot-Api-Secret-Token'] })
+    return res.status(401).json({ error: zh.bad_secret })
+  }
 
   try {
     const update = req.body
