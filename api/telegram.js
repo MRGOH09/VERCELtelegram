@@ -276,13 +276,14 @@ export async function handleCallback(update, req, res) {
     }
     if (data.startsWith('rec:grp:')) {
       const grp = data.split(':').pop()
-      await setState(userId, 'record', 'choose_category', { group: grp })
-      await sendTelegramMessage(chatId, formatTemplate(zh.record.choose_category, { group: grp }), { reply_markup: categoryKeyboard(grp) })
+      const groupLabel = grp === 'A' ? '生活开销' : grp === 'B' ? '学习投资' : '储蓄投资'
+      await setState(userId, 'record', 'choose_category', { group: grp, groupLabel })
+      await sendTelegramMessage(chatId, formatTemplate(zh.record.choose_category, { group: groupLabel }), { reply_markup: categoryKeyboard(grp) })
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:cat:')) {
       const cat = data.split(':').pop()
-      const payload = { ...(st.payload || {}), category: cat, group: (st.payload||{}).group }
+      const payload = { ...(st.payload || {}), category: cat, group: (st.payload||{}).group, groupLabel: (st.payload||{}).groupLabel }
       await setState(userId, 'record', 'amount', payload)
       await sendTelegramMessage(chatId, zh.record.amount_prompt)
       return res.status(200).json({ ok: true })
@@ -300,7 +301,7 @@ export async function handleCallback(update, req, res) {
       })
       if (!resp.ok) { await sendTelegramMessage(chatId, zh.record.save_failed); return res.status(200).json({ ok: true }) }
       await clearState(userId)
-      await sendTelegramMessage(chatId, formatTemplate(zh.record.saved, { group: payload.group, amount: Number(payload.amount).toFixed(2) }))
+      await sendTelegramMessage(chatId, formatTemplate(zh.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }))
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:cancel') {
