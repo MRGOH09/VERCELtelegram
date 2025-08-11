@@ -1,6 +1,6 @@
 import supabase from '../lib/supabase.js'
 import { zh } from '../lib/i18n.js'
-import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput } from '../lib/helpers.js'
+import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164 } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState } from '../lib/state.js'
 
 const GROUP_CATEGORIES = {
@@ -76,8 +76,8 @@ export default async function handler(req, res) {
 
     if (text.startsWith('/start')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
-      await setState(userId, 'start', 'income', {})
-      await sendTelegramMessage(chatId, '请输入本月收入（RM）。例如 5000')
+      await setState(userId, 'start', 'nickname', {})
+      await sendTelegramMessage(chatId, '请输入昵称（排行榜展示用）。例如 小明')
       return res.status(200).json({ ok: true })
     }
 
@@ -195,13 +195,27 @@ export default async function handler(req, res) {
     }
 
     if (st?.flow === 'start') {
+      if (st.step === 'nickname') {
+        const name = (text || '').trim().slice(0, 30)
+        if (!name) { await sendTelegramMessage(chatId, '昵称不能为空，请重新输入') ; return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'phone', { nickname: name })
+        await sendTelegramMessage(chatId, '请发送你的电话号码（可直接输入或在 Telegram 里分享联系人）。例如 0123456789 或 +60123456789')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'phone') {
+        const phone = normalizePhoneE164(text)
+        if (!phone) { await sendTelegramMessage(chatId, '手机号格式不正确，请重新输入。例如 0123456789 或 +60123456789') ; return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'income', { ...st.payload, phone_e164: phone })
+        await sendTelegramMessage(chatId, '请输入本月收入（RM）。例如 5000')
+        return res.status(200).json({ ok: true })
+      }
       if (st.step === 'income') {
         const income = parseAmountInput(text)
         if (income == null || income < 0) {
           await sendTelegramMessage(chatId, '请输入合法收入金额（非负，最多两位小数）。例如 5000')
           return res.status(200).json({ ok: true })
         }
-        await setState(userIdForState, 'start', 'a_pct', { income })
+        await setState(userIdForState, 'start', 'a_pct', { ...st.payload, income })
         await sendTelegramMessage(chatId, '请输入 A%（开销）。例如 60 或 60% 或 0.6')
         return res.status(200).json({ ok: true })
       }
@@ -309,8 +323,9 @@ export async function handleCallback(update, req, res) {
       await supabase.from('users').upsert({ id: userId, branch_code: code }, { onConflict: 'id' })
       await supabase.from('user_profile').upsert({
         user_id: userId,
-        display_name: update.callback_query?.from?.first_name || update.callback_query?.from?.username || 'user',
+        display_name: payload.nickname || update.callback_query?.from?.first_name || update.callback_query?.from?.username || 'user',
         chat_id: chatId,
+        phone_e164: payload.phone_e164 || null,
         monthly_income: payload.income || 0,
         a_pct: payload.a_pct || 0,
         b_pct: payload.b_pct || 0,
