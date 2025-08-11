@@ -94,13 +94,32 @@ export default async function handler(req, res) {
     if (text.startsWith('/settings')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'settings', 'choose', {})
+      const { data: prof } = await supabase
+        .from('user_profile')
+        .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual')
+        .eq('user_id', userId)
+        .maybeSingle()
+      const { data: urow } = await supabase
+        .from('users')
+        .select('branch_code')
+        .eq('id', userId)
+        .maybeSingle()
+      const sumText = formatTemplate(zh.settings.summary, {
+        nickname: prof?.display_name || '-',
+        phone: prof?.phone_e164 || '-',
+        income: (Number(prof?.monthly_income || 0)).toFixed(2),
+        a_pct: Number(prof?.a_pct || 0).toFixed(2),
+        b_pct: Number(prof?.b_pct || 0).toFixed(2),
+        travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
+        branch: (urow?.branch_code || '-')
+      })
       const kb = { inline_keyboard: [
         [ { text: zh.settings.fields.nickname, callback_data: 'set:nickname' }, { text: zh.settings.fields.phone, callback_data: 'set:phone' } ],
         [ { text: zh.settings.fields.income, callback_data: 'set:income' }, { text: zh.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
         [ { text: zh.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: zh.settings.fields.travel, callback_data: 'set:travel' } ],
         [ { text: zh.settings.fields.branch, callback_data: 'set:branch' } ]
       ] }
-      await sendTelegramMessage(chatId, zh.settings.choose, { reply_markup: kb })
+      await sendTelegramMessage(chatId, `${sumText}\n\n${zh.settings.choose}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
