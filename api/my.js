@@ -82,7 +82,8 @@ export default async function handler(req, res) {
     const denom = income > 0 ? income : 0
     const ra = denom > 0 ? Math.round((mtdTotals.a / denom) * 100) : null
     const rb = denom > 0 ? Math.round(((mtdTotals.b + travelMonthlyNum) / denom) * 100) : null
-    const rc = denom > 0 ? Math.round(((mtdTotals.c + epf) / denom) * 100) : null
+    // 储蓄实时占比 = 100 - 开销实时% - 学习实时%（余额自动算入储蓄）
+    const rc = denom > 0 ? Math.max(0, 100 - (ra || 0) - (rb || 0)) : null
     const aProgress = capA > 0 ? Math.min(100, Math.round((mtdTotals.a / capA) * 100)) : 0
     const bProgress = capB > 0 ? Math.min(100, Math.round(((mtdTotals.b + travelMonthlyNum) / capB) * 100)) : 0
     const cProgress = capC > 0 ? Math.min(100, Math.round(((mtdTotals.c + epf) / capC) * 100)) : 0
