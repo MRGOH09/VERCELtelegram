@@ -440,29 +440,61 @@ export async function handleCallback(update, req, res) {
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
       const r = await fetch(`${base}/api/my?userId=${userId}&range=month`)
-      const data = await r.json()
+      const myData = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
-      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
-      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
-      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
-      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
-      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
+      const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
+      const rb = myData.realtime?.b == null ? 'N/A' : myData.realtime.b
+      const rc = myData.realtime?.c == null ? 'N/A' : myData.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       const msg = formatTemplate(zh.my.summary, {
         range: 'month',
-        a: data.display?.a || data.totals.a.toFixed(2),
-        b: data.display?.b || data.totals.b.toFixed(2),
-        c: data.display?.c_residual || data.totals.c.toFixed(2),
+        a: myData.display?.a || myData.totals.a.toFixed(2),
+        b: myData.display?.b || myData.totals.b.toFixed(2),
+        c: myData.display?.c_residual || myData.totals.c.toFixed(2),
         ra, rb, rc,
-        a_pct: data.snapshotView.a_pct,
+        a_pct: myData.snapshotView.a_pct,
         da,
         a_gap_line: aGapLine,
-        income: data.snapshotView.income,
-        cap_a: data.snapshotView.cap_a,
-        cap_b: data.snapshotView.cap_b,
-        cap_c: data.snapshotView.cap_c,
-        epf: data.snapshotView.epf,
-        travel: data.snapshotView.travelMonthly
+        income: myData.snapshotView.income,
+        cap_a: myData.snapshotView.cap_a,
+        cap_b: myData.snapshotView.cap_b,
+        cap_c: myData.snapshotView.cap_c,
+        epf: myData.snapshotView.epf,
+        travel: myData.snapshotView.travelMonthly
+      })
+      await sendTelegramMessage(chatId, msg)
+      return res.status(200).json({ ok: true })
+    }
+    if (data === 'my:today' || data === 'my:lastmonth') {
+      const range = data.split(':')[1]
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/my?userId=${userId}&range=${encodeURIComponent(range)}`)
+      const myData = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
+      const rb = myData.realtime?.b == null ? 'N/A' : myData.realtime.b
+      const rc = myData.realtime?.c == null ? 'N/A' : myData.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
+      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      const msg = formatTemplate(zh.my.summary, {
+        range,
+        a: myData.display?.a || myData.totals.a.toFixed(2),
+        b: myData.display?.b || myData.totals.b.toFixed(2),
+        c: myData.display?.c_residual || myData.totals.c.toFixed(2),
+        ra, rb, rc,
+        a_pct: myData.snapshotView.a_pct,
+        da,
+        a_gap_line: aGapLine,
+        income: myData.snapshotView.income,
+        cap_a: myData.snapshotView.cap_a,
+        cap_b: myData.snapshotView.cap_b,
+        cap_c: myData.snapshotView.cap_c,
+        epf: myData.snapshotView.epf,
+        travel: myData.snapshotView.travelMonthly
       })
       await sendTelegramMessage(chatId, msg)
       return res.status(200).json({ ok: true })
@@ -484,29 +516,29 @@ export async function handleCallback(update, req, res) {
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
       const r = await fetch(`${base}/api/my?userId=${userId}&range=${encodeURIComponent(range)}`)
-      const data = await r.json()
+      const myData = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
-      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
-      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
-      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
-      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
-      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
+      const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
+      const rb = myData.realtime?.b == null ? 'N/A' : myData.realtime.b
+      const rc = myData.realtime?.c == null ? 'N/A' : myData.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       const msg = formatTemplate(zh.my.summary, {
         range,
-        a: data.display?.a || data.totals.a.toFixed(2),
-        b: data.display?.b || data.totals.b.toFixed(2),
-        c: data.display?.c_residual || data.totals.c.toFixed(2),
+        a: myData.display?.a || myData.totals.a.toFixed(2),
+        b: myData.display?.b || myData.totals.b.toFixed(2),
+        c: myData.display?.c_residual || myData.totals.c.toFixed(2),
         ra, rb, rc,
-        a_pct: data.snapshotView.a_pct,
+        a_pct: myData.snapshotView.a_pct,
         da,
         a_gap_line: aGapLine,
-        income: data.snapshotView.income,
-        cap_a: data.snapshotView.cap_a,
-        cap_b: data.snapshotView.cap_b,
-        cap_c: data.snapshotView.cap_c,
-        epf: data.snapshotView.epf,
-        travel: data.snapshotView.travelMonthly
+        income: myData.snapshotView.income,
+        cap_a: myData.snapshotView.cap_a,
+        cap_b: myData.snapshotView.cap_b,
+        cap_c: myData.snapshotView.cap_c,
+        epf: myData.snapshotView.epf,
+        travel: myData.snapshotView.travelMonthly
       })
       await sendTelegramMessage(chatId, msg)
       return res.status(200).json({ ok: true })
