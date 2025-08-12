@@ -1,11 +1,13 @@
 import { todayYMD } from '../../lib/time.js'
-import { computeLeaderboards, pushBranchLeaderboards, personalMorningReports } from '../../lib/cron-utils.js'
+import { computeLeaderboards, pushBranchLeaderboards, personalMorningReports, breakStreaksOneShot } from '../../lib/cron-utils.js'
 import { zh } from '../../lib/i18n.js'
 import { formatTemplate } from '../../lib/helpers.js'
 
 export default async function handler(req, res) {
   try {
     const nowYmd = todayYMD()
+    // Free 方案：在早间任务中顺带做断签
+    await breakStreaksOneShot()
     await computeLeaderboards(new Date())
     const br = await pushBranchLeaderboards(new Date(), (code, stat) => formatTemplate(zh.cron.branch_lead, { code, rate: stat.rate||0, done: stat.done||0, total: stat.total||0 }))
     const pr = await personalMorningReports(new Date(), (myRank, topText) => formatTemplate(zh.cron.morning_rank, { rank: myRank, top: topText }))
