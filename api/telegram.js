@@ -21,9 +21,9 @@ const BRANCH_CODES = [
 
 function groupKeyboard() {
   return { inline_keyboard: [[
-    { text: 'A 开销', callback_data: 'rec:grp:A' },
-    { text: 'B 学习', callback_data: 'rec:grp:B' },
-    { text: 'C 储蓄', callback_data: 'rec:grp:C' }
+    { text: '开销', callback_data: 'rec:grp:A' },
+    { text: '学习', callback_data: 'rec:grp:B' },
+    { text: '储蓄', callback_data: 'rec:grp:C' }
   ]] }
 }
 
@@ -154,11 +154,17 @@ export default async function handler(req, res) {
       const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
       const payload = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${row.category_group}/${row.category_code} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || zh.history.noRecords
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || zh.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => [
-        { text: `✏️ #${row.id.slice(0,4)}…`, callback_data: `hist:edit:${row.id}` },
+        { text: `✏️ ${grpName(row.category_group)}·${catLabel(row.category_group, row.category_code)} RM ${Number(row.amount).toFixed(0)}`, callback_data: `hist:edit:${row.id}` },
         { text: '🗑 删除', callback_data: `hist:del:${row.id}` }
       ])
       const kb = { inline_keyboard: [
@@ -525,11 +531,17 @@ export async function handleCallback(update, req, res) {
       const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
       const payload = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${row.category_group}/${row.category_code} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || zh.history.noRecords
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || zh.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => [
-        { text: `✏️ #${row.id.slice(0,4)}…`, callback_data: `hist:edit:${row.id}` },
+        { text: `✏️ ${grpName(row.category_group)}·${catLabel(row.category_group, row.category_code)} RM ${Number(row.amount).toFixed(0)}`, callback_data: `hist:edit:${row.id}` },
         { text: '🗑 删除', callback_data: `hist:del:${row.id}` }
       ])
       const kb = { inline_keyboard: [
