@@ -48,7 +48,46 @@ curl -s "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
 - 发送 `/record`（按钮式：选择 A/B/C → 分类 → 金额 → 备注 → 预览 → 确认）。
 - 发送 `/my month` 查看月度统计与目标进度。
 
-部署到 Vercel 后，`vercel.json` 已精简为 2 个 Cron（UTC：19:00/02:00/12:00 合并一条；另有 12:30 一条），符合免费计划上限 2 条。
+### 部署与 Cron（按计划选择）
+
+Pro/Team（4 条 Cron，UTC）：
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/break-streaks", "schedule": "0 19 * * *" },
+    { "path": "/api/cron/morning",       "schedule": "0 2 * * *"  },
+    { "path": "/api/cron/reminder",      "schedule": "0 12 * * *" },
+    { "path": "/api/cron/daily-report",  "schedule": "30 12 * * *"}
+  ]
+}
+```
+
+Free（2 条 Cron）示例（合并 20:00 与 20:30；合并 03:00 与 10:00）：
+
+```json
+{
+  "crons": [
+    { "path": "/api/cron/morning",      "schedule": "0 2 * * *" },
+    { "path": "/api/cron/reminder",     "schedule": "0 12 * * *" }
+  ]
+}
+```
+
+说明：
+- Free 方案可在 `reminder` 内先发提醒后调用 `/api/cron/daily-report`，或用外部调度调用两个端点。
+
+### 环境变量（新增建议）
+
+- APP_TZ（如 `Asia/Kuala_Lumpur`）
+- MAX_SEND_PER_RUN（单次最多发送数）
+- BATCH_SIZE（默认 25）
+- BATCH_SLEEP_MS（默认 1100）
+
+### EPF 百分比
+
+- 迁移：`sql/migrations/2025-08-12-epf-pct.sql` 为 `user_month_budget` 增加 `epf_pct`，`epf_amount` = income * epf_pct / 100。
+- 月初生成预算时请写入 `epf_pct`（来自 `user_profile.epf_pct`）。
 
 注意：此起步包优先后端 API 与数据口径的落地，Telegram 向导已支持分步注册/记录/设置。完整规则见 docs/RULES.md。
 
