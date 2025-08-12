@@ -58,10 +58,18 @@ async function tryPostMonthlyAlloc(userId, group, category, amount) {
   try {
     const today = new Date()
     const ymd = `${today.toISOString().slice(0,7)}-01`
-    // 幂等：同月同类别存在则跳过
-    const exists = await fetch(`${new URL('.', `https://${process.env.VERCEL_URL||'example.com'}`).href}api/records/list?userId=${userId}&range=month&limit=1`)
-    // 简化：直接尝试插入，依赖业务容忍重复；若需严格幂等，可查询 records 是否存在相同 ymd+category
-    await supabase.from('records').insert([{ user_id: userId, category_group: group, category_code: category, amount, note: 'Auto-post', ymd }])
+    // 幂等：同月同类别存在则跳过（严格检查 ymd+category_code）
+    const { data: exist } = await supabase
+      .from('records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ymd', ymd)
+      .eq('category_code', category)
+      .eq('is_voided', false)
+      .maybeSingle()
+    if (!exist) {
+      await supabase.from('records').insert([{ user_id: userId, category_group: group, category_code: category, amount, note: 'Auto-post', ymd }])
+    }
   } catch {}
 }
 
