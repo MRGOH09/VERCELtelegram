@@ -145,6 +145,54 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true })
     }
 
+    if (text.startsWith('/history')) {
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      const range = (text.split(/\s+/)[1] || 'month').toLowerCase()
+      const page = parseInt(text.split(/\s+/)[2] || '1', 10) || 1
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
+      const payload = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${row.category_group}/${row.category_code} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || '（无记录）'
+      const prev = Math.max(1, (payload.page || 1) - 1)
+      const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
+      const kb = { inline_keyboard: [
+        [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ]
+      ] }
+      await sendTelegramMessage(chatId, `🧾 近期记录（${range}）\n${list}\n\n提示：点击编辑请回复 /edit 记录ID 金额 备注`, { reply_markup: kb })
+      return res.status(200).json({ ok: true })
+    }
+
+    if (text.startsWith('/edit')) {
+      const parts = text.split(/\s+/)
+      // /edit id [amount] [note...]
+      const recordId = parts[1]
+      if (!recordId) { await sendTelegramMessage(chatId, '用法：/edit 记录ID 金额 备注'); return res.status(200).json({ ok: true }) }
+      const amount = parts[2] ? Number(parts[2]) : undefined
+      const note = parts.length > 3 ? parts.slice(3).join(' ') : undefined
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId, recordId, amount, note }) })
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok) { await sendTelegramMessage(chatId, `编辑失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
+      await sendTelegramMessage(chatId, '✅ 已更新')
+      return res.status(200).json({ ok: true })
+    }
+
+    if (text.startsWith('/delete')) {
+      const recordId = (text.split(/\s+/)[1] || '')
+      if (!recordId) { await sendTelegramMessage(chatId, '用法：/delete 记录ID'); return res.status(200).json({ ok: true }) }
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const resp = await fetch(`${base}/api/record?userId=${userId}&recordId=${encodeURIComponent(recordId)}`, { method: 'DELETE' })
+      const payload = await resp.json().catch(() => ({}))
+      if (!resp.ok) { await sendTelegramMessage(chatId, `删除失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
+      await sendTelegramMessage(chatId, '✅ 已删除')
+      return res.status(200).json({ ok: true })
+    }
     if (text.startsWith('/record')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'record', 'choose_group', {})
@@ -434,6 +482,23 @@ export async function handleCallback(update, req, res) {
     if (data === 'rec:again') {
       await setState(userId, 'record', 'choose_group', {})
       await sendTelegramMessage(chatId, zh.record.choose_group, { reply_markup: groupKeyboard() })
+      return res.status(200).json({ ok: true })
+    }
+    if (data.startsWith('hist:page:')) {
+      const [, , range, pageStr] = data.split(':')
+      const page = parseInt(pageStr || '1', 10) || 1
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
+      const payload = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${row.category_group}/${row.category_code} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''} · #${row.id}`).join('\n') || '（无记录）'
+      const prev = Math.max(1, (payload.page || 1) - 1)
+      const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
+      const kb = { inline_keyboard: [
+        [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ]
+      ] }
+      await sendTelegramMessage(chatId, `🧾 近期记录（${range}）\n${list}\n\n提示：回复 /edit 记录ID 金额 备注 或 /delete 记录ID`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
     if (data === 'my:month') {
