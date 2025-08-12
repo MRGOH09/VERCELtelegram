@@ -40,6 +40,15 @@ export default async function handler(req, res) {
       d.setDate(d.getDate() - day + 1) // Monday
       startDate = format(d, 'yyyy-MM-dd')
       endDate = ymd
+    } else if (range === 'lastmonth') {
+      const firstPrev = new Date(today)
+      firstPrev.setDate(1)
+      firstPrev.setMonth(firstPrev.getMonth() - 1)
+      const lastPrev = new Date(firstPrev)
+      lastPrev.setMonth(firstPrev.getMonth() + 1)
+      lastPrev.setDate(0)
+      startDate = format(firstPrev, 'yyyy-MM-dd')
+      endDate = format(lastPrev, 'yyyy-MM-dd')
     } else {
       const d = new Date(today)
       d.setDate(1)

@@ -413,6 +413,42 @@ export async function handleCallback(update, req, res) {
     const data = cq.data || ''
     const userId = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userId)
+    if (data === 'rec:again') {
+      await setState(userId, 'record', 'choose_group', {})
+      await sendTelegramMessage(chatId, zh.record.choose_group, { reply_markup: groupKeyboard() })
+      return res.status(200).json({ ok: true })
+    }
+    if (data === 'my:month') {
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/my?userId=${userId}&range=month`)
+      const data = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
+      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
+      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
+      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      const msg = formatTemplate(zh.my.summary, {
+        range: 'month',
+        a: data.display?.a || data.totals.a.toFixed(2),
+        b: data.display?.b || data.totals.b.toFixed(2),
+        c: data.display?.c_residual || data.totals.c.toFixed(2),
+        ra, rb, rc,
+        a_pct: data.snapshotView.a_pct,
+        da,
+        a_gap_line: aGapLine,
+        income: data.snapshotView.income,
+        cap_a: data.snapshotView.cap_a,
+        cap_b: data.snapshotView.cap_b,
+        cap_c: data.snapshotView.cap_c,
+        epf: data.snapshotView.epf,
+        travel: data.snapshotView.travelMonthly
+      })
+      await sendTelegramMessage(chatId, msg)
+      return res.status(200).json({ ok: true })
+    }
     if (st && st.flow === 'settings') {
       // settings callback entries
       if (data === 'set:nickname') { await setState(userId, 'settings', 'edit_nickname', {}); await sendTelegramMessage(chatId, zh.registration.nickname.prompt); return res.status(200).json({ ok: true }) }
@@ -456,7 +492,10 @@ export async function handleCallback(update, req, res) {
       })
       if (!resp.ok) { await sendTelegramMessage(chatId, zh.record.save_failed); return res.status(200).json({ ok: true }) }
       await clearState(userId)
-      await sendTelegramMessage(chatId, formatTemplate(zh.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }))
+      await sendTelegramMessage(chatId,
+        formatTemplate(zh.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }),
+        { reply_markup: { inline_keyboard: [[{ text: zh.post.again, callback_data: 'rec:again' }, { text: zh.post.my, callback_data: 'my:month' }]] } }
+      )
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:cancel') {
