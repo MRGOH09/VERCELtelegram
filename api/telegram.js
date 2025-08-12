@@ -147,8 +147,6 @@ export default async function handler(req, res) {
       const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
       const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
-      const db = rb === 'N/A' ? 'N/A' : (Number(rb) - Number(data.snapshotView.b_pct)).toFixed(0)
-      const dc = rc === 'N/A' ? 'N/A' : (Number(rc) - Number(data.snapshotView.c_pct)).toFixed(0)
       const msg = formatTemplate(zh.my.summary, {
         range,
         a: data.totals.a.toFixed(2),
@@ -156,9 +154,7 @@ export default async function handler(req, res) {
         c: data.totals.c.toFixed(2),
         ra, rb, rc,
         a_pct: data.snapshotView.a_pct,
-        b_pct: data.snapshotView.b_pct,
-        c_pct: data.snapshotView.c_pct,
-        da, db, dc,
+        da,
         income: data.snapshotView.income,
         cap_a: data.snapshotView.cap_a,
         cap_b: data.snapshotView.cap_b,
