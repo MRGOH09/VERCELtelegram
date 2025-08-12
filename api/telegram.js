@@ -509,7 +509,7 @@ export async function handleCallback(update, req, res) {
       await sendTelegramMessage(chatId, msg)
       return res.status(200).json({ ok: true })
     }
-    if (!st || st.flow !== 'record') {
+    if (data.startsWith('rec:') && (!st || st.flow !== 'record')) {
       await sendTelegramMessage(chatId, '请发送 /record 开始记录')
       return res.status(200).json({ ok: true })
     }
