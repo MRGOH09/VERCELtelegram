@@ -143,16 +143,23 @@ export default async function handler(req, res) {
       const b = data.progress?.b ?? 0
       const c = data.progress?.c ?? 0
       const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
-      const msg = formatTemplate(zh.my.summary_with_snapshot, {
+      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
+      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
+      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
+      const db = rb === 'N/A' ? 'N/A' : (Number(rb) - Number(data.snapshotView.b_pct)).toFixed(0)
+      const dc = rc === 'N/A' ? 'N/A' : (Number(rc) - Number(data.snapshotView.c_pct)).toFixed(0)
+      const msg = formatTemplate(zh.my.summary, {
         range,
         a: data.totals.a.toFixed(2),
         b: data.totals.b.toFixed(2),
         c: data.totals.c.toFixed(2),
-        pa: a, pb: b, pc: c,
-        income: data.snapshotView.income,
+        ra, rb, rc,
         a_pct: data.snapshotView.a_pct,
         b_pct: data.snapshotView.b_pct,
         c_pct: data.snapshotView.c_pct,
+        da, db, dc,
+        income: data.snapshotView.income,
         cap_a: data.snapshotView.cap_a,
         cap_b: data.snapshotView.cap_b,
         cap_c: data.snapshotView.cap_c,
