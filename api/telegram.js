@@ -151,9 +151,9 @@ export default async function handler(req, res) {
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       const msg = formatTemplate(zh.my.summary, {
         range,
-        a: data.totals.a.toFixed(2),
-        b: data.totals.b.toFixed(2),
-        c: data.totals.c.toFixed(2),
+        a: data.display?.a || data.totals.a.toFixed(2),
+        b: data.display?.b || data.totals.b.toFixed(2),
+        c: data.display?.c_residual || data.totals.c.toFixed(2),
         ra, rb, rc,
         a_pct: data.snapshotView.a_pct,
         da,

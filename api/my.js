@@ -93,6 +93,11 @@ export default async function handler(req, res) {
       totals,
       snapshot: null,
       progress: { a: aProgress, b: bProgress, c: cProgress },
+      display: {
+        a: Number(totals.a || 0).toFixed(2),
+        b: Number(totals.b || 0).toFixed(2),
+        c_residual: denom > 0 && rc != null ? (income * (rc / 100)).toFixed(2) : '0.00'
+      },
       realtime: { a: ra, b: rb, c: rc },
       snapshotView: {
         income: income.toFixed(2),
