@@ -1,6 +1,6 @@
 import supabase from '../lib/supabase.js'
 import { zh } from '../lib/i18n.js'
-import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate } from '../lib/helpers.js'
+import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState } from '../lib/state.js'
 
 const GROUP_CATEGORIES = {
@@ -427,6 +427,8 @@ export async function handleCallback(update, req, res) {
     const chatId = cq.message.chat.id
     const from = cq.from
     const data = cq.data || ''
+    // 先应答，避免按钮卡转圈
+    try { await answerCallbackQuery(cq.id) } catch {}
     const userId = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userId)
     if (data === 'rec:again') {
