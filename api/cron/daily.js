@@ -1,6 +1,7 @@
-import supabase from '../../lib/supabase.js'
-import { format } from 'date-fns'
-import { sendTelegramMessage, sendTelegramMessages } from '../../lib/helpers.js'
+// Deprecated: this endpoint has been split into explicit cron handlers.
+export default async function handler(req, res) {
+  return res.status(410).json({ ok: false, error: 'This endpoint is deprecated. Use /api/cron/break-streaks, /api/cron/morning, /api/cron/reminder, /api/cron/daily-report.' })
+}
 import { zh } from '../../lib/i18n.js'
 import { formatTemplate } from '../../lib/helpers.js'
 
