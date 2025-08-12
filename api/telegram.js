@@ -147,6 +147,8 @@ export default async function handler(req, res) {
       const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
       const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
+      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       const msg = formatTemplate(zh.my.summary, {
         range,
         a: data.totals.a.toFixed(2),
@@ -155,6 +157,7 @@ export default async function handler(req, res) {
         ra, rb, rc,
         a_pct: data.snapshotView.a_pct,
         da,
+        a_gap_line: aGapLine,
         income: data.snapshotView.income,
         cap_a: data.snapshotView.cap_a,
         cap_b: data.snapshotView.cap_b,
