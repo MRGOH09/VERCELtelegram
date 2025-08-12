@@ -26,7 +26,8 @@ export default async function handler(req, res) {
     const capA = income * aPct / 100
     const capB = income * bPct / 100
     const capC = income * cPct / 100
-    const epf = income * 24 / 100
+    const epfPct = Number(profLive?.epf_pct || 24)
+    const epf = income * epfPct / 100
     const travelMonthlyNum = Number(profLive?.travel_budget_annual || 0) / 12
 
     // aggregate
