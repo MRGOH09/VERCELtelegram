@@ -5,8 +5,8 @@ import { formatTemplate } from '../../lib/helpers.js'
 
 export default async function handler(req, res) {
   try {
-    const { sent, failed } = await dailyReports(new Date(), ({a,b,c,pa,pb,pc, travel}) =>
-      formatTemplate(zh.cron.daily_report, { a: a.toFixed?.(2) || a, b: b.toFixed?.(2) || b, c: c.toFixed?.(2) || c, pa, pb, pc, travel }))
+    const { sent, failed } = await dailyReports(new Date(), ({a,b,c, ra, rb, rc, travel}) =>
+      formatTemplate(zh.cron.daily_report, { a: a.toFixed?.(2) || a, b: b.toFixed?.(2) || b, c: c.toFixed?.(2) || c, ra, rb, rc, travel }))
     console.info('[cron:daily-report]', { ymd: todayYMD(), sent, failed })
     return res.status(200).json({ ok: true })
   } catch (e) {

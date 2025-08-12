@@ -105,7 +105,7 @@ export default async function handler(req, res) {
     if (text.startsWith('/settings')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'settings', 'choose', {})
-      const { data: prof } = await supabase
+  const { data: prof } = await supabase
         .from('user_profile')
         .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
         .eq('user_id', userId)
@@ -122,6 +122,8 @@ export default async function handler(req, res) {
         a_pct: Number(prof?.a_pct || 0).toFixed(2),
         b_pct: Number(prof?.b_pct || 0).toFixed(2),
         travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
+        ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
+        ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
         branch: (urow?.branch_code || '-')
       })
       const kb = { inline_keyboard: [
