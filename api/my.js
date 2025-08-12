@@ -12,31 +12,22 @@ export default async function handler(req, res) {
     const today = new Date()
     const ymd = format(today, 'yyyy-MM-dd')
     const yyyyMM = getYYYYMM(today)
-
-    // Ensure snapshot exists
-    const { data: snap, error: snapErr } = await supabase
-      .from('user_month_budget')
-      .select('*')
+    // Live mode: derive caps from current profile (no snapshot locking)
+    const { data: profLive, error: profLiveErr } = await supabase
+      .from('user_profile')
+      .select('monthly_income,a_pct,b_pct,travel_budget_annual')
       .eq('user_id', userId)
-      .eq('yyyymm', yyyyMM)
       .maybeSingle()
-    if (snapErr) throw snapErr
-    let snapshot = snap
-    if (!snapshot) {
-      const { data: prof, error: profErr } = await supabase
-        .from('user_profile')
-        .select('monthly_income,a_pct,b_pct')
-        .eq('user_id', userId)
-        .single()
-      if (profErr) throw profErr
-      const { data: insSnap, error: insErr } = await supabase
-        .from('user_month_budget')
-        .insert([{ user_id: userId, yyyymm: yyyyMM, income: prof.monthly_income || 0, a_pct: prof.a_pct || 0, b_pct: prof.b_pct || 0 }])
-        .select('*')
-        .single()
-      if (insErr) throw insErr
-      snapshot = insSnap
-    }
+    if (profLiveErr) throw profLiveErr
+    const income = Number(profLive?.monthly_income || 0)
+    const aPct = Number(profLive?.a_pct || 0)
+    const bPct = Number(profLive?.b_pct || 0)
+    const cPct = Math.max(0, 100 - aPct - bPct)
+    const capA = income * aPct / 100
+    const capB = income * bPct / 100
+    const capC = income * cPct / 100
+    const epf = income * 24 / 100
+    const travelMonthlyNum = Number(profLive?.travel_budget_annual || 0) / 12
 
     // aggregate
     let startDate, endDate
@@ -86,33 +77,24 @@ export default async function handler(req, res) {
       return acc
     }, { a: 0, b: 0, c: 0 })
 
-    // travel monthly from profile (annual / 12) contributes to B progress only
-    const { data: prof, error: profErr2 } = await supabase
-      .from('user_profile')
-      .select('travel_budget_annual')
-      .eq('user_id', userId)
-      .maybeSingle()
-    if (profErr2) throw profErr2
-    const travelMonthlyNum = Number(prof?.travel_budget_annual || 0) / 12
-
-    const aProgress = snapshot.cap_a_amount > 0 ? Math.min(100, Math.round((mtdTotals.a / snapshot.cap_a_amount) * 100)) : 0
-    const bProgress = snapshot.cap_b_amount > 0 ? Math.min(100, Math.round(((mtdTotals.b + travelMonthlyNum) / snapshot.cap_b_amount) * 100)) : 0
-    const cProgress = snapshot.cap_c_amount > 0 ? Math.min(100, Math.round(((mtdTotals.c + (snapshot.epf_amount || 0)) / snapshot.cap_c_amount) * 100)) : 0
+    const aProgress = capA > 0 ? Math.min(100, Math.round((mtdTotals.a / capA) * 100)) : 0
+    const bProgress = capB > 0 ? Math.min(100, Math.round(((mtdTotals.b + travelMonthlyNum) / capB) * 100)) : 0
+    const cProgress = capC > 0 ? Math.min(100, Math.round(((mtdTotals.c + epf) / capC) * 100)) : 0
 
     return res.status(200).json({
       range,
       totals,
-      snapshot,
+      snapshot: null,
       progress: { a: aProgress, b: bProgress, c: cProgress },
       snapshotView: {
-        income: Number(snapshot.income || 0).toFixed(2),
-        a_pct: Number(snapshot.a_pct || 0).toFixed(2),
-        b_pct: Number(snapshot.b_pct || 0).toFixed(2),
-        c_pct: Number(100 - (snapshot.a_pct || 0) - (snapshot.b_pct || 0)).toFixed(2),
-        cap_a: Number(snapshot.cap_a_amount || 0).toFixed(2),
-        cap_b: Number(snapshot.cap_b_amount || 0).toFixed(2),
-        cap_c: Number(snapshot.cap_c_amount || 0).toFixed(2),
-        epf: Number(snapshot.epf_amount || 0).toFixed(2),
+        income: income.toFixed(2),
+        a_pct: aPct.toFixed(2),
+        b_pct: bPct.toFixed(2),
+        c_pct: cPct.toFixed(2),
+        cap_a: capA.toFixed(2),
+        cap_b: capB.toFixed(2),
+        cap_c: capC.toFixed(2),
+        epf: epf.toFixed(2),
         travelMonthly: Number(travelMonthlyNum || 0).toFixed(2)
       }
     })
