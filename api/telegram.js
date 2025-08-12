@@ -145,7 +145,15 @@ export default async function handler(req, res) {
     }
 
     if (text.startsWith('/my')) {
-      const range = (text.split(/\s+/)[1] || 'month').toLowerCase()
+      const arg = (text.split(/\s+/)[1] || '').toLowerCase()
+      if (!arg) {
+        const kb = { inline_keyboard: [
+          [ { text: zh.myUi.today, callback_data: 'my:today' }, { text: zh.myUi.month, callback_data: 'my:month' }, { text: zh.myUi.lastmonth, callback_data: 'my:lastmonth' } ]
+        ] }
+        await sendTelegramMessage(chatId, zh.myUi.chooseRange, { reply_markup: kb })
+        return res.status(200).json({ ok: true })
+      }
+      const range = arg
       const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
       if (uErr) { await sendTelegramMessage(chatId, zh.my.need_start); return res.status(200).json({ ok: true }) }
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
@@ -460,6 +468,38 @@ export async function handleCallback(update, req, res) {
       if (data === 'set:ins_med') { await setState(userId, 'settings', 'edit_ins_med', {}); await sendTelegramMessage(chatId, '请输入年度医疗保险金额（RM），例如 1200'); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_car') { await setState(userId, 'settings', 'edit_ins_car', {}); await sendTelegramMessage(chatId, '请输入年度车险金额（RM），例如 2400'); return res.status(200).json({ ok: true }) }
       if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'branch', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
+    }
+    if (data.startsWith('my:')) {
+      const range = data.split(':')[1] || 'month'
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/my?userId=${userId}&range=${encodeURIComponent(range)}`)
+      const data = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
+      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
+      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
+      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
+      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
+      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      const msg = formatTemplate(zh.my.summary, {
+        range,
+        a: data.display?.a || data.totals.a.toFixed(2),
+        b: data.display?.b || data.totals.b.toFixed(2),
+        c: data.display?.c_residual || data.totals.c.toFixed(2),
+        ra, rb, rc,
+        a_pct: data.snapshotView.a_pct,
+        da,
+        a_gap_line: aGapLine,
+        income: data.snapshotView.income,
+        cap_a: data.snapshotView.cap_a,
+        cap_b: data.snapshotView.cap_b,
+        cap_c: data.snapshotView.cap_c,
+        epf: data.snapshotView.epf,
+        travel: data.snapshotView.travelMonthly
+      })
+      await sendTelegramMessage(chatId, msg)
+      return res.status(200).json({ ok: true })
     }
     if (!st || st.flow !== 'record') {
       await sendTelegramMessage(chatId, '请发送 /record 开始记录')
