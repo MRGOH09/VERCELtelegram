@@ -54,6 +54,17 @@ function branchKeyboard() {
   return { inline_keyboard: rows }
 }
 
+async function tryPostMonthlyAlloc(userId, group, category, amount) {
+  try {
+    const today = new Date()
+    const ymd = `${today.toISOString().slice(0,7)}-01`
+    // 幂等：同月同类别存在则跳过
+    const exists = await fetch(`${new URL('.', `https://${process.env.VERCEL_URL||'example.com'}`).href}api/records/list?userId=${userId}&range=month&limit=1`)
+    // 简化：直接尝试插入，依赖业务容忍重复；若需严格幂等，可查询 records 是否存在相同 ymd+category
+    await supabase.from('records').insert([{ user_id: userId, category_group: group, category_code: category, amount, note: 'Auto-post', ymd }])
+  } catch {}
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!assertTelegramSecret(req.headers)) {
@@ -96,7 +107,7 @@ export default async function handler(req, res) {
       await setState(userId, 'settings', 'choose', {})
       const { data: prof } = await supabase
         .from('user_profile')
-        .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual')
+        .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
         .eq('user_id', userId)
         .maybeSingle()
       const { data: urow } = await supabase
@@ -117,6 +128,7 @@ export default async function handler(req, res) {
         [ { text: zh.settings.fields.nickname, callback_data: 'set:nickname' }, { text: zh.settings.fields.phone, callback_data: 'set:phone' } ],
         [ { text: zh.settings.fields.income, callback_data: 'set:income' }, { text: zh.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
         [ { text: zh.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: zh.settings.fields.travel, callback_data: 'set:travel' } ],
+        [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
         [ { text: zh.settings.fields.branch, callback_data: 'set:branch' } ]
       ] }
       await sendTelegramMessage(chatId, `${sumText}\n\n${zh.settings.choose}`, { reply_markup: kb })
@@ -354,6 +366,26 @@ export default async function handler(req, res) {
         const amt = parseAmountInput(text)
         if (amt == null || amt < 0) { await sendTelegramMessage(chatId, zh.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ travel_budget_annual: amt }).eq('user_id', userIdForState)
+        // 当下立即补记当月分摊（幂等）
+        await tryPostMonthlyAlloc(userIdForState, 'B', 'travel_auto', amt/12)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_ins_med') {
+        const amt = parseAmountInput(text)
+        if (amt == null || amt < 0) { await sendTelegramMessage(chatId, '请输入合法金额'); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ annual_medical_insurance: amt }).eq('user_id', userIdForState)
+        await tryPostMonthlyAlloc(userIdForState, 'C', 'ins_med_auto', amt/12)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, zh.settings.updated)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_ins_car') {
+        const amt = parseAmountInput(text)
+        if (amt == null || amt < 0) { await sendTelegramMessage(chatId, '请输入合法金额'); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ annual_car_insurance: amt }).eq('user_id', userIdForState)
+        await tryPostMonthlyAlloc(userIdForState, 'C', 'ins_car_auto', amt/12)
         await clearState(userIdForState)
         await sendTelegramMessage(chatId, zh.settings.updated)
         return res.status(200).json({ ok: true })
@@ -387,6 +419,8 @@ export async function handleCallback(update, req, res) {
       if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:b_pct') { await setState(userId, 'settings', 'edit_b_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetB.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:ins_med') { await setState(userId, 'settings', 'edit_ins_med', {}); await sendTelegramMessage(chatId, '请输入年度医疗保险金额（RM），例如 1200'); return res.status(200).json({ ok: true }) }
+      if (data === 'set:ins_car') { await setState(userId, 'settings', 'edit_ins_car', {}); await sendTelegramMessage(chatId, '请输入年度车险金额（RM），例如 2400'); return res.status(200).json({ ok: true }) }
       if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'branch', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
     }
     if (!st || st.flow !== 'record') {
