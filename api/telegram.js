@@ -146,6 +146,7 @@ export default async function handler(req, res) {
     }
 
     if (text.startsWith('/history')) {
+      console.log('[history] Processing history command for user:', from.id)
       const userId = await getOrCreateUserByTelegram(from, chatId)
       const range = (text.split(/\s+/)[1] || 'month').toLowerCase()
       const page = parseInt(text.split(/\s+/)[2] || '1', 10) || 1
