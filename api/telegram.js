@@ -1,7 +1,7 @@
 import supabase from '../lib/supabase.js'
 import { messages } from '../lib/i18n.js'
 import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
-import { getOrCreateUserByTelegram, getState, setState, clearState } from '../lib/state.js'
+import { getOrCreateUserByTelegram, getState, setState, clearState, getStepDescription } from '../lib/state.js'
 
 const GROUP_CATEGORIES = {
   A: [
@@ -212,8 +212,28 @@ export default async function handler(req, res) {
     const text = (msg.text || '').trim()
 
     if (text.startsWith('/start')) {
-      // 已注册的判定调整：优先以昵称是否存在为准（排行榜/交互展示依赖昵称）
       const userId = await getOrCreateUserByTelegram(from, chatId)
+      
+      // 检查是否有未完成的注册流程
+      const existingState = await getState(userId)
+      
+      if (existingState && existingState.flow === 'start') {
+        // 显示状态恢复选项
+        const stepDesc = getStepDescription(existingState.step)
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🔄 继续注册', callback_data: 'start:continue' }],
+            [{ text: '❌ 重新开始', callback_data: 'start:restart' }]
+          ]
+        }
+        
+        await sendTelegramMessage(chatId, 
+          `📋 检测到未完成的注册流程\n\n当前进度：${stepDesc}\n\n请选择操作：`, 
+          { reply_markup: keyboard })
+        return res.status(200).json({ ok: true })
+      }
+      
+      // 已注册的判定调整：优先以昵称是否存在为准（排行榜/交互展示依赖昵称）
       const { data: prof } = await supabase
         .from('user_profile')
         .select('display_name,monthly_income,a_pct,b_pct')
@@ -489,10 +509,70 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true })
     }
 
-    // If user is in state flow=record, handle steps for amount/note
+    // 检查是否有未完成的注册流程
     const userIdForState = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userIdForState)
+    
+    if (st?.flow === 'start') {
+      // 如果用户发送其他命令，提示完成注册
+      if (text.startsWith('/') && text !== '/start') {
+        const stepDesc = getStepDescription(st.step)
+        await sendTelegramMessage(chatId, 
+          `⚠️ 您正在注册流程中\n\n当前进度：${stepDesc}\n\n请先完成注册，或发送 /start 重新开始`)
+        return res.status(200).json({ ok: true })
+      }
+      
+      // 显示当前进度和继续选项
+      const stepDesc = getStepDescription(st.step)
+      const progressMsg = `📋 检测到未完成的注册流程\n\n当前进度：${stepDesc}\n\n请继续完成注册：`
+      
+      // 根据当前步骤显示相应的提示
+      let promptMsg = ''
+      switch (st.step) {
+        case 'nickname':
+          promptMsg = messages.registration.nickname.prompt
+          break
+        case 'phone':
+          promptMsg = messages.registration.phone.prompt
+          break
+        case 'income':
+          promptMsg = messages.registration.income.prompt
+          break
+        case 'a_pct':
+          promptMsg = messages.registration.budgetA.prompt
+          break
+        case 'b_pct':
+          promptMsg = messages.registration.budgetB.prompt
+          break
+        case 'travel':
+          promptMsg = messages.registration.travelBudget.prompt
+          break
+        case 'prev':
+          promptMsg = messages.registration.lastMonthSpendingPct.prompt
+          break
+        case 'branch':
+          // 显示分行选择按钮
+          await sendTelegramMessage(chatId, 
+            `📋 检测到未完成的注册流程\n\n当前进度：${stepDesc}\n\n请选择分行完成注册：`, 
+            { reply_markup: branchKeyboard() })
+          return res.status(200).json({ ok: true })
+        default:
+          promptMsg = '请继续完成注册流程'
+      }
+      
+      await sendTelegramMessage(chatId, `${progressMsg}\n\n${promptMsg}`)
+      return res.status(200).json({ ok: true })
+    }
+
+    // If user is in state flow=record, handle steps for amount/note
     if (st?.flow === 'record') {
+      // 检查是否有其他流程的状态冲突
+      if (st.flow !== 'record') {
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, '⚠️ 检测到状态冲突，已重置状态。请重新开始记录。')
+        return res.status(200).json({ ok: true })
+      }
+      
       if (st.step === 'amount') {
         const amt = parseAmountInput(text)
         if (amt == null) { await sendTelegramMessage(chatId, messages.record.amount_invalid); return res.status(200).json({ ok: true }) }
@@ -513,6 +593,13 @@ export default async function handler(req, res) {
 
     // 批量记录流程处理
     if (st?.flow === 'batch') {
+      // 检查是否有其他流程的状态冲突
+      if (st.flow !== 'batch') {
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, '⚠️ 检测到状态冲突，已重置状态。请重新开始批量记录。')
+        return res.status(200).json({ ok: true })
+      }
+      
       if (st.step === 'input') {
         // 解析批量输入
         const lines = text.split('\n').filter(line => line.trim())
@@ -1440,6 +1527,59 @@ export async function handleCallback(update, req, res) {
     if (data === 'batch:cancel') {
       await clearState(userId)
       await sendTelegramMessage(chatId, '❌ 已取消批量记录')
+      return res.status(200).json({ ok: true })
+    }
+
+    // 状态恢复回调处理
+    if (data === 'start:continue') {
+      const st = await getState(userId)
+      if (!st || st.flow !== 'start') {
+        await sendTelegramMessage(chatId, '状态已过期，请重新 /start')
+        await clearState(userId)
+        return res.status(200).json({ ok: true })
+      }
+      
+      // 根据当前步骤显示相应的提示
+      const stepDesc = getStepDescription(st.step)
+      let promptMsg = ''
+      let keyboard = null
+      
+      switch (st.step) {
+        case 'nickname':
+          promptMsg = messages.registration.nickname.prompt
+          break
+        case 'phone':
+          promptMsg = messages.registration.phone.prompt
+          break
+        case 'income':
+          promptMsg = messages.registration.income.prompt
+          break
+        case 'a_pct':
+          promptMsg = messages.registration.budgetA.prompt
+          break
+        case 'b_pct':
+          promptMsg = messages.registration.budgetB.prompt
+          break
+        case 'travel':
+          promptMsg = messages.registration.travelBudget.prompt
+          break
+        case 'prev':
+          promptMsg = messages.registration.lastMonthSpendingPct.prompt
+          break
+        case 'branch':
+          promptMsg = '请选择分行完成注册：'
+          keyboard = branchKeyboard()
+          break
+      }
+      
+      await sendTelegramMessage(chatId, `🔄 继续注册\n\n当前进度：${stepDesc}\n\n${promptMsg}`, { reply_markup: keyboard })
+      return res.status(200).json({ ok: true })
+    }
+
+    if (data === 'start:restart') {
+      await clearState(userId)
+      await setState(userId, 'start', 'nickname', {})
+      await sendTelegramMessage(chatId, messages.registration.nickname.prompt)
       return res.status(200).json({ ok: true })
     }
 
