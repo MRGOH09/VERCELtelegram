@@ -44,7 +44,13 @@ function smartCategorize(input, group) {
   }
   
   // 如果没有"其他"分类，选择第一个分类作为默认
-  return { group, code: categories[0]?.[0] || 'other' }
+  const defaultCategory = categories[0]
+  if (defaultCategory) {
+    return { group, code: defaultCategory[0] }
+  }
+  
+  // 最后的fallback
+  return { group, code: 'other' }
 }
 
 // 生成历史记录按钮
@@ -542,6 +548,13 @@ export default async function handler(req, res) {
           
           // 智能分类
           const { code } = smartCategorize(category, st.payload.group)
+          
+          // 验证返回的code是否有效
+          const validCodes = GROUP_CATEGORIES[st.payload.group]?.map(([c]) => c) || []
+          if (!validCodes.includes(code)) {
+            errors.push(`第${i + 1}行：无法识别分类"${category}"`)
+            continue
+          }
           
           records.push({
             category,
@@ -1679,6 +1692,17 @@ function getCategoryLabel(code) {
       return category[1] // 返回中文标签
     }
   }
-  return code // 如果找不到，返回原代码
+  
+  // 如果找不到，尝试从所有分类中查找
+  for (const categories of Object.values(GROUP_CATEGORIES)) {
+    const category = categories.find(([c]) => c === code)
+    if (category) {
+      return category[1]
+    }
+  }
+  
+  // 最后的fallback：返回code本身，但确保它是有效的
+  console.warn(`未找到分类标签: ${code}`)
+  return code
 }
 
