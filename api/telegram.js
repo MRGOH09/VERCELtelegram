@@ -378,7 +378,7 @@ export default async function handler(req, res) {
         ]
       };
       
-      await sendTelegramMessage(chatId, msg, { reply_markup: keyboard })
+      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', '📊 本月统计'), { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
     }
 
@@ -1072,7 +1072,29 @@ export async function handleCallback(update, req, res) {
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
         category_details: formatCategoryDetails(myData.categoryBreakdown)
       })
-      await sendTelegramMessage(chatId, msg)
+      
+      // 根据时间范围替换标题
+      let title = ''
+      if (range === 'month') title = '📊 本月统计'
+      else if (range === 'lastmonth') title = '📊 上月统计'
+      else if (range === 'week') title = '📊 本周统计'
+      else if (range === 'today') title = '📊 今日统计'
+      else title = `📊 ${range}统计`
+      
+      // 保持相同的时间段选择按钮
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '📅 本月', callback_data: 'my:month' },
+            { text: '📊 上月', callback_data: 'my:lastmonth' },
+            { text: '🗓 本周', callback_data: 'my:week' }
+          ]
+        ]
+      };
+      
+      // 使用 editMessageText 更新消息
+      await editMessageText(chatId, cq.message.message_id, msg.replace('📊 month 数据总览', title), { reply_markup: keyboard })
+      await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
     if (data === 'my:today' || data === 'my:lastmonth') {
@@ -1107,7 +1129,16 @@ export async function handleCallback(update, req, res) {
         car_insurance: myData.snapshotView.carInsuranceMonthly,
         category_details: formatCategoryDetails(myData.categoryBreakdown)
       })
-      await sendTelegramMessage(chatId, msg)
+      
+      // 根据时间范围替换标题
+      let title = ''
+      if (range === 'month') title = '📊 本月统计'
+      else if (range === 'lastmonth') title = '📊 上月统计'
+      else if (range === 'week') title = '📊 本周统计'
+      else if (range === 'today') title = '📊 今日统计'
+      else title = `📊 ${range}统计`
+      
+      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', title))
       return res.status(200).json({ ok: true })
     }
     if (st && st.flow === 'settings') {
@@ -1160,6 +1191,14 @@ export async function handleCallback(update, req, res) {
         category_details: formatCategoryDetails(myData.categoryBreakdown)
       })
       
+      // 根据时间范围替换标题
+      let title = ''
+      if (range === 'month') title = '📊 本月统计'
+      else if (range === 'lastmonth') title = '📊 上月统计'
+      else if (range === 'week') title = '📊 本周统计'
+      else if (range === 'today') title = '📊 今日统计'
+      else title = `📊 ${range}统计`
+      
       // 保持相同的时间段选择按钮
       const keyboard = {
         inline_keyboard: [
@@ -1172,7 +1211,7 @@ export async function handleCallback(update, req, res) {
       };
       
       // 使用 editMessageText 更新消息
-      await editMessageText(chatId, cq.message.message_id, msg, { reply_markup: keyboard })
+      await editMessageText(chatId, cq.message.message_id, msg.replace('📊 month 数据总览', title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
