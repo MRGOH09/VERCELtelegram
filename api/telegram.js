@@ -787,6 +787,17 @@ export async function handleCallback(update, req, res) {
       }
       
       if (!records || records.length === 0) {
+        // 当没有记录时，显示明确的消息并保持按钮可用
+        const kb = { inline_keyboard: [
+          [
+            { text: '📅 本月', callback_data: 'history:month' },
+            { text: '📊 上月', callback_data: 'history:lastmonth' },
+            { text: '🗓 本周', callback_data: 'history:week' }
+          ],
+          [{ text: '🔙 返回最近记录', callback_data: 'history:recent' }]
+        ] }
+        
+        await editMessageText(chatId, cq.message.message_id, `🧾 ${rangeLabel}记录\n\n📭 该时间段暂无任何记录\n\n💡 提示：您可以尝试查看其他时间段，或返回最近记录`, { reply_markup: kb })
         await answerCallbackQuery(cq.id, `📅 ${rangeLabel}暂无记录`)
         return res.status(200).json({ ok: true })
       }
