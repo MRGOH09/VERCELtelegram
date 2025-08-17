@@ -646,7 +646,16 @@ export async function handleCallback(update, req, res) {
       const base = `${url.protocol}//${url.host}`
       const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
       const payload = await r.json()
-      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      if (!r.ok) { 
+        await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      if (!payload.rows || payload.rows.length === 0) {
+        await answerCallbackQuery(cq.id, `📅 ${range === 'month' ? '本月' : range === 'lastmonth' ? '上月' : '本周'}暂无记录`)
+        return res.status(200).json({ ok: true })
+      }
+      
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
         const arr = GROUP_CATEGORIES[g] || []
@@ -661,7 +670,8 @@ export async function handleCallback(update, req, res) {
         ...rowsKb,
         [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ]
       ] }
-      await sendTelegramMessage(chatId, `${messages.history.listHeader.replace('{range}', range)}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await editMessageText(chatId, cq.message.message_id, `${messages.history.listHeader.replace('{range}', range === 'month' ? '本月' : range === 'lastmonth' ? '上月' : '本周')}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id, `📄 第${page}页`)
       return res.status(200).json({ ok: true })
     }
 
@@ -726,6 +736,119 @@ export async function handleCallback(update, req, res) {
       await sendTelegramMessage(chatId, '已取消')
       return res.status(200).json({ ok: true })
     }
+    
+    // 处理历史记录时间范围按钮
+    if (data === 'history:month' || data === 'history:lastmonth' || data === 'history:week') {
+      const range = data.split(':')[1]
+      const rangeLabel = range === 'month' ? '本月' : range === 'lastmonth' ? '上月' : '本周'
+      
+      // 计算日期范围
+      const today = new Date()
+      let startDate, endDate
+      
+      switch (range) {
+        case 'month':
+          startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+          endDate = today.toISOString().slice(0, 10)
+          break
+        case 'lastmonth':
+          const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+          startDate = lastMonth.toISOString().slice(0, 10)
+          endDate = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().slice(0, 10)
+          break
+        case 'week':
+          const weekStart = new Date(today)
+          weekStart.setDate(today.getDate() - today.getDay())
+          startDate = weekStart.toISOString().slice(0, 10)
+          endDate = today.toISOString().slice(0, 10)
+          break
+      }
+      
+      // 查询指定时间范围的记录
+      const { data: records, error: recordsError } = await supabase
+        .from('records')
+        .select('id,ymd,category_group,category_code,amount,note,created_at')
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+        .gte('ymd', startDate)
+        .lte('ymd', endDate)
+        .order('ymd', { ascending: false })
+        .limit(20)
+      
+      if (recordsError) { 
+        await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      if (!records || records.length === 0) {
+        await answerCallbackQuery(cq.id, `📅 ${rangeLabel}暂无记录`)
+        return res.status(200).json({ ok: true })
+      }
+      
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      
+      const list = records.map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n')
+      
+      const rowsKb = records.map(row => generateHistoryButtons(row, grpName, catLabel))
+      const kb = { inline_keyboard: [
+        ...rowsKb,
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ],
+        [{ text: '🔙 返回最近记录', callback_data: 'history:recent' }]
+      ] }
+      
+      await editMessageText(chatId, cq.message.message_id, `🧾 ${rangeLabel}记录\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id, `📅 已显示${rangeLabel}记录`)
+      return res.status(200).json({ ok: true })
+    }
+    
+    if (data === 'history:recent') {
+      // 返回显示最近记录
+      const { data: records, error: recordsError } = await supabase
+        .from('records')
+        .select('id,ymd,category_group,category_code,amount,note,created_at')
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      if (recordsError) { 
+        await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      
+      const list = (records || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      
+      const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
+      const kb = { inline_keyboard: [
+        ...rowsKb,
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ]
+      ] }
+      
+      await editMessageText(chatId, cq.message.message_id, `🧾 最近记录\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id, '🔄 已返回最近记录')
+      return res.status(200).json({ ok: true })
+    }
+    
     if (data === 'my:month') {
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
