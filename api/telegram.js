@@ -243,7 +243,7 @@ export default async function handler(req, res) {
         .select('id,ymd,category_group,category_code,amount,note,created_at')
         .eq('user_id', u.id)
         .eq('is_voided', false)
-        .order('created_at', { ascending: false })
+        .order('ymd', { ascending: false })
         .limit(10)
       
       if (recordsError) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
@@ -255,7 +255,10 @@ export default async function handler(req, res) {
         return found ? found[1] : code
       }
       
-      const list = (records || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      const list = (records || []).map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n') || messages.history.noRecords
       
       const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
       const kb = { inline_keyboard: [
@@ -662,7 +665,10 @@ export async function handleCallback(update, req, res) {
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
       }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      const list = (payload.rows || []).map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n') || messages.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
@@ -792,7 +798,10 @@ export async function handleCallback(update, req, res) {
         return found ? found[1] : code
       }
       
-      const list = records.map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n')
+      const list = (records || []).map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n') || messages.history.noRecords
       
       const rowsKb = records.map(row => generateHistoryButtons(row, grpName, catLabel))
       const kb = { inline_keyboard: [
@@ -817,7 +826,7 @@ export async function handleCallback(update, req, res) {
         .select('id,ymd,category_group,category_code,amount,note,created_at')
         .eq('user_id', userId)
         .eq('is_voided', false)
-        .order('created_at', { ascending: false })
+        .order('ymd', { ascending: false })
         .limit(10)
       
       if (recordsError) { 
@@ -832,7 +841,10 @@ export async function handleCallback(update, req, res) {
         return found ? found[1] : code
       }
       
-      const list = (records || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      const list = (records || []).map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n') || messages.history.noRecords
       
       const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
       const kb = { inline_keyboard: [
@@ -1094,7 +1106,10 @@ export async function handleCallback(update, req, res) {
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
       }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      const list = (payload.rows || []).map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n') || messages.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
