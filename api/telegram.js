@@ -268,8 +268,18 @@ export default async function handler(req, res) {
       }).join('\n') || messages.history.noRecords
       
       const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
+      
+      // 检查是否有更多记录
+      const { count: totalCount } = await supabase
+        .from('records')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', u.id)
+        .eq('is_voided', false)
+      
+      const hasMore = totalCount > 10
       const kb = { inline_keyboard: [
         ...rowsKb,
+        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : []),
         [
           { text: '📅 本月', callback_data: 'history:month' },
           { text: '📊 上月', callback_data: 'history:lastmonth' },
@@ -886,8 +896,18 @@ export async function handleCallback(update, req, res) {
       }).join('\n') || messages.history.noRecords
       
       const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
+      
+      // 检查是否有更多记录
+      const { count: totalCount } = await supabase
+        .from('records')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+      
+      const hasMore = totalCount > 10
       const kb = { inline_keyboard: [
         ...rowsKb,
+        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : []),
         [
           { text: '📅 本月', callback_data: 'history:month' },
           { text: '📊 上月', callback_data: 'history:lastmonth' },
@@ -900,6 +920,127 @@ export async function handleCallback(update, req, res) {
       return res.status(200).json({ ok: true })
     }
     
+    if (data === 'history:more') {
+      // 显示更多记录（分页）
+      const { data: records, error: recordsError } = await supabase
+        .from('records')
+        .select('id,ymd,category_group,category_code,amount,note,created_at')
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+        .order('ymd', { ascending: false })
+        .range(10, 29) // 显示第11-30条记录
+      
+      if (recordsError) { 
+        await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      if (!records || records.length === 0) {
+        await answerCallbackQuery(cq.id, '📄 没有更多记录了')
+        return res.status(200).json({ ok: true })
+      }
+      
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      
+      const list = records.map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n')
+      
+      const rowsKb = records.map(row => generateHistoryButtons(row, grpName, catLabel))
+      
+      // 检查是否还有更多记录
+      const { count: totalCount } = await supabase
+        .from('records')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+      
+      const hasMore = totalCount > 30
+      const kb = { inline_keyboard: [
+        ...rowsKb,
+        ...(hasMore ? [[{ text: '📄 继续查看更多', callback_data: 'history:more2' }]] : []),
+        [{ text: '🔙 返回最近记录', callback_data: 'history:recent' }],
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ]
+      ] }
+      
+      await editMessageText(chatId, cq.message.message_id, `🧾 更多记录（第11-30条）\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id, '📄 已显示更多记录')
+      return res.status(200).json({ ok: true })
+    }
+    
+    if (data === 'history:more2') {
+      // 显示更多记录（第三页）
+      const { data: records, error: recordsError } = await supabase
+        .from('records')
+        .select('id,ymd,category_group,category_code,amount,note,created_at')
+        .eq('user_id', userId)
+        .eq('is_voided', false)
+        .order('ymd', { ascending: false })
+        .range(30, 49) // 显示第31-50条记录
+      
+      if (recordsError) { 
+        await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      if (!records || records.length === 0) {
+        await answerCallbackQuery(cq.id, '📄 没有更多记录了')
+        return res.status(200).json({ ok: true })
+      }
+      
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      
+      const list = records.map(row => {
+        const note = row.note && row.note !== 'Auto-post' ? ` · ${row.note}` : ''
+        return `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${note}`
+      }).join('\n')
+      
+      const rowsKb = records.map(row => generateHistoryButtons(row, grpName, catLabel))
+      
+      const kb = { inline_keyboard: [
+        ...rowsKb,
+        [{ text: '🔙 返回上一页', callback_data: 'history:more' }],
+        [{ text: '🏠 返回最近记录', callback_data: 'history:recent' }],
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ]
+      ] }
+      
+      await editMessageText(chatId, cq.message.message_id, `🧾 更多记录（第31-50条）\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id, '📄 已显示更多记录')
+      return res.status(200).json({ ok: true })
+    }
     if (data === 'my:month') {
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
