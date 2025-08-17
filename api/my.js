@@ -27,6 +27,19 @@ export default async function handler(req, res) {
         endDate = format(new Date(today.getFullYear(), today.getMonth(), 0), 'yyyy-MM-dd')
         yyyyMM = format(lastMonth, 'yyyy-MM')
         break
+      case 'week':
+        // 计算本周的开始日期（周一）和结束日期（周日）
+        const dayOfWeek = today.getDay() // 0=周日, 1=周一, ..., 6=周六
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek // 如果是周日，往前推6天；否则推到周一
+        const monday = new Date(today)
+        monday.setDate(today.getDate() + mondayOffset)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        
+        startDate = format(monday, 'yyyy-MM-dd')
+        endDate = format(sunday, 'yyyy-MM-dd')
+        yyyyMM = format(today, 'yyyy-MM') // 使用当前月份作为预算参考
+        break
       default:
         return res.status(400).json({ ok: false, error: 'Invalid range' })
     }
