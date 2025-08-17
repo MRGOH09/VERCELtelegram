@@ -140,17 +140,17 @@ export default async function handler(req, res) {
         c: realtimeC
       },
       snapshotView: {
-        income,
+        income: income.toFixed(2),
         a_pct: aPct,
         b_pct: bPct,
         c_pct: cPct,
-        cap_a: capA,
-        cap_b: capB,
-        cap_c: capC,
-        epf,
-        travelMonthly,
-        medicalMonthly,
-        carInsuranceMonthly
+        cap_a: capA.toFixed(2),
+        cap_b: capB.toFixed(2),
+        cap_c: capC.toFixed(2),
+        epf: epf.toFixed(2),
+        travelMonthly: Number(travelMonthly).toFixed(2),
+        medicalMonthly: Number(medicalMonthly).toFixed(2),
+        carInsuranceMonthly: Number(carInsuranceMonthly).toFixed(2)
       },
       display: {
         a: totals.a.toFixed(2),

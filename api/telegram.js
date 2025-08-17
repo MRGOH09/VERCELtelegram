@@ -1197,7 +1197,7 @@ export async function handleCallback(update, req, res) {
       };
       
       // 使用 editMessageText 更新消息
-      await editMessageText(chatId, cq.message.message_id, msg.replace('📊 month 数据总览', title), { reply_markup: keyboard })
+      await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 ${range} 数据总览`, title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
@@ -1237,7 +1237,7 @@ export async function handleCallback(update, req, res) {
       // 根据时间范围替换标题
       let title = generateMonthTitle(range)
       
-      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', title))
+      await sendTelegramMessage(chatId, msg.replace(`📊 ${range} 数据总览`, title))
       return res.status(200).json({ ok: true })
     }
     if (st && st.flow === 'settings') {
@@ -1305,7 +1305,7 @@ export async function handleCallback(update, req, res) {
       };
       
       // 使用 editMessageText 更新消息
-      await editMessageText(chatId, cq.message.message_id, msg.replace('📊 month 数据总览', title), { reply_markup: keyboard })
+      await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 ${range} 数据总览`, title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
