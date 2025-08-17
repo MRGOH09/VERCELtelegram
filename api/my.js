@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     
     // 获取用户资料和当月预算快照
     const [profileResult, budgetResult] = await Promise.all([
-      supabase.from('user_profile').select('monthly_income,a_pct,b_pct,epf_pct').eq('user_id', userId).maybeSingle(),
+      supabase.from('user_profile').select('monthly_income,a_pct,b_pct,epf_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance').eq('user_id', userId).maybeSingle(),
       supabase.from('user_month_budget').select('income,a_pct,b_pct,epf_amount').eq('user_id', userId).eq('yyyymm', yyyyMM).maybeSingle()
     ])
     
@@ -71,7 +71,6 @@ export default async function handler(req, res) {
       .gte('ymd', startDate)
       .lte('ymd', endDate)
       .eq('is_voided', false)
-      .not('category_code', 'like', '%_auto')  // 过滤掉自动生成的记录
     
     if (categoryError) throw categoryError
     
