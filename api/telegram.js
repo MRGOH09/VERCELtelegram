@@ -1183,12 +1183,7 @@ export async function handleCallback(update, req, res) {
       })
       
       // 根据时间范围替换标题
-      let title = ''
-      if (range === 'month') title = '📊 本月统计'
-      else if (range === 'lastmonth') title = '📊 上月统计'
-      else if (range === 'week') title = '📊 本周统计'
-      else if (range === 'today') title = '📊 今日统计'
-      else title = `📊 ${range}统计`
+      let title = generateMonthTitle(range)
       
       // 保持相同的时间段选择按钮
       const keyboard = {
@@ -1240,12 +1235,7 @@ export async function handleCallback(update, req, res) {
       })
       
       // 根据时间范围替换标题
-      let title = ''
-      if (range === 'month') title = '📊 本月统计'
-      else if (range === 'lastmonth') title = '📊 上月统计'
-      else if (range === 'week') title = '📊 本周统计'
-      else if (range === 'today') title = '📊 今日统计'
-      else title = `📊 ${range}统计`
+      let title = generateMonthTitle(range)
       
       await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', title))
       return res.status(200).json({ ok: true })
@@ -1301,12 +1291,7 @@ export async function handleCallback(update, req, res) {
       })
       
       // 根据时间范围替换标题
-      let title = ''
-      if (range === 'month') title = '📊 本月统计'
-      else if (range === 'lastmonth') title = '📊 上月统计'
-      else if (range === 'week') title = '📊 本周统计'
-      else if (range === 'today') title = '📊 今日统计'
-      else title = `📊 ${range}统计`
+      let title = generateMonthTitle(range)
       
       // 保持相同的时间段选择按钮
       const keyboard = {
@@ -1704,5 +1689,34 @@ function getCategoryLabel(code) {
   // 最后的fallback：返回code本身，但确保它是有效的
   console.warn(`未找到分类标签: ${code}`)
   return code
+}
+
+// 生成月份标题
+function generateMonthTitle(range) {
+  const now = new Date()
+  let targetDate = new Date()
+  
+  if (range === 'month') {
+    // 本月
+    targetDate = now
+  } else if (range === 'lastmonth') {
+    // 上月
+    targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  } else if (range === 'week') {
+    // 本周
+    targetDate = now
+  } else if (range === 'today') {
+    // 今日
+    targetDate = now
+  }
+  
+  const month = targetDate.getMonth() + 1
+  const monthNames = ['', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+  
+  if (range === 'month') return `📊 ${monthNames[month]}统计`
+  else if (range === 'lastmonth') return `📊 ${monthNames[month]}统计`
+  else if (range === 'week') return `📊 本周统计`
+  else if (range === 'today') return `📊 今日统计`
+  else return `📊 ${range}统计`
 }
 
