@@ -233,15 +233,20 @@ export default async function handler(req, res) {
     }
 
     if (text.startsWith('/history')) {
-      // 简化：/history 命令直接显示本月记录，不再需要参数
+      // 简化：/history 命令直接显示最近记录，不再需要参数
       const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
       if (uErr) { await sendTelegramMessage(chatId, messages.my.need_start); return res.status(200).json({ ok: true }) }
       
-      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-      const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/records/list?userId=${u.id}&range=month&page=1&pageSize=10`)
-      const payload = await r.json()
-      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      // 直接查询最近的记录，不依赖range参数
+      const { data: records, error: recordsError } = await supabase
+        .from('records')
+        .select('id,ymd,category_group,category_code,amount,note,created_at')
+        .eq('user_id', u.id)
+        .eq('is_voided', false)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      
+      if (recordsError) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
@@ -249,20 +254,19 @@ export default async function handler(req, res) {
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
       }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
-      const prev = Math.max(1, (payload.page || 1) - 1)
-      const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
-      const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
+      
+      const list = (records || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      
+      const rowsKb = (records || []).map(row => generateHistoryButtons(row, grpName, catLabel))
       const kb = { inline_keyboard: [
         ...rowsKb,
-        [ { text: '⬅️ 上一页', callback_data: `hist:page:month:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:month:${next}` } ],
         [
           { text: '📅 本月', callback_data: 'history:month' },
           { text: '📊 上月', callback_data: 'history:lastmonth' },
           { text: '🗓 本周', callback_data: 'history:week' }
         ]
       ] }
-      await sendTelegramMessage(chatId, `${messages.history.listHeader.replace('{range}', 'month')}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await sendTelegramMessage(chatId, `🧾 最近记录\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
