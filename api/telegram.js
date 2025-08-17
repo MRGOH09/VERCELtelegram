@@ -1,6 +1,6 @@
 import supabase from '../lib/supabase.js'
-import { zh } from '../lib/i18n.js'
-import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery } from '../lib/helpers.js'
+import { messages } from '../lib/i18n.js'
+import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState } from '../lib/state.js'
 
 const GROUP_CATEGORIES = {
@@ -81,6 +81,19 @@ function branchKeyboard() {
   return { inline_keyboard: rows }
 }
 
+function settingsBranchKeyboard() {
+  const rows = []
+  for (let i = 0; i < BRANCH_CODES.length; i += 3) {
+    const row = []
+    for (let j = i; j < Math.min(i + 3, BRANCH_CODES.length); j++) {
+      const code = BRANCH_CODES[j]
+      row.push({ text: code, callback_data: `set:branch:${code}` })
+    }
+    rows.push(row)
+  }
+  return { inline_keyboard: rows }
+}
+
 async function tryPostMonthlyAlloc(userId, group, category, amount) {
   try {
     const today = new Date()
@@ -123,7 +136,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!assertTelegramSecret(req.headers)) {
     console.error('Bad secret', { expected: !!process.env.TELEGRAM_WEBHOOK_SECRET, got: req.headers['x-telegram-bot-api-secret-token'] || req.headers['X-Telegram-Bot-Api-Secret-Token'] })
-    return res.status(401).json({ error: zh.bad_secret })
+    return res.status(401).json({ error: messages.bad_secret })
   }
 
   try {
@@ -149,11 +162,11 @@ export default async function handler(req, res) {
         .maybeSingle()
       const isRegistered = prof && !!(prof.display_name && prof.display_name.trim())
       if (isRegistered) {
-        await sendTelegramMessage(chatId, zh.registration.alreadyRegistered)
+        await sendTelegramMessage(chatId, '✅ 你已完成设置。\n• /record - 记录支出\n• /my - 查看统计报告\n• /settings - 修改资料')
         return res.status(200).json({ ok: true })
       }
       await setState(userId, 'start', 'nickname', {})
-      await sendTelegramMessage(chatId, zh.registration.nickname.prompt)
+      await sendTelegramMessage(chatId, messages.registration.nickname.prompt)
       return res.status(200).json({ ok: true })
     }
     if (text.startsWith('/settings')) {
@@ -169,7 +182,7 @@ export default async function handler(req, res) {
         .select('branch_code')
         .eq('id', userId)
         .maybeSingle()
-      const sumText = formatTemplate(zh.settings.summary, {
+      const sumText = formatTemplate(messages.settings.summary, {
         nickname: prof?.display_name || '-',
         phone: prof?.phone_e164 || '-',
         income: (Number(prof?.monthly_income || 0)).toFixed(2),
@@ -181,41 +194,47 @@ export default async function handler(req, res) {
         branch: (urow?.branch_code || '-')
       })
       const kb = { inline_keyboard: [
-        [ { text: zh.settings.fields.nickname, callback_data: 'set:nickname' }, { text: zh.settings.fields.phone, callback_data: 'set:phone' } ],
-        [ { text: zh.settings.fields.income, callback_data: 'set:income' }, { text: zh.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
-        [ { text: zh.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: zh.settings.fields.travel, callback_data: 'set:travel' } ],
+        [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
+        [ { text: messages.settings.fields.income, callback_data: 'set:income' }, { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
+        [ { text: messages.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
         [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
-        [ { text: zh.settings.fields.branch, callback_data: 'set:branch' } ]
+        [ { text: messages.settings.fields.branch, callback_data: 'set:branch' } ]
       ] }
-      await sendTelegramMessage(chatId, `${sumText}\n\n${zh.settings.choose}`, { reply_markup: kb })
+      await sendTelegramMessage(chatId, `${sumText}\n\n${messages.settings.choose}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('/history')) {
-      console.log('[history] Processing history command for user:', from.id)
-      const userId = await getOrCreateUserByTelegram(from, chatId)
-      const range = (text.split(/\s+/)[1] || 'month').toLowerCase()
-      const page = parseInt(text.split(/\s+/)[2] || '1', 10) || 1
+      // 简化：/history 命令直接显示本月记录，不再需要参数
+      const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
+      if (uErr) { await sendTelegramMessage(chatId, messages.my.need_start); return res.status(200).json({ ok: true }) }
+      
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
+      const r = await fetch(`${base}/api/records/list?userId=${u.id}&range=month&page=1&pageSize=10`)
       const payload = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
       }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || zh.history.noRecords
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
       const kb = { inline_keyboard: [
         ...rowsKb,
-        [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ]
+        [ { text: '⬅️ 上一页', callback_data: `hist:page:month:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:month:${next}` } ],
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ]
       ] }
-      await sendTelegramMessage(chatId, `${zh.history.listHeader.replace('{range}', range)}\n${list}\n\n${zh.history.hint}`, { reply_markup: kb })
+      await sendTelegramMessage(chatId, `${messages.history.listHeader.replace('{range}', 'month')}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
@@ -251,27 +270,21 @@ export default async function handler(req, res) {
     if (text.startsWith('/record')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'record', 'choose_group', {})
-      await sendTelegramMessage(chatId, zh.record.choose_group, { reply_markup: groupKeyboard() })
+      await sendTelegramMessage(chatId, messages.record.choose_group, { reply_markup: groupKeyboard() })
       return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('/my')) {
-      const arg = (text.split(/\s+/)[1] || '').toLowerCase()
-      if (!arg) {
-        const kb = { inline_keyboard: [
-          [ { text: zh.myUi.today, callback_data: 'my:today' }, { text: zh.myUi.month, callback_data: 'my:month' }, { text: zh.myUi.lastmonth, callback_data: 'my:lastmonth' } ]
-        ] }
-        await sendTelegramMessage(chatId, zh.myUi.chooseRange, { reply_markup: kb })
-        return res.status(200).json({ ok: true })
-      }
-      const range = arg
+      // 简化：/my 命令直接显示本月数据，不再需要参数
       const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
-      if (uErr) { await sendTelegramMessage(chatId, zh.my.need_start); return res.status(200).json({ ok: true }) }
+      if (uErr) { await sendTelegramMessage(chatId, messages.my.need_start); return res.status(200).json({ ok: true }) }
+      
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/my?userId=${u.id}&range=${encodeURIComponent(range)}`)
+      const r = await fetch(`${base}/api/my?userId=${u.id}&range=month`)
       const data = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      
       const a = data.progress?.a ?? 0
       const b = data.progress?.b ?? 0
       const c = data.progress?.c ?? 0
@@ -282,8 +295,8 @@ export default async function handler(req, res) {
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
       const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
-      const msg = formatTemplate(zh.my.summary, {
-        range,
+      const msg = formatTemplate(messages.my.summary, {
+        range: 'month',
         a: data.display?.a || data.totals.a.toFixed(2),
         b: data.display?.b || data.totals.b.toFixed(2),
         c: data.display?.c_residual || data.totals.c.toFixed(2),
@@ -298,18 +311,30 @@ export default async function handler(req, res) {
         epf: data.snapshotView.epf,
         travel: data.snapshotView.travelMonthly
       })
-      await sendTelegramMessage(chatId, msg)
+      
+      // 添加时间段选择按钮
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '📅 本月', callback_data: 'my:month' },
+            { text: '📊 上月', callback_data: 'my:lastmonth' },
+            { text: '🗓 本周', callback_data: 'my:week' }
+          ]
+        ]
+      };
+      
+      await sendTelegramMessage(chatId, msg, { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('/broadcast')) {
       const admins = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
       if (!admins.includes(String(from.id))) {
-        await sendTelegramMessage(chatId, zh.admin.no_perm)
+        await sendTelegramMessage(chatId, messages.admin.no_perm)
         return res.status(200).json({ ok: true })
       }
       const content = text.replace('/broadcast', '').trim()
-      if (!content) { await sendTelegramMessage(chatId, zh.admin.usage); return res.status(200).json({ ok: true }) }
+      if (!content) { await sendTelegramMessage(chatId, messages.admin.usage); return res.status(200).json({ ok: true }) }
       const { data: profs } = await supabase.from('user_profile').select('chat_id').not('chat_id', 'is', null)
       const chatIds = (profs || []).map(p => p.chat_id)
       let sent = 0
@@ -318,7 +343,7 @@ export default async function handler(req, res) {
         sent += 1
         if (sent % 25 === 0) await new Promise(r => setTimeout(r, 1100))
       }
-      await sendTelegramMessage(chatId, formatTemplate(zh.admin.sent, { n: sent }))
+      await sendTelegramMessage(chatId, formatTemplate(messages.admin.sent, { n: sent }))
       return res.status(200).json({ ok: true })
     }
 
@@ -373,7 +398,7 @@ export default async function handler(req, res) {
         b_pct: bPct,
         epf_pct: 24 // 默认 EPF 百分比
       })
-      await sendTelegramMessage(chatId, zh.start_saved)
+      await sendTelegramMessage(chatId, messages.start_saved)
       return res.status(200).json({ ok: true })
     }
 
@@ -383,17 +408,17 @@ export default async function handler(req, res) {
     if (st?.flow === 'record') {
       if (st.step === 'amount') {
         const amt = parseAmountInput(text)
-        if (amt == null) { await sendTelegramMessage(chatId, zh.record.amount_invalid); return res.status(200).json({ ok: true }) }
+        if (amt == null) { await sendTelegramMessage(chatId, messages.record.amount_invalid); return res.status(200).json({ ok: true }) }
         const payload = { ...st.payload, amount: amt }
         await setState(userIdForState, 'record', 'note', payload)
-        await sendTelegramMessage(chatId, zh.record.note_prompt)
+        await sendTelegramMessage(chatId, messages.record.note_prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'note') {
         const note = text === '/skip' ? '' : text.slice(0, 200)
         const payload = { ...st.payload, note }
         await setState(userIdForState, 'record', 'confirm', payload)
-        const preview = formatTemplate(zh.record.preview, { group: payload.group, category: payload.category, amount: payload.amount.toFixed(2), note: note || '—' })
+        const preview = formatTemplate(messages.record.preview, { group: payload.group, category: payload.category, amount: payload.amount.toFixed(2), note: note || '—' })
         await sendTelegramMessage(chatId, preview, { reply_markup: { inline_keyboard: [[{ text: '✅ 确认', callback_data: 'rec:confirm' }, { text: '❌ 取消', callback_data: 'rec:cancel' }]] } })
         return res.status(200).json({ ok: true })
       }
@@ -406,13 +431,13 @@ export default async function handler(req, res) {
       if (!recordId) { await clearState(userIdForState); return res.status(200).json({ ok: true }) }
       if (stEdit.step === 'amount') {
         const amt = parseAmountInput(text)
-        if (amt == null) { await sendTelegramMessage(chatId, zh.record.amount_invalid); return res.status(200).json({ ok: true }) }
+        if (amt == null) { await sendTelegramMessage(chatId, messages.record.amount_invalid); return res.status(200).json({ ok: true }) }
         const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
         const base = `${url.protocol}//${url.host}`
         const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: userIdForState, recordId, amount: amt }) })
         if (!resp.ok) { await sendTelegramMessage(chatId, '编辑失败'); return res.status(200).json({ ok: true }) }
         await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.history.updated)
+        await sendTelegramMessage(chatId, messages.history.updated)
         return res.status(200).json({ ok: true })
       }
       if (stEdit.step === 'note') {
@@ -422,7 +447,7 @@ export default async function handler(req, res) {
         const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: userIdForState, recordId, note }) })
         if (!resp.ok) { await sendTelegramMessage(chatId, '编辑失败'); return res.status(200).json({ ok: true }) }
         await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.history.updated)
+        await sendTelegramMessage(chatId, messages.history.updated)
         return res.status(200).json({ ok: true })
       }
     }
@@ -430,56 +455,56 @@ export default async function handler(req, res) {
     if (st?.flow === 'start') {
       if (st.step === 'nickname') {
         const name = (text || '').trim().slice(0, 30)
-        if (!name) { await sendTelegramMessage(chatId, zh.registration.nickname.validation) ; return res.status(200).json({ ok: true }) }
+        if (!name) { await sendTelegramMessage(chatId, messages.registration.nickname.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'phone', { nickname: name })
-        await sendTelegramMessage(chatId, zh.registration.phone.prompt)
+        await sendTelegramMessage(chatId, messages.registration.phone.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'phone') {
         const phone = normalizePhoneE164(text)
-        if (!phone) { await sendTelegramMessage(chatId, zh.registration.phone.validation) ; return res.status(200).json({ ok: true }) }
+        if (!phone) { await sendTelegramMessage(chatId, messages.registration.phone.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'income', { ...st.payload, phone_e164: phone })
-        await sendTelegramMessage(chatId, zh.registration.income.prompt)
+        await sendTelegramMessage(chatId, messages.registration.income.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'income') {
         const income = parseAmountInput(text)
         if (income == null || income <= 0) {
-          await sendTelegramMessage(chatId, zh.registration.income.validation)
+          await sendTelegramMessage(chatId, messages.registration.income.validation)
           return res.status(200).json({ ok: true })
         }
         await setState(userIdForState, 'start', 'a_pct', { ...st.payload, income })
-        await sendTelegramMessage(chatId, zh.registration.budgetA.prompt)
+        await sendTelegramMessage(chatId, messages.registration.budgetA.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'a_pct') {
         const aPct = parsePercentageInput(text)
-        if (aPct == null) { await sendTelegramMessage(chatId, zh.registration.budgetA.validation) ; return res.status(200).json({ ok: true }) }
+        if (aPct == null) { await sendTelegramMessage(chatId, messages.registration.budgetA.validation) ; return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'b_pct', { ...st.payload, a_pct: aPct })
-        await sendTelegramMessage(chatId, zh.registration.budgetB.prompt)
+        await sendTelegramMessage(chatId, messages.registration.budgetB.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'b_pct') {
         const bPct = parsePercentageInput(text)
-        if (bPct == null) { await sendTelegramMessage(chatId, zh.registration.budgetB.validation); return res.status(200).json({ ok: true }) }
+        if (bPct == null) { await sendTelegramMessage(chatId, messages.registration.budgetB.validation); return res.status(200).json({ ok: true }) }
         const aPct = st.payload?.a_pct || 0
-        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, formatTemplate(zh.registration.budgetOverflow, { total: aPct + bPct })); return res.status(200).json({ ok: true }) }
+        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, formatTemplate(messages.registration.budgetOverflow, { total: aPct + bPct })); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'travel', { ...st.payload, b_pct: bPct })
-        await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt)
+        await sendTelegramMessage(chatId, messages.registration.travelBudget.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'travel') {
         const travel = parseAmountInput(text)
-        if (travel == null || travel < 0) { await sendTelegramMessage(chatId, zh.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
+        if (travel == null || travel < 0) { await sendTelegramMessage(chatId, messages.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'prev', { ...st.payload, travel_budget_annual: travel })
-        await sendTelegramMessage(chatId, zh.registration.lastMonthSpendingPct.prompt)
+        await sendTelegramMessage(chatId, messages.registration.lastMonthSpendingPct.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'prev') {
         const prevPct = parsePercentageInput(text)
-        if (prevPct == null) { await sendTelegramMessage(chatId, zh.registration.lastMonthSpendingPct.validation); return res.status(200).json({ ok: true }) }
+        if (prevPct == null) { await sendTelegramMessage(chatId, messages.registration.lastMonthSpendingPct.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'branch', { ...st.payload, prev_month_spend: prevPct })
-        await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() })
+        await sendTelegramMessage(chatId, messages.registration.branch.prompt, { reply_markup: branchKeyboard() })
         return res.status(200).json({ ok: true })
       }
     }
@@ -487,45 +512,41 @@ export default async function handler(req, res) {
       // 文本侧仅处理具体输入步骤，入口与选择走 callback
       if (st.step === 'edit_nickname') {
         const name = (text || '').trim().slice(1, 30)
-        if (!name) { await sendTelegramMessage(chatId, zh.registration.nickname.validation); return res.status(200).json({ ok: true }) }
+        if (!name) { await sendTelegramMessage(chatId, messages.registration.nickname.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ display_name: name }).eq('user_id', userIdForState)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        // 不立即清除状态，而是显示更新后的摘要和继续选项
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_phone') {
         const phone = normalizePhoneE164(text)
-        if (!phone) { await sendTelegramMessage(chatId, zh.registration.phone.validation); return res.status(200).json({ ok: true }) }
+        if (!phone) { await sendTelegramMessage(chatId, messages.registration.phone.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ phone_e164: phone }).eq('user_id', userIdForState)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_income') {
         const income = parseAmountInput(text)
-        if (income == null || income <= 0) { await sendTelegramMessage(chatId, zh.registration.income.validation); return res.status(200).json({ ok: true }) }
+        if (income == null || income <= 0) { await sendTelegramMessage(chatId, messages.registration.income.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ monthly_income: income }).eq('user_id', userIdForState)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_a_pct' || st.step === 'edit_b_pct') {
         const pct = parsePercentageInput(text)
-        if (pct == null) { await sendTelegramMessage(chatId, zh.registration.budgetA.validation); return res.status(200).json({ ok: true }) }
+        if (pct == null) { await sendTelegramMessage(chatId, messages.registration.budgetA.validation); return res.status(200).json({ ok: true }) }
         const field = st.step === 'edit_a_pct' ? { a_pct: pct } : { b_pct: pct }
         await supabase.from('user_profile').update(field).eq('user_id', userIdForState)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_travel') {
         const amt = parseAmountInput(text)
-        if (amt == null || amt < 0) { await sendTelegramMessage(chatId, zh.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
+        if (amt == null || amt < 0) { await sendTelegramMessage(chatId, messages.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ travel_budget_annual: amt }).eq('user_id', userIdForState)
         // 当下立即补记当月分摊（幂等）
         await tryPostMonthlyAlloc(userIdForState, 'B', 'travel_auto', amt/12)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_ins_med') {
@@ -533,8 +554,7 @@ export default async function handler(req, res) {
         if (amt == null || amt < 0) { await sendTelegramMessage(chatId, '请输入合法金额'); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ annual_medical_insurance: amt }).eq('user_id', userIdForState)
         await tryPostMonthlyAlloc(userIdForState, 'C', 'ins_med_auto', amt/12)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_ins_car') {
@@ -542,14 +562,19 @@ export default async function handler(req, res) {
         if (amt == null || amt < 0) { await sendTelegramMessage(chatId, '请输入合法金额'); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ annual_car_insurance: amt }).eq('user_id', userIdForState)
         await tryPostMonthlyAlloc(userIdForState, 'C', 'ins_car_auto', amt/12)
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, zh.settings.updated)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_branch') {
+        // 分行设置通过按钮选择，不需要文本输入
+        // 如果用户发送了文本，提示他们使用按钮
+        await sendTelegramMessage(chatId, '请使用上面的按钮选择分行，或发送 /settings 重新开始')
         return res.status(200).json({ ok: true })
       }
     }
 
     // fallback
-    await sendTelegramMessage(chatId, zh.help)
+    await sendTelegramMessage(chatId, messages.help)
     return res.status(200).json({ ok: true })
   } catch (e) {
     console.error(e)
@@ -571,7 +596,7 @@ export async function handleCallback(update, req, res) {
     const st = await getState(userId)
     if (data === 'rec:again') {
       await setState(userId, 'record', 'choose_group', {})
-      await sendTelegramMessage(chatId, zh.record.choose_group, { reply_markup: groupKeyboard() })
+      await sendTelegramMessage(chatId, messages.record.choose_group, { reply_markup: groupKeyboard() })
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('hist:page:')) {
@@ -588,7 +613,7 @@ export async function handleCallback(update, req, res) {
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
       }
-      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || zh.history.noRecords
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
       const prev = Math.max(1, (payload.page || 1) - 1)
       const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
       const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
@@ -596,7 +621,7 @@ export async function handleCallback(update, req, res) {
         ...rowsKb,
         [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ]
       ] }
-      await sendTelegramMessage(chatId, `${zh.history.listHeader.replace('{range}', range)}\n${list}\n\n${zh.history.hint}`, { reply_markup: kb })
+      await sendTelegramMessage(chatId, `${messages.history.listHeader.replace('{range}', range)}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
 
@@ -618,10 +643,10 @@ export async function handleCallback(update, req, res) {
       
       await setState(userId, 'edit', 'choose', { recordId })
       const kb = { inline_keyboard: [
-        [ { text: zh.history.editAmount, callback_data: 'edit:amount' }, { text: zh.history.editNote, callback_data: 'edit:note' } ],
-        [ { text: zh.history.backList, callback_data: 'edit:back' } ]
+        [ { text: messages.history.editAmount, callback_data: 'edit:amount' }, { text: messages.history.editNote, callback_data: 'edit:note' } ],
+        [ { text: messages.history.backList, callback_data: 'edit:back' } ]
       ] }
-      await sendTelegramMessage(chatId, zh.history.editChoose, { reply_markup: kb })
+      await sendTelegramMessage(chatId, messages.history.editChoose, { reply_markup: kb })
       return res.status(200).json({ ok: true })
     }
     
@@ -645,7 +670,7 @@ export async function handleCallback(update, req, res) {
       const base = `${url.protocol}//${url.host}`
       const resp = await fetch(`${base}/api/record?userId=${userId}&recordId=${encodeURIComponent(recordId)}`, { method: 'DELETE' })
       if (!resp.ok) { await sendTelegramMessage(chatId, '删除失败'); return res.status(200).json({ ok: true }) }
-      await sendTelegramMessage(chatId, zh.history.deleted)
+      await sendTelegramMessage(chatId, messages.history.deleted)
       return res.status(200).json({ ok: true })
     }
     if (data === 'edit:amount' || data === 'edit:note') {
@@ -653,7 +678,7 @@ export async function handleCallback(update, req, res) {
       if (!st || st.flow !== 'edit') { await sendTelegramMessage(chatId, '会话已过期'); return res.status(200).json({ ok: true }) }
       const nextStep = data === 'edit:amount' ? 'amount' : 'note'
       await setState(userId, 'edit', nextStep, st.payload)
-      await sendTelegramMessage(chatId, nextStep === 'amount' ? zh.history.amountPrompt : zh.history.notePrompt)
+      await sendTelegramMessage(chatId, nextStep === 'amount' ? messages.history.amountPrompt : messages.history.notePrompt)
       return res.status(200).json({ ok: true })
     }
     if (data === 'edit:back') {
@@ -673,7 +698,7 @@ export async function handleCallback(update, req, res) {
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
       const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
-      const msg = formatTemplate(zh.my.summary, {
+      const msg = formatTemplate(messages.my.summary, {
         range: 'month',
         a: myData.display?.a || myData.totals.a.toFixed(2),
         b: myData.display?.b || myData.totals.b.toFixed(2),
@@ -705,7 +730,7 @@ export async function handleCallback(update, req, res) {
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
       const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
-      const msg = formatTemplate(zh.my.summary, {
+      const msg = formatTemplate(messages.my.summary, {
         range,
         a: myData.display?.a || myData.totals.a.toFixed(2),
         b: myData.display?.b || myData.totals.b.toFixed(2),
@@ -726,15 +751,20 @@ export async function handleCallback(update, req, res) {
     }
     if (st && st.flow === 'settings') {
       // settings callback entries
-      if (data === 'set:nickname') { await setState(userId, 'settings', 'edit_nickname', {}); await sendTelegramMessage(chatId, zh.registration.nickname.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:phone') { await setState(userId, 'settings', 'edit_phone', {}); await sendTelegramMessage(chatId, zh.registration.phone.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:income') { await setState(userId, 'settings', 'edit_income', {}); await sendTelegramMessage(chatId, zh.registration.income.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:b_pct') { await setState(userId, 'settings', 'edit_b_pct', {}); await sendTelegramMessage(chatId, zh.registration.budgetB.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:nickname') { await setState(userId, 'settings', 'edit_nickname', {}); await sendTelegramMessage(chatId, messages.registration.nickname.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:phone') { await setState(userId, 'settings', 'edit_phone', {}); await sendTelegramMessage(chatId, messages.registration.phone.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:income') { await setState(userId, 'settings', 'edit_income', {}); await sendTelegramMessage(chatId, messages.registration.income.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, messages.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:b_pct') { await setState(userId, 'settings', 'edit_b_pct', {}); await sendTelegramMessage(chatId, messages.registration.budgetB.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, messages.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_med') { await setState(userId, 'settings', 'edit_ins_med', {}); await sendTelegramMessage(chatId, '请输入年度医疗保险金额（RM），例如 1200'); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_car') { await setState(userId, 'settings', 'edit_ins_car', {}); await sendTelegramMessage(chatId, '请输入年度车险金额（RM），例如 2400'); return res.status(200).json({ ok: true }) }
-      if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'start', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
+      if (data === 'set:branch') { await sendTelegramMessage(chatId, messages.registration.branch.prompt, { reply_markup: settingsBranchKeyboard() }); await setState(userId, 'settings', 'edit_branch', {}); return res.status(200).json({ ok: true }) }
+      if (data === 'set:done') { 
+        await clearState(userId)
+        await sendTelegramMessage(chatId, '✅ 设置完成！\n\n现在你可以：\n• /record - 记录支出\n• /my - 查看统计报告\n• /settings - 再次修改资料')
+        return res.status(200).json({ ok: true }) 
+      }
     }
     if (data.startsWith('my:')) {
       const range = data.split(':')[1] || 'month'
@@ -749,7 +779,7 @@ export async function handleCallback(update, req, res) {
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
       const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
-      const msg = formatTemplate(zh.my.summary, {
+      const msg = formatTemplate(messages.my.summary, {
         range,
         a: myData.display?.a || myData.totals.a.toFixed(2),
         b: myData.display?.b || myData.totals.b.toFixed(2),
@@ -765,7 +795,21 @@ export async function handleCallback(update, req, res) {
         epf: myData.snapshotView.epf,
         travel: myData.snapshotView.travelMonthly
       })
-      await sendTelegramMessage(chatId, msg)
+      
+      // 保持相同的时间段选择按钮
+      const keyboard = {
+        inline_keyboard: [
+          [
+            { text: '📅 本月', callback_data: 'my:month' },
+            { text: '📊 上月', callback_data: 'my:lastmonth' },
+            { text: '🗓 本周', callback_data: 'my:week' }
+          ]
+        ]
+      };
+      
+      // 使用 editMessageText 更新消息
+      await editMessageText(chatId, cq.message.message_id, msg, { reply_markup: keyboard })
+      await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:') && (!st || st.flow !== 'record')) {
@@ -776,14 +820,14 @@ export async function handleCallback(update, req, res) {
       const grp = data.split(':').pop()
       const groupLabel = grp === 'A' ? '生活开销' : grp === 'B' ? '学习投资' : '储蓄投资'
       await setState(userId, 'record', 'choose_category', { group: grp, groupLabel })
-      await sendTelegramMessage(chatId, formatTemplate(zh.record.choose_category, { group: groupLabel }), { reply_markup: categoryKeyboard(grp) })
+      await sendTelegramMessage(chatId, formatTemplate(messages.record.choose_category, { group: groupLabel }), { reply_markup: categoryKeyboard(grp) })
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:cat:')) {
       const cat = data.split(':').pop()
       const payload = { ...(st.payload || {}), category: cat, group: (st.payload||{}).group, groupLabel: (st.payload||{}).groupLabel }
       await setState(userId, 'record', 'amount', payload)
-      await sendTelegramMessage(chatId, zh.record.amount_prompt)
+      await sendTelegramMessage(chatId, messages.record.amount_prompt)
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:confirm') {
@@ -797,17 +841,17 @@ export async function handleCallback(update, req, res) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ userId: userId, category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) })
       })
-      if (!resp.ok) { await sendTelegramMessage(chatId, zh.record.save_failed); return res.status(200).json({ ok: true }) }
+      if (!resp.ok) { await sendTelegramMessage(chatId, messages.record.save_failed); return res.status(200).json({ ok: true }) }
       await clearState(userId)
       await sendTelegramMessage(chatId,
-        formatTemplate(zh.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }),
-        { reply_markup: { inline_keyboard: [[{ text: zh.post.again, callback_data: 'rec:again' }, { text: zh.post.my, callback_data: 'my:month' }]] } }
+        formatTemplate(messages.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }),
+        { reply_markup: { inline_keyboard: [[{ text: messages.post.again, callback_data: 'rec:again' }, { text: messages.post.my, callback_data: 'my:month' }]] } }
       )
       return res.status(200).json({ ok: true })
     }
     if (data === 'rec:cancel') {
       await clearState(userId)
-      await sendTelegramMessage(chatId, zh.record.canceled)
+      await sendTelegramMessage(chatId, messages.record.canceled)
       return res.status(200).json({ ok: true })
     }
 
@@ -838,9 +882,20 @@ export async function handleCallback(update, req, res) {
       await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0, epf_pct: 24 })
       await clearState(userId)
       const cPct = Math.max(0, 100 - (payload.a_pct || 0) - (payload.b_pct || 0))
-      await sendTelegramMessage(chatId, formatTemplate(zh.registration.success, { budgetA: payload.a_pct||0, budgetB: payload.b_pct||0, budgetC: cPct, branch: code }))
+      await sendTelegramMessage(chatId, formatTemplate(messages.registration.success, { budgetA: payload.a_pct||0, budgetB: payload.b_pct||0, budgetC: cPct, branch: code }))
       return res.status(200).json({ ok: true })
     }
+    
+    // SETTINGS flow: branch selection (when called from settings)
+    if (data.startsWith('set:branch:')) {
+      const code = data.split(':').pop().toUpperCase()
+      // 直接更新分行信息
+      await supabase.from('users').upsert({ id: userId, branch_code: code }, { onConflict: 'id' })
+      // 显示更新后的设置摘要
+      await showUpdatedSettingsSummary(chatId, userId)
+      return res.status(200).json({ ok: true })
+    }
+    
     if (data.startsWith('hist:view:')) {
       const recordId = data.split(':').pop()
       await answerCallbackQuery(update.callback_query.id, '📋 查看记录详情')
@@ -852,10 +907,96 @@ export async function handleCallback(update, req, res) {
       await answerCallbackQuery(update.callback_query.id, '🔒 此记录由系统自动生成，不可编辑。如需调整，请在设置中修改相关配置。')
       return res.status(200).json({ ok: true })
     }
+
+    if (data.startsWith('history:')) {
+      const range = data.split(':')[1] || 'month'
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/records/list?userId=${userId}&range=${encodeURIComponent(range)}&page=1&pageSize=10`)
+      const payload = await r.json()
+      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      
+      const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
+      const catLabel = (g, code) => {
+        const arr = GROUP_CATEGORIES[g] || []
+        const found = arr.find(([c]) => c === code)
+        return found ? found[1] : code
+      }
+      const list = (payload.rows || []).map(row => `${row.ymd} · ${grpName(row.category_group)}/${catLabel(row.category_group, row.category_code)} · RM ${Number(row.amount).toFixed(2)}${row.note ? ` · ${row.note}` : ''}`).join('\n') || messages.history.noRecords
+      const prev = Math.max(1, (payload.page || 1) - 1)
+      const next = Math.min(payload.pages || 1, (payload.page || 1) + 1)
+      const rowsKb = (payload.rows || []).map(row => generateHistoryButtons(row, grpName, catLabel))
+      const kb = { inline_keyboard: [
+        ...rowsKb,
+        [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ],
+        [
+          { text: '📅 本月', callback_data: 'history:month' },
+          { text: '📊 上月', callback_data: 'history:lastmonth' },
+          { text: '🗓 本周', callback_data: 'history:week' }
+        ]
+      ] }
+      
+      // 使用 editMessageText 更新消息
+      await editMessageText(chatId, cq.message.message_id, `${messages.history.listHeader.replace('{range}', range)}\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
+      await answerCallbackQuery(cq.id);
+      return res.status(200).json({ ok: true })
+    }
     return res.status(200).json({ ok: true })
   } catch (e) {
     console.error(e)
     return res.status(200).json({ ok: true })
+  }
+}
+
+
+// 显示更新后的设置摘要和继续修改选项
+async function showUpdatedSettingsSummary(chatId, userId) {
+  try {
+    // 获取最新的用户资料
+    const { data: prof } = await supabase
+      .from('user_profile')
+      .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
+      .eq('user_id', userId)
+      .maybeSingle()
+    
+    const { data: urow } = await supabase
+      .from('users')
+      .select('branch_code')
+      .eq('id', userId)
+      .maybeSingle()
+    
+    // 显示更新后的摘要
+    const sumText = formatTemplate(messages.settings.summary, {
+      nickname: prof?.display_name || '-',
+      phone: prof?.phone_e164 || '-',
+      income: (Number(prof?.monthly_income || 0)).toFixed(2),
+      a_pct: Number(prof?.a_pct || 0).toFixed(2),
+      b_pct: Number(prof?.b_pct || 0).toFixed(2),
+      travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
+      ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
+      ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
+      branch: (urow?.branch_code || '-')
+    })
+    
+    // 提供继续修改的选项
+    const kb = { inline_keyboard: [
+      [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
+      [ { text: messages.settings.fields.income, callback_data: 'set:income' }, { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
+      [ { text: messages.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
+      [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
+      [ { text: messages.settings.fields.branch, callback_data: 'set:branch' } ],
+      [ { text: '✅ 完成设置', callback_data: 'set:done' } ]
+    ] }
+    
+    await sendTelegramMessage(chatId, `✅ 已更新！\n\n${sumText}\n\n${messages.settings.choose}`, { reply_markup: kb })
+    
+    // 重置状态为选择模式，让用户可以继续修改
+    await setState(userId, 'settings', 'choose', {})
+  } catch (error) {
+    console.error('Error showing updated settings summary:', error)
+    // 如果出错，回退到原来的行为
+    await clearState(userId)
+    await sendTelegramMessage(chatId, messages.settings.updated)
   }
 }
 
