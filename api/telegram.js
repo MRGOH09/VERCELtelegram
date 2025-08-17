@@ -250,6 +250,13 @@ export default async function handler(req, res) {
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
@@ -661,6 +668,13 @@ export async function handleCallback(update, req, res) {
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
@@ -804,6 +818,13 @@ export async function handleCallback(update, req, res) {
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
@@ -847,6 +868,13 @@ export async function handleCallback(update, req, res) {
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
@@ -1113,6 +1141,13 @@ export async function handleCallback(update, req, res) {
       
       const grpName = (g) => g === 'A' ? '开销' : g === 'B' ? '学习' : '储蓄'
       const catLabel = (g, code) => {
+        // 先检查是否为自动生成的分类代码
+        if (code === 'ins_med_auto') return '医疗保险（月）'
+        if (code === 'ins_car_auto') return '车险（月）'
+        if (code === 'epf_auto') return 'EPF（月）'
+        if (code === 'travel_auto') return '旅游基金（月）'
+        
+        // 然后检查常规分类
         const arr = GROUP_CATEGORIES[g] || []
         const found = arr.find(([c]) => c === code)
         return found ? found[1] : code
