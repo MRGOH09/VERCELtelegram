@@ -63,6 +63,31 @@ export default async function handler(req, res) {
     
     if (summaryError) throw summaryError
     
+    // 获取分类明细数据
+    const { data: categoryDetails, error: categoryError } = await supabase
+      .from('records')
+      .select('category_group,category_code,amount')
+      .eq('user_id', userId)
+      .gte('ymd', startDate)
+      .lte('ymd', endDate)
+      .eq('is_voided', false)
+      .not('category_code', 'like', '%_auto')  // 过滤掉自动生成的记录
+    
+    if (categoryError) throw categoryError
+    
+    // 计算分类明细
+    const categoryBreakdown = categoryDetails.reduce((acc, record) => {
+      const group = record.category_group
+      const code = record.category_code
+      const amount = Number(record.amount || 0)
+      
+      if (!acc[group]) acc[group] = {}
+      if (!acc[group][code]) acc[group][code] = 0
+      acc[group][code] += amount
+      
+      return acc
+    }, {})
+    
     const totals = summary.reduce((acc, row) => ({
       a: acc.a + Number(row.sum_a || 0),
       b: acc.b + Number(row.sum_b || 0),
@@ -92,6 +117,10 @@ export default async function handler(req, res) {
     // 旅游基金月额
     const travelMonthly = income > 0 ? (Number(profLive?.travel_budget_annual || 0) / 12) : 0
     
+    // 保险月额计算
+    const medicalMonthly = income > 0 ? (Number(profLive?.annual_medical_insurance || 0) / 12) : 0
+    const carInsuranceMonthly = income > 0 ? (Number(profLive?.annual_car_insurance || 0) / 12) : 0
+    
     return res.status(200).json({
       ok: true,
       range,
@@ -120,7 +149,9 @@ export default async function handler(req, res) {
         cap_b: capB,
         cap_c: capC,
         epf,
-        travelMonthly
+        travelMonthly,
+        medicalMonthly,
+        carInsuranceMonthly
       },
       display: {
         a: totals.a.toFixed(2),
@@ -128,7 +159,8 @@ export default async function handler(req, res) {
         c_residual: (totals.c + epf).toFixed(2)
       },
       a_gap: aGap,
-      a_gap_line: aGapLine
+      a_gap_line: aGapLine,
+      categoryBreakdown
     })
   } catch (e) {
     console.error('API Error:', e)
