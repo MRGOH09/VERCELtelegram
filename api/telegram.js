@@ -58,6 +58,15 @@ async function tryPostMonthlyAlloc(userId, group, category, amount) {
   try {
     const today = new Date()
     const ymd = `${today.toISOString().slice(0,7)}-01`
+    
+    // 获取用户当月预算快照中的 epf_pct，fallback 到 profile
+    const [budgetResult, profileResult] = await Promise.all([
+      supabase.from('user_month_budget').select('epf_pct').eq('user_id', userId).eq('yyyymm', ymd).maybeSingle(),
+      supabase.from('user_profile').select('epf_pct').eq('user_id', userId).maybeSingle()
+    ])
+    
+    const epfPct = Number(budgetResult?.data?.epf_pct || profileResult?.data?.epf_pct || 24)
+    
     // 幂等：同月同类别存在则跳过（严格检查 ymd+category_code）
     const { data: exist } = await supabase
       .from('records')
@@ -67,10 +76,20 @@ async function tryPostMonthlyAlloc(userId, group, category, amount) {
       .eq('category_code', category)
       .eq('is_voided', false)
       .maybeSingle()
+    
     if (!exist) {
-      await supabase.from('records').insert([{ user_id: userId, category_group: group, category_code: category, amount, note: 'Auto-post', ymd }])
+      await supabase.from('records').insert([{ 
+        user_id: userId, 
+        category_group: group, 
+        category_code: category, 
+        amount, 
+        note: 'Auto-post', 
+        ymd 
+      }])
     }
-  } catch {}
+  } catch (error) {
+    console.error('tryPostMonthlyAlloc error:', error)
+  }
 }
 
 export default async function handler(req, res) {
@@ -322,7 +341,14 @@ export default async function handler(req, res) {
 
       // 写当月快照
       const yyyymm = new Date().toISOString().slice(0,7)
-      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income, a_pct: aPct, b_pct: bPct })
+      await supabase.from('user_month_budget').upsert({ 
+        user_id: userId, 
+        yyyymm, 
+        income, 
+        a_pct: aPct, 
+        b_pct: bPct,
+        epf_pct: 24 // 默认 EPF 百分比
+      })
       await sendTelegramMessage(chatId, zh.start_saved)
       return res.status(200).json({ ok: true })
     }
@@ -658,7 +684,7 @@ export async function handleCallback(update, req, res) {
       if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, zh.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_med') { await setState(userId, 'settings', 'edit_ins_med', {}); await sendTelegramMessage(chatId, '请输入年度医疗保险金额（RM），例如 1200'); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_car') { await setState(userId, 'settings', 'edit_ins_car', {}); await sendTelegramMessage(chatId, '请输入年度车险金额（RM），例如 2400'); return res.status(200).json({ ok: true }) }
-      if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'branch', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
+      if (data === 'set:branch') { await sendTelegramMessage(chatId, zh.registration.branch.prompt, { reply_markup: branchKeyboard() }); await setState(userId, 'start', 'start', { ...(st.payload||{}) }); return res.status(200).json({ ok: true }) }
     }
     if (data.startsWith('my:')) {
       const range = data.split(':')[1] || 'month'
@@ -760,7 +786,7 @@ export async function handleCallback(update, req, res) {
         prev_month_spend_pct: payload.prev_month_spend_pct || null
       })
       const yyyymm = new Date().toISOString().slice(0,7)
-      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0 })
+      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0, epf_pct: 24 })
       await clearState(userId)
       const cPct = Math.max(0, 100 - (payload.a_pct || 0) - (payload.b_pct || 0))
       await sendTelegramMessage(chatId, formatTemplate(zh.registration.success, { budgetA: payload.a_pct||0, budgetB: payload.b_pct||0, budgetC: cPct, branch: code }))

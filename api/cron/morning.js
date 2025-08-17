@@ -7,8 +7,6 @@ import { formatTemplate } from '../../lib/helpers.js'
 export default async function handler(req, res) {
   try {
     const nowYmd = todayYMD()
-    // Free 方案：在早间任务中顺带做断签
-    await breakStreaksOneShot()
     // 每月 1 号自动入账月度分摊（旅行/医疗/车险），幂等
     const d = new Date()
     if (d.getDate() === 1) {

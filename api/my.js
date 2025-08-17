@@ -1,128 +1,138 @@
 import supabase from '../lib/supabase.js'
 import { format } from 'date-fns'
-import { getYYYYMM } from '../lib/helpers.js'
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, error: 'Method not allowed' })
+  
   try {
-    const userId = String(req.query.userId || '')
-    const range = String(req.query.range || 'month')
-    if (!userId) return res.status(400).json({ error: 'userId required' })
-
+    const { userId, range = 'month' } = req.query
+    if (!userId) return res.status(400).json({ ok: false, error: 'userId required' })
+    
     const today = new Date()
-    const ymd = format(today, 'yyyy-MM-dd')
-    const yyyyMM = getYYYYMM(today)
-    // Live mode: derive caps from current profile (no snapshot locking)
-    const { data: profLive, error: profLiveErr } = await supabase
-      .from('user_profile')
-      .select('monthly_income,a_pct,b_pct,travel_budget_annual')
-      .eq('user_id', userId)
-      .maybeSingle()
-    if (profLiveErr) throw profLiveErr
-    const income = Number(profLive?.monthly_income || 0)
-    const aPct = Number(profLive?.a_pct || 0)
-    const bPct = Number(profLive?.b_pct || 0)
+    let startDate, endDate, yyyyMM
+    
+    switch (range) {
+      case 'today':
+        startDate = endDate = format(today, 'yyyy-MM-dd')
+        yyyyMM = format(today, 'yyyy-MM')
+        break
+      case 'month':
+        startDate = format(today, 'yyyy-MM-01')
+        endDate = format(today, 'yyyy-MM-dd')
+        yyyyMM = format(today, 'yyyy-MM')
+        break
+      case 'lastmonth':
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+        startDate = format(lastMonth, 'yyyy-MM-01')
+        endDate = format(new Date(today.getFullYear(), today.getMonth(), 0), 'yyyy-MM-dd')
+        yyyyMM = format(lastMonth, 'yyyy-MM')
+        break
+      default:
+        return res.status(400).json({ ok: false, error: 'Invalid range' })
+    }
+    
+    // 获取用户资料和当月预算快照
+    const [profileResult, budgetResult] = await Promise.all([
+      supabase.from('user_profile').select('monthly_income,a_pct,b_pct,epf_pct').eq('user_id', userId).maybeSingle(),
+      supabase.from('user_month_budget').select('income,a_pct,b_pct,epf_amount').eq('user_id', userId).eq('yyyymm', yyyyMM).maybeSingle()
+    ])
+    
+    if (profileResult.error) throw profileResult.error
+    if (budgetResult.error) throw budgetResult.error
+    
+    const profLive = profileResult.data
+    const budget = budgetResult.data
+    
+    // 优先使用预算快照，fallback 到 profile
+    const income = Number(budget?.income || profLive?.monthly_income || 0)
+    const aPct = Number(budget?.a_pct || profLive?.a_pct || 0)
+    const bPct = Number(budget?.b_pct || profLive?.b_pct || 0)
     const cPct = Math.max(0, 100 - aPct - bPct)
+    
+    // EPF 计算：优先读取预算快照的 epf_amount，fallback 到 profile 的 epf_pct
+    const epfPct = Number(budget?.epf_pct || profLive?.epf_pct || 24)
+    const epf = Number(budget?.epf_amount || income * epfPct / 100)
+    
+    // 获取汇总数据
+    const { data: summary, error: summaryError } = await supabase
+      .from('daily_summary')
+      .select('sum_a,sum_b,sum_c')
+      .eq('user_id', userId)
+      .gte('ymd', startDate)
+      .lte('ymd', endDate)
+    
+    if (summaryError) throw summaryError
+    
+    const totals = summary.reduce((acc, row) => ({
+      a: acc.a + Number(row.sum_a || 0),
+      b: acc.b + Number(row.sum_b || 0),
+      c: acc.c + Number(row.sum_c || 0)
+    }), { a: 0, b: 0, c: 0 })
+    
+    // 计算目标金额
     const capA = income * aPct / 100
     const capB = income * bPct / 100
     const capC = income * cPct / 100
-    const epfPct = Number(profLive?.epf_pct || 24)
-    const epf = income * epfPct / 100
-    const travelMonthlyNum = Number(profLive?.travel_budget_annual || 0) / 12
-
-    // aggregate
-    let startDate, endDate
-    if (range === 'today') {
-      startDate = ymd; endDate = ymd
-    } else if (range === 'week') {
-      const d = new Date(today)
-      const day = d.getDay() || 7
-      d.setDate(d.getDate() - day + 1) // Monday
-      startDate = format(d, 'yyyy-MM-dd')
-      endDate = ymd
-    } else if (range === 'lastmonth') {
-      const firstPrev = new Date(today)
-      firstPrev.setDate(1)
-      firstPrev.setMonth(firstPrev.getMonth() - 1)
-      const lastPrev = new Date(firstPrev)
-      lastPrev.setMonth(firstPrev.getMonth() + 1)
-      lastPrev.setDate(0)
-      startDate = format(firstPrev, 'yyyy-MM-dd')
-      endDate = format(lastPrev, 'yyyy-MM-dd')
-    } else {
-      const d = new Date(today)
-      d.setDate(1)
-      startDate = format(d, 'yyyy-MM-dd')
-      endDate = ymd
-    }
-
-    const { data: dsum, error: dErr } = await supabase
-      .from('daily_summary')
-      .select('sum_a,sum_b,sum_c')
-      .gte('ymd', startDate)
-      .lte('ymd', endDate)
-      .eq('user_id', userId)
-
-    if (dErr) throw dErr
-    const totals = (dsum || []).reduce((acc, r) => {
-      acc.a += Number(r.sum_a || 0)
-      acc.b += Number(r.sum_b || 0)
-      acc.c += Number(r.sum_c || 0)
-      return acc
-    }, { a: 0, b: 0, c: 0 })
-
-    const { data: mtdData, error: mtdErr } = await supabase
-      .from('daily_summary')
-      .select('sum_a,sum_b,sum_c')
-      .gte('ymd', `${yyyyMM}-01`)
-      .lte('ymd', endDate)
-      .eq('user_id', userId)
-    if (mtdErr) throw mtdErr
-    const mtd = mtdData || []
-
-    const mtdTotals = mtd.reduce((acc, r) => {
-      acc.a += Number(r.sum_a || 0)
-      acc.b += Number(r.sum_b || 0)
-      acc.c += Number(r.sum_c || 0)
-      return acc
-    }, { a: 0, b: 0, c: 0 })
-
-    // Realtime ratios against income
-    const denom = income > 0 ? income : 0
-    const ra = denom > 0 ? Math.round((mtdTotals.a / denom) * 100) : null
-    const rb = denom > 0 ? Math.round(((mtdTotals.b + travelMonthlyNum) / denom) * 100) : null
-    // 储蓄实时占比 = 100 - 开销实时% - 学习实时%（余额自动算入储蓄）
-    const rc = denom > 0 ? Math.max(0, 100 - (ra || 0) - (rb || 0)) : null
-    const aProgress = capA > 0 ? Math.min(100, Math.round((mtdTotals.a / capA) * 100)) : 0
-    const bProgress = capB > 0 ? Math.min(100, Math.round(((mtdTotals.b + travelMonthlyNum) / capB) * 100)) : 0
-    const cProgress = capC > 0 ? Math.min(100, Math.round(((mtdTotals.c + epf) / capC) * 100)) : 0
-
+    
+    // 计算进度百分比
+    const progressA = capA > 0 ? Math.round((totals.a / capA) * 100) : 0
+    const progressB = capB > 0 ? Math.round((totals.b / capB) * 100) : 0
+    const progressC = capC > 0 ? Math.round(((totals.c + epf) / capC) * 100) : 0
+    
+    // 实时占比计算（储蓄包含 EPF）
+    const totalSpent = totals.a + totals.b + totals.c
+    const realtimeA = income > 0 ? Math.round((totals.a / income) * 100) : 0
+    const realtimeB = income > 0 ? Math.round((totals.b / income) * 100) : 0
+    const realtimeC = income > 0 ? Math.max(0, 100 - realtimeA - realtimeB) : 0
+    
+    // 开销额度计算
+    const aGap = capA - totals.a
+    const aGapLine = aGap >= 0 ? `剩余额度 RM ${aGap.toFixed(2)}` : `已超出 RM ${Math.abs(aGap).toFixed(2)}`
+    
+    // 旅游基金月额
+    const travelMonthly = income > 0 ? (Number(profLive?.travel_budget_annual || 0) / 12) : 0
+    
     return res.status(200).json({
+      ok: true,
       range,
-      totals,
-      snapshot: null,
-      progress: { a: aProgress, b: bProgress, c: cProgress },
-      display: {
-        a: Number(totals.a || 0).toFixed(2),
-        b: Number(totals.b || 0).toFixed(2),
-        c_residual: denom > 0 && rc != null ? (income * (rc / 100)).toFixed(2) : '0.00'
+      totals: {
+        a: totals.a,
+        b: totals.b,
+        c: totals.c,
+        total: totalSpent
       },
-      realtime: { a: ra, b: rb, c: rc },
+      progress: {
+        a: progressA,
+        b: progressB,
+        c: progressC
+      },
+      realtime: {
+        a: realtimeA,
+        b: realtimeB,
+        c: realtimeC
+      },
       snapshotView: {
-        income: income.toFixed(2),
-        a_pct: aPct.toFixed(2),
-        b_pct: bPct.toFixed(2),
-        c_pct: cPct.toFixed(2),
-        cap_a: capA.toFixed(2),
-        cap_b: capB.toFixed(2),
-        cap_c: capC.toFixed(2),
-        epf: epf.toFixed(2),
-        travelMonthly: Number(travelMonthlyNum || 0).toFixed(2)
-      }
+        income,
+        a_pct: aPct,
+        b_pct: bPct,
+        c_pct: cPct,
+        cap_a: capA,
+        cap_b: capB,
+        cap_c: capC,
+        epf,
+        travelMonthly
+      },
+      display: {
+        a: totals.a.toFixed(2),
+        b: totals.b.toFixed(2),
+        c_residual: (totals.c + epf).toFixed(2)
+      },
+      a_gap: aGap,
+      a_gap_line: aGapLine
     })
   } catch (e) {
-    console.error(e)
-    return res.status(500).json({ error: 'Internal error', detail: String(e.message || e) })
+    console.error('API Error:', e)
+    return res.status(500).json({ ok: false, error: String(e.message || e) })
   }
 }
 

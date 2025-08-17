@@ -14,7 +14,12 @@
 - DEFAULT_CURRENCY（默认：MYR）
 - APP_TZ_OFFSET_MINUTES（默认 480=UTC+8）
 - ADMIN_TG_IDS（逗号分隔 Telegram 数字 ID，用于 /broadcast 鉴权）
+
+性能优化配置：
+
 - MAX_SEND_PER_RUN（每次 Cron 最大推送条数，默认 120）
+- BATCH_SIZE（批量发送批次大小，默认 25）
+- BATCH_SLEEP_MS（批次间延迟毫秒，默认 1100）
 
 2) 安装依赖（Node 18+）
 
@@ -42,9 +47,11 @@ curl -s "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
 
 5) 数据库：将 `sql/schema.sql` 执行到 Supabase（或分步执行 `sql/migrations/*`）。若启用按钮状态机，请额外执行 `sql/migrations/2025-08-10-user-state.sql` 创建 `user_state` 表。
 
+**重要**：执行最新的性能优化迁移 `sql/migrations/2025-08-14-optimization-fixes.sql` 以修复排行榜幂等性和 EPF 计算问题。
+
 6) 首次使用：
 
-- 发送 `/start` 给机器人注册（一次性填写“收入/A%/B%/旅游年额/上月开销/分行”）。
+- 发送 `/start` 给机器人注册（一次性填写"收入/A%/B%/旅游年额/上月开销/分行"）。
 - 发送 `/record`（按钮式：选择 A/B/C → 分类 → 金额 → 备注 → 预览 → 确认）。
 - 发送 `/my month` 查看月度统计与目标进度。
 
@@ -76,6 +83,14 @@ Free（2 条 Cron）示例（合并 20:00 与 20:30；合并 03:00 与 10:00）�
 
 说明：
 - Free 方案可在 `reminder` 内先发提醒后调用 `/api/cron/daily-report`，或用外部调度调用两个端点。
+
+### 性能优化特性
+
+- **批量断签清零**：使用批量 SQL 操作，一次性重置所有断签用户
+- **EPF 计算统一**：优先读取当月预算快照，fallback 到 profile 设置
+- **排行榜幂等性**：`leaderboard_daily` 表唯一约束确保不重复写入
+- **批量发信优化**：汇总所有消息后一次性发送，支持分片和限流
+- **数据库索引优化**：复合索引提升查询性能
 
 ### 环境变量（新增建议）
 

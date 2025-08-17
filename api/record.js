@@ -30,19 +30,19 @@ export default async function handler(req, res) {
       const range = String(req.query.range || 'month')
       const page = parseInt(String(req.query.page || '1'), 10) || 1
       const pageSize = Math.min(10, Math.max(1, parseInt(String(req.query.pageSize || '5'), 10) || 5))
-      if (!userId) return res.status(400).json({ error: 'userId required' })
+      if (!userId) return res.status(400).json({ ok: false, error: 'userId required' })
 
       const today = new Date()
       const ymd = format(today, 'yyyy-MM-dd')
       let startDate, endDate
       if (range === 'today') { startDate = ymd; endDate = ymd }
       else if (range === 'lastmonth') {
-        const firstPrev = new Date(today); firstPrev.setDate(1); firstPrev.setMonth(firstPrev.getMonth() - 1)
+        const firstPrev = new Date(); firstPrev.setDate(1); firstPrev.setMonth(firstPrev.getMonth() - 1)
         const lastPrev = new Date(firstPrev); lastPrev.setMonth(firstPrev.getMonth() + 1); lastPrev.setDate(0)
         startDate = format(firstPrev, 'yyyy-MM-dd')
         endDate = format(lastPrev, 'yyyy-MM-dd')
       } else {
-        const d = new Date(today); d.setDate(1)
+        const d = new Date(); d.setDate(1)
         startDate = format(d, 'yyyy-MM-dd')
         endDate = ymd
       }
@@ -67,11 +67,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const { userId, recordId, amount, note } = req.body || {}
-      if (!userId || !recordId) return res.status(400).json({ error: 'Invalid payload' })
+      if (!userId || !recordId) return res.status(400).json({ ok: false, error: 'Invalid payload' })
       const updates = {}
       if (typeof amount === 'number') updates.amount = amount
       if (typeof note === 'string') updates.note = note
-      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No updates' })
+      if (Object.keys(updates).length === 0) return res.status(400).json({ ok: false, error: 'No updates' })
       const { data: before, error: selErr } = await supabase
         .from('records')
         .select('id,ymd')
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         .eq('is_voided', false)
         .maybeSingle()
       if (selErr) throw selErr
-      if (!before) return res.status(404).json({ error: 'Not found' })
+      if (!before) return res.status(404).json({ ok: false, error: 'Not found' })
       const { data: updated, error: upErr } = await supabase
         .from('records')
         .update(updates)
@@ -95,7 +95,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       const { userId, recordId } = req.query
-      if (!userId || !recordId) return res.status(400).json({ error: 'Invalid payload' })
+      if (!userId || !recordId) return res.status(400).json({ ok: false, error: 'Invalid payload' })
       const { data: before, error: selErr } = await supabase
         .from('records')
         .select('id,ymd')
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
         .eq('is_voided', false)
         .maybeSingle()
       if (selErr) throw selErr
-      if (!before) return res.status(404).json({ error: 'Not found' })
+      if (!before) return res.status(404).json({ ok: false, error: 'Not found' })
       const { error: delErr } = await supabase
         .from('records')
         .update({ is_voided: true })
@@ -123,7 +123,7 @@ export default async function handler(req, res) {
     const { userId, category_group, category_code, amount, note, ymd } = req.body || {}
 
     if (!userId || !['A','B','C'].includes(category_group) || !category_code || typeof amount !== 'number') {
-      return res.status(400).json({ error: 'Invalid payload' })
+      return res.status(400).json({ ok: false, error: 'Invalid payload' })
     }
 
     const recordYmd = ymd || formatYMD(new Date())
@@ -216,8 +216,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, record: inserted })
   } catch (e) {
-    console.error(e)
-    return res.status(500).json({ error: 'Internal error', detail: String(e.message || e) })
+    console.error('Record creation error:', e)
+    return res.status(500).json({ ok: false, error: 'Internal error', detail: String(e.message || e) })
   }
 }
 
