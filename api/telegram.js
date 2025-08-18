@@ -551,7 +551,7 @@ export default async function handler(req, res) {
           travel: Number(snapshotView.travelMonthly || 0).toFixed(2),
           medical: Number(snapshotView.medicalMonthly || 0).toFixed(2),
           car_insurance: Number(snapshotView.carInsuranceMonthly || 0).toFixed(2),
-          category_details: formatCategoryDetails(categoryBreakdown, Number(snapshotView.income || 0), Number(snapshotView.epf || 0))
+          category_details: formatCategoryDetails(categoryBreakdown, Number(snapshotView.income || 0), Number(snapshotView.epf || 0), Number(data.balance || 0))
         }
         
         console.log('模板参数:', templateParams)
