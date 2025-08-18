@@ -488,7 +488,9 @@ export default async function handler(req, res) {
         ]
       };
       
-      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', '📊 本月统计'), { reply_markup: keyboard })
+      // 生成具体的月份标题
+      const monthTitle = generateMonthTitle('month')
+      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', monthTitle), { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
     }
 
