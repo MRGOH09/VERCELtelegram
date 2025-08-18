@@ -1789,7 +1789,7 @@ export async function handleCallback(update, req, res) {
       await supabase.from('users').upsert({ id: userId, branch_code: code }, { onConflict: 'id' })
       await supabase.from('user_profile').upsert({
         user_id: userId,
-        display_name: payload.nickname || update.callback_query?.from?.first_name || update.callback_query?.from?.username || 'user',
+        display_name: payload.nickname || '用户', // 只使用用户输入或默认值，不用 Telegram 信息
         chat_id: chatId,
         phone_e164: payload.phone_e164 || null,
         monthly_income: payload.income || 0,
