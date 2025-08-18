@@ -75,7 +75,7 @@ const BRANCH_CODES = [
 ]
 
 // 格式化分类明细
-function formatCategoryDetails(categoryBreakdown) {
+function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0) {
   if (!categoryBreakdown || Object.keys(categoryBreakdown).length === 0) {
     return '（暂无记录）'
   }
@@ -95,32 +95,59 @@ function formatCategoryDetails(categoryBreakdown) {
     groupTotals[group] = Object.values(categories).reduce((sum, amount) => sum + Number(amount), 0)
   }
   
-  // 计算所有开销的总金额（用于计算百分比）
-  const totalSpending = groupTotals['A'] || 0
+  // 计算三个组的总金额
+  const totalAllGroups = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
     const groupTotal = groupTotals[group] || 0
     
-    // 计算组占总开销的百分比
+    // 计算组占月收入的百分比（基于月收入）
     let groupPercentage = ''
-    if (group === 'A' && totalSpending > 0) {
-      groupPercentage = `（${((groupTotal / totalSpending) * 100).toFixed(1)}%）`
+    if (monthlyIncome > 0) {
+      groupPercentage = `（${((groupTotal / monthlyIncome) * 100).toFixed(1)}%）`
     }
     
     result += `\n${groupLabel}${groupPercentage}：\n`
     
-    // 计算每个分类占该组的百分比
+    // 计算每个分类占月收入的百分比（基于月收入）
     for (const [code, amount] of Object.entries(categories)) {
       const categoryLabel = categoryLabels[group]?.[code] || code
       const categoryAmount = Number(amount)
-      const categoryPercentage = groupTotal > 0 ? ((categoryAmount / groupTotal) * 100).toFixed(1) : '0.0'
+      const categoryPercentage = monthlyIncome > 0 ? ((categoryAmount / monthlyIncome) * 100).toFixed(1) : '0.0'
       
       result += `  • ${categoryLabel}（${categoryPercentage}%）：RM ${categoryAmount.toFixed(2)}\n`
     }
   }
   
+  // 添加总计信息
+  if (monthlyIncome > 0) {
+    const totalPercentage = ((totalAllGroups / monthlyIncome) * 100).toFixed(1)
+    result += `\n📊 总计：RM ${totalAllGroups.toFixed(2)}（${totalPercentage}% 月收入）`
+  }
+  
   return result.trim()
+}
+
+// 格式化实时开销占比显示
+function formatRealtimePercentages(realtimeData) {
+  const ra = realtimeData?.a == null ? 'N/A' : `${realtimeData.a}%`
+  const rb = realtimeData?.b == null ? 'N/A' : `${realtimeData.b}%`
+  const rc = realtimeData?.c == null ? 'N/A' : `${realtimeData.c}%`
+  return { ra, rb, rc }
+}
+
+// 格式化预算额度剩余显示
+function formatBudgetGap(capA, totalA) {
+  const aGap = (Number(capA) - Number(totalA)).toFixed(2)
+  const aGapAmount = Number(aGap)
+  const aGapPercentage = capA > 0 ? ((aGapAmount / capA) * 100).toFixed(1) : '0.0'
+  
+  if (aGapAmount >= 0) {
+    return `剩余额度 RM ${aGap} (${aGapPercentage}%)`
+  } else {
+    return `已超出 RM ${Math.abs(aGapAmount).toFixed(2)} (${Math.abs(aGapAmount / capA * 100).toFixed(1)}%)`
+  }
 }
 
 function groupKeyboard() {
@@ -415,12 +442,9 @@ export default async function handler(req, res) {
       const b = data.progress?.b ?? 0
       const c = data.progress?.c ?? 0
       const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
-      const ra = data.realtime?.a == null ? 'N/A' : data.realtime.a
-      const rb = data.realtime?.b == null ? 'N/A' : data.realtime.b
-      const rc = data.realtime?.c == null ? 'N/A' : data.realtime.c
-      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(data.snapshotView.a_pct)).toFixed(0)
-      const aGap = (Number(data.snapshotView.cap_a) - Number(data.totals.a)).toFixed(2)
-      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      const { ra, rb, rc } = formatRealtimePercentages(data.realtime)
+      const da = data.realtime?.a == null ? 'N/A' : (Number(data.realtime.a) - Number(data.snapshotView.a_pct)).toFixed(0)
+      const aGapLine = formatBudgetGap(data.snapshotView.cap_a, data.totals.a)
       const msg = formatTemplate(messages.my.summary, {
         range: 'month',
         a: data.display?.a || data.totals.a.toFixed(2),
@@ -438,7 +462,7 @@ export default async function handler(req, res) {
         travel: Number(data.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(data.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(data.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(data.categoryBreakdown)
+        category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income)
       })
       
       // 添加时间段选择按钮
@@ -1288,7 +1312,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
       })
       
       // 根据时间范围替换标题
@@ -1340,7 +1364,7 @@ export async function handleCallback(update, req, res) {
         travel: myData.snapshotView.travelMonthly,
         medical: myData.snapshotView.medicalMonthly,
         car_insurance: myData.snapshotView.carInsuranceMonthly,
-        category_details: formatCategoryDetails(myData.categoryBreakdown)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
       })
       
       // 根据时间范围替换标题
@@ -1396,7 +1420,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
       })
       
       // 根据时间范围替换标题
