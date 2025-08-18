@@ -75,7 +75,7 @@ const BRANCH_CODES = [
 ]
 
 // 格式化分类明细
-function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0) {
+function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, balance = 0) {
   if (!categoryBreakdown || Object.keys(categoryBreakdown).length === 0) {
     return '（暂无记录）'
   }
@@ -129,6 +129,12 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0) {
     if (group === 'C' && epf > 0) {
       const epfPercentage = monthlyIncome > 0 ? ((epf / monthlyIncome) * 100).toFixed(1) : '0.0'
       result += `  • EPF（月）（${epfPercentage}%）：RM ${epf.toFixed(2)}\n`
+    }
+    
+    // 如果是储蓄组且有余额，添加余额信息
+    if (group === 'C' && data.balance > 0) {
+      const balancePercentage = monthlyIncome > 0 ? ((data.balance / monthlyIncome) * 100).toFixed(1) : '0.0'
+      result += `  • 余额（${balancePercentage}%）：RM ${data.balance.toFixed(2)}\n`
     }
   }
   
@@ -1412,7 +1418,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf, Number(myData.balance || 0))
       })
       
       // 根据时间范围替换标题
@@ -1464,7 +1470,7 @@ export async function handleCallback(update, req, res) {
         travel: myData.snapshotView.travelMonthly,
         medical: myData.snapshotView.medicalMonthly,
         car_insurance: myData.snapshotView.carInsuranceMonthly,
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf, Number(myData.balance || 0))
       })
       
       // 根据时间范围替换标题
@@ -1520,7 +1526,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf, Number(myData.balance || 0))
       })
       
       // 根据时间范围替换标题

@@ -116,12 +116,17 @@ export default async function handler(req, res) {
     const progressB = capB > 0 ? Math.round((totals.b / capB) * 100) : 0
     const progressC = capC > 0 ? Math.round(((totals.c + epf) / capC) * 100) : 0
     
-    // 实时占比计算（储蓄包含 EPF）
+    // 计算余额（月收入扣除所有开销后的剩余）
     const totalSpent = totals.a + totals.b + totals.c
-    const totalWithEPF = totals.a + totals.b + totals.c + epf
+    const balance = Math.max(0, income - totalSpent - epf) // 余额 = 月收入 - 已开销 - EPF
+    
+    // 实时占比计算（储蓄包含 EPF + 余额）
     const realtimeA = income > 0 ? Math.round((totals.a / income) * 100) : 0
     const realtimeB = income > 0 ? Math.round((totals.b / income) * 100) : 0
-    const realtimeC = income > 0 ? Math.round(((totals.c + epf) / income) * 100) : 0
+    const realtimeC = income > 0 ? Math.round(((totals.c + epf + balance) / income) * 100) : 0
+    
+    // 储蓄总额（包含 EPF + 余额）
+    const totalSavings = totals.c + epf + balance
     
     // 开销额度计算
     const aGap = capA - totals.a
@@ -169,8 +174,10 @@ export default async function handler(req, res) {
       display: {
         a: totals.a.toFixed(2),
         b: totals.b.toFixed(2),
-        c_residual: (totals.c + epf).toFixed(2)
+        c_residual: (totals.c + epf + balance).toFixed(2)
       },
+      balance: balance.toFixed(2),
+      totalSavings: totalSavings.toFixed(2),
       a_gap: aGap,
       a_gap_line: aGapLine,
       categoryBreakdown
