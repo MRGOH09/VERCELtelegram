@@ -89,39 +89,42 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
   
   let result = ''
   
-  // 计算各组总金额
+  // 计算各组总金额（不包含EPF和余额）
   const groupTotals = {}
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     groupTotals[group] = Object.values(categories).reduce((sum, amount) => sum + Number(amount), 0)
   }
   
-  // 将EPF添加到储蓄组
+  // 计算实际总开销（A + B + C）
+  const actualTotalSpent = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
+  
+  // 计算储蓄组最终总额（包含EPF和余额）
+  let finalSavingsTotal = groupTotals['C'] || 0
   if (epf > 0) {
-    if (!groupTotals['C']) groupTotals['C'] = 0
-    groupTotals['C'] += epf
+    finalSavingsTotal += epf
   }
-  
-  // 将余额添加到储蓄组
   if (balance > 0) {
-    if (!groupTotals['C']) groupTotals['C'] = 0
-    groupTotals['C'] += balance
+    finalSavingsTotal += balance
   }
   
-  // 计算三个组的总金额（包含EPF和余额）
-  const totalAllGroups = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
+  // 重新分配百分比，确保总和为100%
+  const totalPercentage = ((actualTotalSpent + epf + balance) / monthlyIncome) * 100
   
-  // 验证百分比总和是否接近100%，如果超出则调整
-  const totalPercentage = ((totalAllGroups / monthlyIncome) * 100)
-  if (totalPercentage > 100.5) { // 允许0.5%的误差
-    console.log(`警告：总百分比 ${totalPercentage.toFixed(1)}% 超出100%，进行调整`)
+  // 如果总百分比接近100%，则按比例分配
+  if (Math.abs(totalPercentage - 100) < 1) { // 允许1%的误差
+    // 开销组百分比
+    const groupAPercentage = ((groupTotals['A'] || 0) / monthlyIncome) * 100
+    // 学习组百分比  
+    const groupBPercentage = ((groupTotals['B'] || 0) / monthlyIncome) * 100
+    // 储蓄组百分比（包含EPF和余额）
+    const groupCPercentage = 100 - groupAPercentage - groupBPercentage
     
-    // 重新计算储蓄组百分比，确保总和为100%
-    const targetSavingsPercentage = 100 - ((groupTotals['A'] || 0) / monthlyIncome * 100) - ((groupTotals['B'] || 0) / monthlyIncome * 100)
-    const targetSavingsAmount = (targetSavingsPercentage / 100) * monthlyIncome
-    
-    // 调整储蓄组总额
-    groupTotals['C'] = targetSavingsAmount
+    // 更新储蓄组总额以匹配百分比
+    finalSavingsTotal = (groupCPercentage / 100) * monthlyIncome
   }
+  
+  // 更新储蓄组总额
+  groupTotals['C'] = finalSavingsTotal
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
