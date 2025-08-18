@@ -107,24 +107,26 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     finalSavingsTotal += balance
   }
   
-  // 重新分配百分比，确保总和为100%
-  const totalPercentage = ((actualTotalSpent + epf + balance) / monthlyIncome) * 100
+  // 强制重新分配百分比，确保总和为100%
+  // 开销组百分比（固定）
+  const groupAPercentage = ((groupTotals['A'] || 0) / monthlyIncome) * 100
+  // 学习组百分比（固定）
+  const groupBPercentage = ((groupTotals['B'] || 0) / monthlyIncome) * 100
+  // 储蓄组百分比（自动计算，确保总和为100%）
+  const groupCPercentage = Math.max(0, 100 - groupAPercentage - groupBPercentage)
   
-  // 如果总百分比接近100%，则按比例分配
-  if (Math.abs(totalPercentage - 100) < 1) { // 允许1%的误差
-    // 开销组百分比
-    const groupAPercentage = ((groupTotals['A'] || 0) / monthlyIncome) * 100
-    // 学习组百分比  
-    const groupBPercentage = ((groupTotals['B'] || 0) / monthlyIncome) * 100
-    // 储蓄组百分比（包含EPF和余额）
-    const groupCPercentage = 100 - groupAPercentage - groupBPercentage
-    
-    // 更新储蓄组总额以匹配百分比
-    finalSavingsTotal = (groupCPercentage / 100) * monthlyIncome
-  }
+  // 更新储蓄组总额以匹配目标百分比
+  finalSavingsTotal = (groupCPercentage / 100) * monthlyIncome
   
   // 更新储蓄组总额
   groupTotals['C'] = finalSavingsTotal
+  
+  console.log('百分比重新分配:', {
+    groupA: groupAPercentage.toFixed(1) + '%',
+    groupB: groupBPercentage.toFixed(1) + '%', 
+    groupC: groupCPercentage.toFixed(1) + '%',
+    total: (groupAPercentage + groupBPercentage + groupCPercentage).toFixed(1) + '%'
+  })
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
