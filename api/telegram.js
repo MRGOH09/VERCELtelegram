@@ -101,7 +101,13 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     groupTotals['C'] += epf
   }
   
-  // 计算三个组的总金额（包含EPF）
+  // 将余额添加到储蓄组
+  if (balance > 0) {
+    if (!groupTotals['C']) groupTotals['C'] = 0
+    groupTotals['C'] += balance
+  }
+  
+  // 计算三个组的总金额（包含EPF和余额）
   const totalAllGroups = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
@@ -111,7 +117,13 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     // 计算组占月收入的百分比（基于月收入）
     let groupPercentage = ''
     if (monthlyIncome > 0) {
-      groupPercentage = `（${((groupTotal / monthlyIncome) * 100).toFixed(1)}%）`
+      // 对于储蓄组，需要特殊处理，因为包含了 EPF 和余额
+      if (group === 'C') {
+        const savingsTotal = groupTotal // 这里已经包含了 EPF 和余额
+        groupPercentage = `（${((savingsTotal / monthlyIncome) * 100).toFixed(1)}%）`
+      } else {
+        groupPercentage = `（${((groupTotal / monthlyIncome) * 100).toFixed(1)}%）`
+      }
     }
     
     result += `\n${groupLabel}${groupPercentage}：\n`
@@ -132,9 +144,9 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     }
     
     // 如果是储蓄组且有余额，添加余额信息
-    if (group === 'C' && data.balance > 0) {
-      const balancePercentage = monthlyIncome > 0 ? ((data.balance / monthlyIncome) * 100).toFixed(1) : '0.0'
-      result += `  • 余额（${balancePercentage}%）：RM ${data.balance.toFixed(2)}\n`
+    if (group === 'C' && balance > 0) {
+      const balancePercentage = monthlyIncome > 0 ? ((balance / monthlyIncome) * 100).toFixed(1) : '0.0'
+      result += `  • 余额（${balancePercentage}%）：RM ${balance.toFixed(2)}\n`
     }
   }
   
