@@ -153,12 +153,11 @@ function formatRealtimePercentages(realtimeData) {
 function formatBudgetGap(capA, totalA) {
   const aGap = (Number(capA) - Number(totalA)).toFixed(2)
   const aGapAmount = Number(aGap)
-  const aGapPercentage = capA > 0 ? ((aGapAmount / capA) * 100).toFixed(1) : '0.0'
   
   if (aGapAmount >= 0) {
-    return `剩余额度 RM ${aGap} (${aGapPercentage}%)`
+    return `剩余额度 RM ${aGap}`
   } else {
-    return `已超出 RM ${Math.abs(aGapAmount).toFixed(2)} (${Math.abs(aGapAmount / capA * 100).toFixed(1)}%)`
+    return `已超出 RM ${Math.abs(aGapAmount).toFixed(2)}`
   }
 }
 

@@ -118,9 +118,10 @@ export default async function handler(req, res) {
     
     // 实时占比计算（储蓄包含 EPF）
     const totalSpent = totals.a + totals.b + totals.c
+    const totalWithEPF = totals.a + totals.b + totals.c + epf
     const realtimeA = income > 0 ? Math.round((totals.a / income) * 100) : 0
     const realtimeB = income > 0 ? Math.round((totals.b / income) * 100) : 0
-    const realtimeC = income > 0 ? Math.max(0, 100 - realtimeA - realtimeB) : 0
+    const realtimeC = income > 0 ? Math.round(((totals.c + epf) / income) * 100) : 0
     
     // 开销额度计算
     const aGap = capA - totals.a
