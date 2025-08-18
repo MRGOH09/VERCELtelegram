@@ -476,37 +476,71 @@ export default async function handler(req, res) {
         
         // 4. 处理数据
         console.log('🔧 处理数据...')
-        const a = data.progress?.a ?? 0
-        const b = data.progress?.b ?? 0
-        const c = data.progress?.c ?? 0
-        const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
-        const { ra, rb, rc } = formatRealtimePercentages(data.realtime)
-        const da = data.realtime?.a == null ? 'N/A' : (Number(data.realtime.a) - Number(data.snapshotView.a_pct)).toFixed(0)
-        const aGapLine = formatBudgetGap(data.snapshotView.cap_a, data.totals.a)
+        
+        // 安全地获取数据，提供默认值
+        const progress = data.progress || {}
+        const realtime = data.realtime || {}
+        const snapshotView = data.snapshotView || {}
+        const totals = data.totals || {}
+        const display = data.display || {}
+        const categoryBreakdown = data.categoryBreakdown || {}
+        
+        const a = progress.a ?? 0
+        const b = progress.b ?? 0
+        const c = progress.c ?? 0
+        
+        // 安全地调用辅助函数
+        const { ra, rb, rc } = formatRealtimePercentages(realtime)
+        
+        // 安全地计算偏差
+        let da = 'N/A'
+        if (realtime.a != null && snapshotView.a_pct != null) {
+          da = (Number(realtime.a) - Number(snapshotView.a_pct)).toFixed(0)
+        }
+        
+        // 安全地计算预算额度
+        let aGapLine = 'N/A'
+        if (snapshotView.cap_a != null && totals.a != null) {
+          aGapLine = formatBudgetGap(snapshotView.cap_a, totals.a)
+        }
         
         console.log('数据处理结果:', { a, b, c, ra, rb, rc, da, aGapLine })
+        console.log('数据源状态:', { 
+          hasProgress: !!data.progress, 
+          hasRealtime: !!data.realtime, 
+          hasSnapshotView: !!data.snapshotView, 
+          hasTotals: !!data.totals, 
+          hasDisplay: !!data.display, 
+          hasCategoryBreakdown: !!data.categoryBreakdown 
+        })
         
         // 5. 渲染模板
         console.log('📝 渲染模板...')
-        const msg = formatTemplate(messages.my.summary, {
+        
+        // 安全地准备模板参数
+        const templateParams = {
           range: 'month',
-          a: data.display?.a || data.totals.a.toFixed(2),
-          b: data.display?.b || data.totals.b.toFixed(2),
-          c: data.display?.c_residual || data.totals.c.toFixed(2),
+          a: display.a || totals.a?.toFixed(2) || '0.00',
+          b: display.b || totals.b?.toFixed(2) || '0.00',
+          c: display.c_residual || totals.c?.toFixed(2) || '0.00',
           ra, rb, rc,
-          a_pct: data.snapshotView.a_pct,
+          a_pct: snapshotView.a_pct || 0,
           da,
           a_gap_line: aGapLine,
-          income: data.snapshotView.income,
-          cap_a: data.snapshotView.cap_a,
-          cap_b: data.snapshotView.cap_b,
-          cap_c: data.snapshotView.cap_c,
-          epf: data.snapshotView.epf,
-          travel: Number(data.snapshotView.travelMonthly || 0).toFixed(2),
-          medical: Number(data.snapshotView.medicalMonthly || 0).toFixed(2),
-          car_insurance: Number(data.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-          category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income, data.snapshotView.epf)
-        })
+          income: snapshotView.income || '0.00',
+          cap_a: snapshotView.cap_a || '0.00',
+          cap_b: snapshotView.cap_b || '0.00',
+          cap_c: snapshotView.cap_c || '0.00',
+          epf: snapshotView.epf || '0.00',
+          travel: Number(snapshotView.travelMonthly || 0).toFixed(2),
+          medical: Number(snapshotView.medicalMonthly || 0).toFixed(2),
+          car_insurance: Number(snapshotView.carInsuranceMonthly || 0).toFixed(2),
+          category_details: formatCategoryDetails(categoryBreakdown, Number(snapshotView.income || 0), Number(snapshotView.epf || 0))
+        }
+        
+        console.log('模板参数:', templateParams)
+        
+        const msg = formatTemplate(messages.my.summary, templateParams)
         
         console.log('模板渲染完成，消息长度:', msg.length)
         
