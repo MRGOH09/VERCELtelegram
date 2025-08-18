@@ -330,14 +330,23 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
       
-      // 已注册的判定调整：优先以昵称是否存在为准（排行榜/交互展示依赖昵称）
+      // 已注册的判定：需要用户主动完成设置流程
       const { data: prof } = await supabase
         .from('user_profile')
         .select('display_name,monthly_income,a_pct,b_pct')
         .eq('user_id', userId)
         .maybeSingle()
-      const isRegistered = prof && !!(prof.display_name && prof.display_name.trim())
-      if (isRegistered) {
+      
+      // 检查是否真正完成了注册（有月收入等关键信息）
+      const isFullyRegistered = prof && 
+        prof.display_name && 
+        prof.display_name.trim() && 
+        prof.monthly_income && 
+        prof.monthly_income > 0 && 
+        prof.a_pct && 
+        prof.a_pct > 0
+      
+      if (isFullyRegistered) {
         await sendTelegramMessage(chatId, '✅ 你已完成设置。\n• /record - 记录支出\n• /my - 查看统计报告\n• /settings - 修改资料')
         return res.status(200).json({ ok: true })
       }
