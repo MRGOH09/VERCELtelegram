@@ -75,7 +75,7 @@ const BRANCH_CODES = [
 ]
 
 // 格式化分类明细
-function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0) {
+function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0) {
   if (!categoryBreakdown || Object.keys(categoryBreakdown).length === 0) {
     return '（暂无记录）'
   }
@@ -95,7 +95,13 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0) {
     groupTotals[group] = Object.values(categories).reduce((sum, amount) => sum + Number(amount), 0)
   }
   
-  // 计算三个组的总金额
+  // 将EPF添加到储蓄组
+  if (epf > 0) {
+    if (!groupTotals['C']) groupTotals['C'] = 0
+    groupTotals['C'] += epf
+  }
+  
+  // 计算三个组的总金额（包含EPF）
   const totalAllGroups = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
@@ -117,6 +123,12 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0) {
       const categoryPercentage = monthlyIncome > 0 ? ((categoryAmount / monthlyIncome) * 100).toFixed(1) : '0.0'
       
       result += `  • ${categoryLabel}（${categoryPercentage}%）：RM ${categoryAmount.toFixed(2)}\n`
+    }
+    
+    // 如果是储蓄组且有EPF，添加EPF信息
+    if (group === 'C' && epf > 0) {
+      const epfPercentage = monthlyIncome > 0 ? ((epf / monthlyIncome) * 100).toFixed(1) : '0.0'
+      result += `  • EPF（月）（${epfPercentage}%）：RM ${epf.toFixed(2)}\n`
     }
   }
   
@@ -462,7 +474,7 @@ export default async function handler(req, res) {
         travel: Number(data.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(data.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(data.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income)
+        category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income, data.snapshotView.epf)
       })
       
       // 添加时间段选择按钮
@@ -1312,7 +1324,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
       })
       
       // 根据时间范围替换标题
@@ -1364,7 +1376,7 @@ export async function handleCallback(update, req, res) {
         travel: myData.snapshotView.travelMonthly,
         medical: myData.snapshotView.medicalMonthly,
         car_insurance: myData.snapshotView.carInsuranceMonthly,
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
       })
       
       // 根据时间范围替换标题
@@ -1420,7 +1432,7 @@ export async function handleCallback(update, req, res) {
         travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income)
+        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf)
       })
       
       // 根据时间范围替换标题
@@ -1440,7 +1452,7 @@ export async function handleCallback(update, req, res) {
       // 使用 editMessageText 更新消息
       await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 ${range} 数据总览`, title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
-      return res.status(200).json({ ok: true })
+      return res.status(200).json({ ok:true })
     }
     if (data.startsWith('rec:') && (!st || st.flow !== 'record')) {
       await sendTelegramMessage(chatId, '请发送 /record 开始记录')
