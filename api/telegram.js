@@ -88,13 +88,35 @@ function formatCategoryDetails(categoryBreakdown) {
   }
   
   let result = ''
+  
+  // 计算各组总金额
+  const groupTotals = {}
+  for (const [group, categories] of Object.entries(categoryBreakdown)) {
+    groupTotals[group] = Object.values(categories).reduce((sum, amount) => sum + Number(amount), 0)
+  }
+  
+  // 计算所有开销的总金额（用于计算百分比）
+  const totalSpending = groupTotals['A'] || 0
+  
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
-    result += `\n${groupLabel}：\n`
+    const groupTotal = groupTotals[group] || 0
     
+    // 计算组占总开销的百分比
+    let groupPercentage = ''
+    if (group === 'A' && totalSpending > 0) {
+      groupPercentage = `（${((groupTotal / totalSpending) * 100).toFixed(1)}%）`
+    }
+    
+    result += `\n${groupLabel}${groupPercentage}：\n`
+    
+    // 计算每个分类占该组的百分比
     for (const [code, amount] of Object.entries(categories)) {
       const categoryLabel = categoryLabels[group]?.[code] || code
-      result += `  • ${categoryLabel}: RM ${Number(amount).toFixed(2)}\n`
+      const categoryAmount = Number(amount)
+      const categoryPercentage = groupTotal > 0 ? ((categoryAmount / groupTotal) * 100).toFixed(1) : '0.0'
+      
+      result += `  • ${categoryLabel}（${categoryPercentage}%）：RM ${categoryAmount.toFixed(2)}\n`
     }
   }
   
