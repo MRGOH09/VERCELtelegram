@@ -440,58 +440,111 @@ export default async function handler(req, res) {
     }
 
     if (text.startsWith('/my')) {
-      // 简化：/my 命令直接显示本月数据，不再需要参数
-      const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
-      if (uErr) { await sendTelegramMessage(chatId, messages.my.need_start); return res.status(200).json({ ok: true }) }
+      console.log('🔍 /my 命令开始执行，用户ID:', from.id, '聊天ID:', chatId)
       
-      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-      const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/my?userId=${u.id}&range=month`)
-      const data = await r.json()
-      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
-      
-      const a = data.progress?.a ?? 0
-      const b = data.progress?.b ?? 0
-      const c = data.progress?.c ?? 0
-      const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
-      const { ra, rb, rc } = formatRealtimePercentages(data.realtime)
-      const da = data.realtime?.a == null ? 'N/A' : (Number(data.realtime.a) - Number(data.snapshotView.a_pct)).toFixed(0)
-      const aGapLine = formatBudgetGap(data.snapshotView.cap_a, data.totals.a)
-      const msg = formatTemplate(messages.my.summary, {
-        range: 'month',
-        a: data.display?.a || data.totals.a.toFixed(2),
-        b: data.display?.b || data.totals.b.toFixed(2),
-        c: data.display?.c_residual || data.totals.c.toFixed(2),
-        ra, rb, rc,
-        a_pct: data.snapshotView.a_pct,
-        da,
-        a_gap_line: aGapLine,
-        income: data.snapshotView.income,
-        cap_a: data.snapshotView.cap_a,
-        cap_b: data.snapshotView.cap_b,
-        cap_c: data.snapshotView.cap_c,
-        epf: data.snapshotView.epf,
-        travel: Number(data.snapshotView.travelMonthly || 0).toFixed(2),
-        medical: Number(data.snapshotView.medicalMonthly || 0).toFixed(2),
-        car_insurance: Number(data.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income, data.snapshotView.epf)
-      })
-      
-      // 添加时间段选择按钮
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { text: '📅 本月', callback_data: 'my:month' },
-            { text: '📊 上月', callback_data: 'my:lastmonth' },
-            { text: '🗓 本周', callback_data: 'my:week' }
+      try {
+        // 1. 查询用户信息
+        console.log('📊 查询用户信息...')
+        const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
+        console.log('用户查询结果:', { user: u, error: uErr })
+        
+        if (uErr) { 
+          console.log('❌ 用户查询失败:', uErr)
+          await sendTelegramMessage(chatId, messages.my.need_start); 
+          return res.status(200).json({ ok: true }) 
+        }
+        
+        // 2. 构建 API URL
+        console.log('🔗 构建 API URL...')
+        const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+        const base = `${url.protocol}//${url.host}`
+        console.log('API 基础 URL:', base)
+        
+        // 3. 调用 /api/my 接口
+        console.log('📡 调用 /api/my 接口...')
+        const r = await fetch(`${base}/api/my?userId=${u.id}&range=month`)
+        console.log('API 响应状态:', r.status, r.ok)
+        
+        const data = await r.json()
+        console.log('API 返回数据:', data)
+        
+        if (!r.ok) { 
+          console.log('❌ API 调用失败:', data)
+          await sendTelegramMessage(chatId, '查询失败'); 
+          return res.status(200).json({ ok: true }) 
+        }
+        
+        // 4. 处理数据
+        console.log('🔧 处理数据...')
+        const a = data.progress?.a ?? 0
+        const b = data.progress?.b ?? 0
+        const c = data.progress?.c ?? 0
+        const travelMonthly = data.snapshot?.income ? (Number(data.snapshot.income) && (0)) : 0 // placeholder not used here
+        const { ra, rb, rc } = formatRealtimePercentages(data.realtime)
+        const da = data.realtime?.a == null ? 'N/A' : (Number(data.realtime.a) - Number(data.snapshotView.a_pct)).toFixed(0)
+        const aGapLine = formatBudgetGap(data.snapshotView.cap_a, data.totals.a)
+        
+        console.log('数据处理结果:', { a, b, c, ra, rb, rc, da, aGapLine })
+        
+        // 5. 渲染模板
+        console.log('📝 渲染模板...')
+        const msg = formatTemplate(messages.my.summary, {
+          range: 'month',
+          a: data.display?.a || data.totals.a.toFixed(2),
+          b: data.display?.b || data.totals.b.toFixed(2),
+          c: data.display?.c_residual || data.totals.c.toFixed(2),
+          ra, rb, rc,
+          a_pct: data.snapshotView.a_pct,
+          da,
+          a_gap_line: aGapLine,
+          income: data.snapshotView.income,
+          cap_a: data.snapshotView.cap_a,
+          cap_b: data.snapshotView.cap_b,
+          cap_c: data.snapshotView.cap_c,
+          epf: data.snapshotView.epf,
+          travel: Number(data.snapshotView.travelMonthly || 0).toFixed(2),
+          medical: Number(data.snapshotView.medicalMonthly || 0).toFixed(2),
+          car_insurance: Number(data.snapshotView.carInsuranceMonthly || 0).toFixed(2),
+          category_details: formatCategoryDetails(data.categoryBreakdown, data.snapshotView.income, data.snapshotView.epf)
+        })
+        
+        console.log('模板渲染完成，消息长度:', msg.length)
+        
+        // 6. 添加时间段选择按钮
+        const keyboard = {
+          inline_keyboard: [
+            [
+              { text: '📅 本月', callback_data: 'my:month' },
+              { text: '📊 上月', callback_data: 'my:lastmonth' },
+              { text: '🗓 本周', callback_data: 'my:week' }
+            ]
           ]
-        ]
-      };
-      
-      // 生成具体的月份标题
-      const monthTitle = generateMonthTitle('month')
-      await sendTelegramMessage(chatId, msg.replace('📊 month 数据总览', monthTitle), { reply_markup: keyboard })
-      return res.status(200).json({ ok: true })
+        };
+        
+        // 7. 生成具体的月份标题
+        console.log('📅 生成月份标题...')
+        const monthTitle = generateMonthTitle('month')
+        const finalMsg = msg.replace('📊 month 数据总览', monthTitle)
+        
+        // 8. 发送消息
+        console.log('📤 发送消息...')
+        await sendTelegramMessage(chatId, finalMsg, { reply_markup: keyboard })
+        
+        console.log('✅ /my 命令执行成功')
+        return res.status(200).json({ ok: true })
+        
+      } catch (error) {
+        console.error('❌ /my 命令执行异常:', error)
+        console.error('错误堆栈:', error.stack)
+        
+        try {
+          await sendTelegramMessage(chatId, '系统错误，请稍后重试')
+        } catch (sendError) {
+          console.error('发送错误消息也失败了:', sendError)
+        }
+        
+        return res.status(200).json({ ok: true })
+      }
     }
 
     if (text.startsWith('/broadcast')) {
