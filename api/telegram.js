@@ -110,6 +110,19 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
   // 计算三个组的总金额（包含EPF和余额）
   const totalAllGroups = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + (groupTotals['C'] || 0)
   
+  // 验证百分比总和是否接近100%，如果超出则调整
+  const totalPercentage = ((totalAllGroups / monthlyIncome) * 100)
+  if (totalPercentage > 100.5) { // 允许0.5%的误差
+    console.log(`警告：总百分比 ${totalPercentage.toFixed(1)}% 超出100%，进行调整`)
+    
+    // 重新计算储蓄组百分比，确保总和为100%
+    const targetSavingsPercentage = 100 - ((groupTotals['A'] || 0) / monthlyIncome * 100) - ((groupTotals['B'] || 0) / monthlyIncome * 100)
+    const targetSavingsAmount = (targetSavingsPercentage / 100) * monthlyIncome
+    
+    // 调整储蓄组总额
+    groupTotals['C'] = targetSavingsAmount
+  }
+  
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
     let groupTotal = groupTotals[group] || 0
