@@ -112,18 +112,17 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
-    const groupTotal = groupTotals[group] || 0
+    let groupTotal = groupTotals[group] || 0
+    
+    // 对于储蓄组，确保包含 EPF 和余额
+    if (group === 'C') {
+      groupTotal = groupTotals['C'] || 0 // 使用更新后的储蓄组总额
+    }
     
     // 计算组占月收入的百分比（基于月收入）
     let groupPercentage = ''
     if (monthlyIncome > 0) {
-      // 对于储蓄组，需要特殊处理，因为包含了 EPF 和余额
-      if (group === 'C') {
-        const savingsTotal = groupTotal // 这里已经包含了 EPF 和余额
-        groupPercentage = `（${((savingsTotal / monthlyIncome) * 100).toFixed(1)}%）`
-      } else {
-        groupPercentage = `（${((groupTotal / monthlyIncome) * 100).toFixed(1)}%）`
-      }
+      groupPercentage = `（${((groupTotal / monthlyIncome) * 100).toFixed(1)}%）`
     }
     
     result += `\n${groupLabel}${groupPercentage}：\n`
