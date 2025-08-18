@@ -167,8 +167,10 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
   
   // 添加总计信息
   if (monthlyIncome > 0) {
-    const totalPercentage = ((totalAllGroups / monthlyIncome) * 100).toFixed(1)
-    result += `\n📊 总计：RM ${totalAllGroups.toFixed(2)}（${totalPercentage}% 月收入）`
+    // 计算最终总计（包含EPF和余额）
+    const finalTotal = (groupTotals['A'] || 0) + (groupTotals['B'] || 0) + groupTotals['C']
+    const totalPercentage = ((finalTotal / monthlyIncome) * 100).toFixed(1)
+    result += `\n📊 总计：RM ${finalTotal.toFixed(2)}（${totalPercentage}% 月收入）`
   }
   
   return result.trim()
