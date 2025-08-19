@@ -14,10 +14,10 @@ import { sendBatchMessages } from '../../lib/telegram.js'
 
 export default async function handler(req, res) {
   try {
-    const { action, adminId, mode } = req.body
+    const { action, adminId, mode, task } = req.body
     
     // 模式1：cron 自动执行（凌晨2点）
-    if (mode === 'cron' || (!action && !adminId)) {
+    if (mode === 'cron' || (!action && !adminId && !task)) {
       return await handleCronMode(req, res)
     }
     
@@ -26,11 +26,16 @@ export default async function handler(req, res) {
       return await handleTriggerMode(req, res, action, adminId)
     }
     
+    // 模式3：执行特定任务
+    if (task) {
+      return await handleSpecificTask(req, res, task, adminId)
+    }
+    
     // 默认模式：cron 自动执行
     return await handleCronMode(req, res)
     
   } catch (e) {
-    console.error('[push-system] 执行失败:', e)
+    console.error('[unified-cron] 执行失败:', e)
     return res.status(500).json({ ok: false, error: String(e.message || e) })
   }
 }
@@ -41,7 +46,7 @@ async function handleCronMode(req, res) {
     const now = new Date()
     const isFirstDayOfMonth = now.getDate() === 1
     
-    console.info(`[cron:push-system] 开始执行，时间：${now.getHours()}:00，是否月初：${isFirstDayOfMonth}`)
+    console.info(`[cron:unified-cron] 开始执行，时间：${now.getHours()}:00，是否月初：${isFirstDayOfMonth}`)
     
     let results = {
       morning: null,
@@ -69,11 +74,11 @@ async function handleCronMode(req, res) {
     // 4. 发送 admin 总报告
     await sendAdminReport(results, now)
     
-    console.info('[cron:push-system] 执行完成', results)
+    console.info('[cron:unified-cron] 执行完成', results)
     return res.status(200).json({ ok: true, results })
     
   } catch (e) {
-    console.error('[cron:push-system] 执行失败:', e)
+    console.error('[cron:unified-cron] 执行失败:', e)
     return res.status(500).json({ ok: false, error: String(e.message || e) })
   }
 }
@@ -105,7 +110,7 @@ async function handleTriggerMode(req, res, action, adminId) {
       })
     }
 
-    console.log(`[trigger:push-system] Admin ${adminId} 触发推送，动作：${action}`)
+    console.log(`[trigger:unified-cron] Admin ${adminId} 触发推送，动作：${action}`)
     
     const now = new Date()
     
@@ -144,7 +149,7 @@ async function handleTriggerMode(req, res, action, adminId) {
     // 发送执行结果到 Admin
     await sendTriggerReport(results, now, adminId)
     
-    console.log(`[trigger:push-system] 推送完成，结果：`, results)
+    console.log(`[trigger:unified-cron] 推送完成，结果：`, results)
     
     return res.status(200).json({ 
       ok: true, 
@@ -153,7 +158,72 @@ async function handleTriggerMode(req, res, action, adminId) {
     })
     
   } catch (e) {
-    console.error('[trigger:push-system] 推送失败:', e)
+    console.error('[trigger:unified-cron] 推送失败:', e)
+    return res.status(500).json({ 
+      ok: false, 
+      error: String(e.message || e) 
+    })
+  }
+}
+
+// 执行特定任务模式
+async function handleSpecificTask(req, res, task, adminId = null) {
+  try {
+    console.log(`[specific-task] 执行特定任务：${task}`)
+    
+    const now = new Date()
+    let results = {
+      task,
+      adminId,
+      executeTime: now.toISOString(),
+      timestamp: new Date().toISOString(),
+      success: false,
+      details: {}
+    }
+    
+    // 根据任务类型执行相应的功能
+    switch (task) {
+      case 'break-streaks':
+        results.details = await executeBreakStreaks(now)
+        break
+        
+      case 'daily-report':
+        results.details = await executeDailyReport(now)
+        break
+        
+      case 'morning-tasks':
+        results.details = await executeMorningTasks(now)
+        break
+        
+      case 'reminder':
+        results.details = await executeReminder(now)
+        break
+        
+      default:
+        return res.status(400).json({ 
+          ok: false, 
+          error: `Unknown task: ${task}`,
+          availableTasks: ['break-streaks', 'daily-report', 'morning-tasks', 'reminder']
+        })
+    }
+    
+    results.success = true
+    
+    // 如果是Admin执行，发送报告
+    if (adminId) {
+      await sendTaskReport(results, now, adminId)
+    }
+    
+    console.log(`[specific-task] 任务执行完成：`, results)
+    
+    return res.status(200).json({ 
+      ok: true, 
+      message: `任务 ${task} 执行完成`,
+      results 
+    })
+    
+  } catch (e) {
+    console.error('[specific-task] 任务执行失败:', e)
     return res.status(500).json({ 
       ok: false, 
       error: String(e.message || e) 
@@ -256,7 +326,7 @@ async function prepareEveningTasks(now) {
 
 // 执行中午推送
 async function executeNoonPush(now) {
-  console.log('[trigger:push-system] 执行中午推送...')
+  console.log('[trigger:unified-cron] 执行中午推送...')
   
   const results = {}
   
@@ -294,7 +364,7 @@ async function executeNoonPush(now) {
 
 // 执行晚间推送
 async function executeEveningPush(now) {
-  console.log('[trigger:push-system] 执行晚间推送...')
+  console.log('[trigger:unified-cron] 执行晚间推送...')
   
   const results = {}
   
@@ -313,6 +383,68 @@ async function executeEveningPush(now) {
   }
   
   return results
+}
+
+// 执行断签清零
+async function executeBreakStreaks(now) {
+  console.log('[specific-task] 执行断签清零...')
+  
+  try {
+    const result = await breakStreaksOneShot()
+    return { success: true, result }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// 执行日报
+async function executeDailyReport(now) {
+  console.log('[specific-task] 执行日报...')
+  
+  try {
+    const dailyResults = await dailyReports(now, ({a,b,c, ra, rb, rc, travel}) =>
+      formatTemplate(zh.cron.daily_report, { 
+        a: a.toFixed?.(2) || a, 
+        b: b.toFixed?.(2) || b, 
+        c: c.toFixed?.(2) || c, 
+        ra, rb, rc, travel 
+      })
+    )
+    return { success: true, result: dailyResults }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// 执行早晨任务
+async function executeMorningTasks(now) {
+  console.log('[specific-task] 执行早晨任务...')
+  
+  try {
+    const isFirstDayOfMonth = now.getDate() === 1
+    const results = await handleMorningTasks(now, isFirstDayOfMonth)
+    return { success: true, results }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
+}
+
+// 执行提醒
+async function executeReminder(now) {
+  console.log('[specific-task] 执行提醒...')
+  
+  try {
+    const usersWithoutRecord = await usersWithoutRecordToday(now)
+    const reminderMessages = usersWithoutRecord.map(chatId => ({
+      chat_id: chatId,
+      text: generatePersonalizedReminder(chatId, now)
+    }))
+    
+    const reminderResults = await sendBatchMessages(reminderMessages)
+    return { success: true, result: reminderResults, userCount: usersWithoutRecord.length }
+  } catch (e) {
+    return { success: false, error: e.message }
+  }
 }
 
 // 月度自动入账
@@ -411,7 +543,7 @@ function generateAdminReport(results, now) {
   const date = now.toISOString().slice(0, 10)
   const time = now.toISOString().slice(11, 16)
   
-  let report = `📊 统一推送任务执行报告\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
+  let report = `📊 统一Cron任务执行报告\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
   
   // 早晨任务报告
   if (results.morning) {
@@ -460,10 +592,10 @@ async function sendTriggerReport(results, now, adminId) {
     }
     
     const adminResults = await sendBatchMessages([adminMessage])
-    console.log(`[trigger:push-system] 触发报告发送完成，成功: ${adminResults.sent}, 失败: ${adminResults.failed}`)
+    console.log(`[trigger:unified-cron] 触发报告发送完成，成功: ${adminResults.sent}, 失败: ${adminResults.failed}`)
     
   } catch (e) {
-    console.error('[trigger:push-system] 发送触发报告失败:', e)
+    console.error('[trigger:unified-cron] 发送触发报告失败:', e)
   }
 }
 
@@ -501,6 +633,72 @@ function generateTriggerReport(results, now) {
   report += `   • 成功率：${results.totalSent + results.totalFailed > 0 ? ((results.totalSent / (results.totalSent + results.totalFailed)) * 100).toFixed(1) : 0}%\n\n`
   
   report += `🚀 手动触发推送完成！`
+  
+  return report
+}
+
+// 发送任务报告
+async function sendTaskReport(results, now, adminId) {
+  try {
+    const report = generateTaskReport(results, now)
+    
+    const adminMessage = {
+      chat_id: adminId,
+      text: report
+    }
+    
+    const adminResults = await sendBatchMessages([adminMessage])
+    console.log(`[specific-task] 任务报告发送完成，成功: ${adminResults.sent}, 失败: ${adminResults.failed}`)
+    
+  } catch (e) {
+    console.error('[specific-task] 发送任务报告失败:', e)
+  }
+}
+
+// 生成任务报告
+function generateTaskReport(results, now) {
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toISOString().slice(11, 16)
+  
+  let report = `🔧 特定任务执行报告\n\n📅 执行日期：${date}\n⏰ 执行时间：${time}\n🎯 执行任务：${results.task}\n👨‍💼 执行者：${results.adminId}\n\n`
+  
+  // 根据任务类型生成相应的报告
+  if (results.task === 'break-streaks') {
+    report += `⏰ 断签清零执行结果：\n`
+    if (results.details.success !== undefined) {
+      report += `   • 执行结果：${results.details.success ? '✅ 成功' : '❌ 失败'}\n`
+    }
+    report += '\n'
+  }
+  
+  if (results.task === 'daily-report') {
+    report += `📊 日报执行结果：\n`
+    if (results.details.success !== undefined) {
+      report += `   • 执行结果：${results.details.success ? '✅ 成功' : '❌ 失败'}\n`
+    }
+    report += '\n'
+  }
+  
+  if (results.task === 'morning-tasks') {
+    report += `🌅 早晨任务执行结果：\n`
+    if (results.details.success !== undefined) {
+      report += `   • 执行结果：${results.details.success ? '✅ 成功' : '❌ 失败'}\n`
+    }
+    report += '\n'
+  }
+  
+  if (results.task === 'reminder') {
+    report += `🔔 提醒执行结果：\n`
+    if (results.details.success !== undefined) {
+      report += `   • 执行结果：${results.details.success ? '✅ 成功' : '❌ 失败'}\n`
+      if (results.details.userCount !== undefined) {
+        report += `   • 用户数量：${results.details.userCount} 人\n`
+      }
+    }
+    report += '\n'
+  }
+  
+  report += `🔧 特定任务执行完成！`
   
   return report
 } 
