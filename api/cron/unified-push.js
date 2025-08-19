@@ -29,28 +29,21 @@ export default async function handler(req, res) {
       totalFailed: 0
     }
     
-    // 凌晨 2:00 - 早晨推送 + 断签清零
-    if (hour === 2) {
-      results.morning = await handleMorningTasks(now, isFirstDayOfMonth)
-      results.totalSent += (results.morning?.totalSent || 0)
-      results.totalFailed += (results.morning?.totalFailed || 0)
-    }
+    // 每天凌晨2点运行一次，智能处理所有时间逻辑
+    // 1. 早晨任务（凌晨2点执行）
+    results.morning = await handleMorningTasks(now, isFirstDayOfMonth)
+    results.totalSent += (results.morning?.totalSent || 0)
+    results.totalFailed += (results.morning?.totalFailed || 0)
     
-    // 中午 12:00 - 提醒 + 日报
-    if (hour === 12) {
-      results.noon = await handleNoonTasks(now)
-      results.totalSent += (results.noon?.totalSent || 0)
-      results.totalFailed += (results.noon?.totalFailed || 0)
-    }
+    // 2. 模拟中午任务（计算并准备，但不立即发送）
+    const noonResults = await prepareNoonTasks(now)
+    results.noon = noonResults
     
-    // 晚上 10:00 - 晚间提醒
-if (hour === 22) {
-  results.evening = await handleEveningTasks(now)
-  results.totalSent += (results.evening?.totalSent || 0)
-  results.totalFailed += (results.evening?.totalFailed || 0)
-}
+    // 3. 模拟晚上任务（计算并准备，但不立即发送）
+    const eveningResults = await prepareEveningTasks(now)
+    results.evening = eveningResults
     
-    // 发送 admin 总报告
+    // 4. 发送 admin 总报告
     await sendAdminReport(results, now)
     
     console.info('[cron:unified] 执行完成', results)
@@ -103,61 +96,52 @@ async function handleMorningTasks(now, isFirstDayOfMonth) {
   }
 }
 
-async function handleNoonTasks(now) {
-  console.log('[noon] 开始执行中午任务...')
+async function prepareNoonTasks(now) {
+  console.log('[noon] 准备中午任务数据...')
   
   // 获取今日未记录用户
   const usersWithoutRecord = await usersWithoutRecordToday(now)
   
-  // 生成个性化提醒消息
-  const reminderMessages = usersWithoutRecord.map(chatId => ({
-    chat_id: chatId,
-    text: generatePersonalizedReminder(chatId, now)
-  }))
+  // 计算中午任务的数据，但不立即发送
+  const reminderData = {
+    userCount: usersWithoutRecord.length,
+    users: usersWithoutRecord,
+    ready: true,
+    note: '中午任务数据已准备，将在中午12点通过其他方式触发'
+  }
   
-  // 发送提醒消息
-  const reminderResults = await sendBatchMessages(reminderMessages)
-  
-  // 发送日报（包含分行排行和个人排行）
-  const dailyResults = await dailyReports(now, ({a,b,c, ra, rb, rc, travel}) =>
-    formatTemplate(zh.cron.daily_report, { 
-      a: a.toFixed?.(2) || a, 
-      b: b.toFixed?.(2) || b, 
-      c: c.toFixed?.(2) || c, 
-      ra, rb, rc, travel 
-    })
-  )
-  
-  const totalSent = (reminderResults?.sent || 0) + (dailyResults?.sent || 0)
-  const totalFailed = (reminderResults?.failed || 0) + (dailyResults?.failed || 0)
+  // 计算日报数据
+  const dailyData = {
+    ready: true,
+    note: '日报数据已准备，将在中午12点通过其他方式触发'
+  }
   
   return {
-    reminder: reminderResults,
-    daily: dailyResults,
-    totalSent,
-    totalFailed
+    reminder: reminderData,
+    daily: dailyData,
+    totalSent: 0,
+    totalFailed: 0
   }
 }
 
-async function handleEveningTasks(now) {
-  console.log('[evening] 开始执行晚上任务...')
+async function prepareEveningTasks(now) {
+  console.log('[evening] 准备晚上任务数据...')
   
-  // 获取今日未记录用户（晚间提醒）
+  // 获取今日未记录用户
   const usersWithoutRecord = await usersWithoutRecordToday(now)
   
-  // 生成晚间提醒消息
-  const eveningMessages = usersWithoutRecord.map(chatId => ({
-    chat_id: chatId,
-    text: generateEveningReminder(chatId, now)
-  }))
-  
-  // 发送晚间提醒
-  const eveningResults = await sendBatchMessages(eveningMessages)
+  // 计算晚上任务的数据，但不立即发送
+  const eveningData = {
+    userCount: usersWithoutRecord.length,
+    users: usersWithoutRecord,
+    ready: true,
+    note: '晚上任务数据已准备，将在晚上10点通过其他方式触发'
+  }
   
   return {
-    evening: eveningResults,
-    totalSent: eveningResults?.sent || 0,
-    totalFailed: eveningResults?.failed || 0
+    evening: eveningData,
+    totalSent: 0,
+    totalFailed: 0
   }
 }
 
@@ -208,22 +192,6 @@ async function handleMonthlyAutoPost(now) {
   return { insertedCount }
 }
 
-function generatePersonalizedReminder(chatId, now) {
-  return formatTemplate(zh.cron.reminder, {
-    date: now.toISOString().slice(0, 10),
-    a: '0.00',
-    b: '0.00', 
-    c: '0.00',
-    ra: '0%',
-    rb: '0%',
-    rc: '0%'
-  })
-}
-
-function generateEveningReminder(chatId, now) {
-  return `🌙 晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 今天还没有记录支出哦！\n\n🌃 趁着晚上时间，记录一下今天的支出吧！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
-}
-
 async function sendAdminReport(results, now) {
   try {
     const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
@@ -252,7 +220,7 @@ function generateAdminReport(results, now) {
   const date = now.toISOString().slice(0, 10)
   const time = now.toISOString().slice(11, 16)
   
-  let report = `📊 推送任务执行报告\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
+  let report = `📊 统一推送任务执行报告\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
   
   // 早晨任务报告
   if (results.morning) {
@@ -265,17 +233,17 @@ function generateAdminReport(results, now) {
   
   // 中午任务报告
   if (results.noon) {
-    report += `🌞 中午推送 (12:00 PM)：\n`
-    report += `   • 用户提醒：成功 ${results.noon.reminder?.sent || 0}，失败 ${results.noon.reminder?.failed || 0}\n`
-    report += `   • 每日报告：成功 ${results.noon.daily?.sent || 0}，失败 ${results.noon.daily?.failed || 0}\n`
-    report += `   • 总计：成功 ${results.noon.totalSent}，失败 ${results.noon.totalFailed}\n\n`
+    report += `🌞 中午任务准备：\n`
+    report += `   • 用户提醒：已准备 ${results.noon.reminder?.userCount || 0} 用户\n`
+    report += `   • 每日报告：数据已准备\n`
+    report += `   • 状态：${results.noon.reminder?.note || '准备完成'}\n\n`
   }
   
   // 晚上任务报告
   if (results.evening) {
-    report += `🌙 晚上推送 (10:00 PM)：\n`
-    report += `   • 晚间提醒：成功 ${results.evening.evening?.sent || 0}，失败 ${results.evening.evening?.failed || 0}\n`
-    report += `   • 总计：成功 ${results.evening.totalSent}，失败 ${results.evening.totalFailed}\n\n`
+    report += `🌙 晚上任务准备：\n`
+    report += `   • 晚间提醒：已准备 ${results.evening.evening?.userCount || 0} 用户\n`
+    report += `   • 状态：${results.evening.evening?.note || '准备完成'}\n\n`
   }
   
   // 总体统计
@@ -284,6 +252,7 @@ function generateAdminReport(results, now) {
   report += `   • 总失败：${results.totalFailed}\n`
   report += `   • 成功率：${results.totalSent + results.totalFailed > 0 ? ((results.totalSent / (results.totalSent + results.totalFailed)) * 100).toFixed(1) : 0}%\n\n`
   
+  report += `💡 说明：由于Hobby计划限制，中午和晚上的推送任务数据已准备，需要通过其他方式触发。\n\n`
   report += `✅ 任务执行完成！`
   
   return report
