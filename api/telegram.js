@@ -1586,7 +1586,7 @@ export async function handleCallback(update, req, res) {
       // 使用 editMessageText 更新消息
       await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 ${range} 数据总览`, title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
-      return res.status(200).json({ ok:true })
+      return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:') && (!st || st.flow !== 'record')) {
       await sendTelegramMessage(chatId, '请发送 /record 开始记录')
@@ -1892,6 +1892,61 @@ export async function handleCallback(update, req, res) {
       await sendTelegramMessage(chatId, messages.record.amount_prompt)
       return res.status(200).json({ ok: true })
     }
+
+    // 处理 /test-push 命令
+    if (text === '/test-push') {
+      // 检查是否是管理员
+      const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+      const isAdmin = adminIds.includes(from.id.toString())
+      
+      if (!isAdmin) {
+        await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
+        return
+      }
+      
+      // 显示测试选项
+      const testOptions = [
+        [{ text: '🧪 快速测试', callback_data: 'admin:quick-test' }],
+        [{ text: '🌅 早晨推送', callback_data: 'admin:morning' }],
+        [{ text: '🌞 中午推送', callback_data: 'admin:noon' }],
+        [{ text: '🌙 晚间推送', callback_data: 'admin:evening' }],
+        [{ text: '📅 月度入账', callback_data: 'admin:monthly' }],
+        [{ text: '⏰ 断签清零', callback_data: 'admin:break-streaks' }],
+        [{ text: '🚀 全部测试', callback_data: 'admin:all' }]
+      ]
+      
+      await sendTelegramMessage(chatId, 
+        '🧪 Admin 推送功能测试\n\n请选择要测试的功能：\n\n💡 建议先使用"快速测试"验证基本功能', 
+        { reply_markup: { inline_keyboard: testOptions } }
+      )
+      return
+    }
+
+    // 处理 /test-push [action] 格式的命令
+    if (text.startsWith('/test-push ')) {
+      const action = text.split(' ')[1]
+      
+      // 检查是否是管理员
+      const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+      const isAdmin = adminIds.includes(from.id.toString())
+      
+      if (!isAdmin) {
+        await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
+        return
+      }
+      
+      // 直接执行测试
+      await executeAdminTest(chatId, action, from.id)
+      return
+    }
+
+    // 处理 Admin 测试回调
+    if (data.startsWith('admin:')) {
+      const action = data.split(':')[1]
+      await executeAdminTest(chatId, action, from.id)
+      return
+    }
+
     return res.status(200).json({ ok: true })
   } catch (e) {
     console.error(e)
@@ -2057,5 +2112,42 @@ function generateMonthTitle(range) {
   else if (range === 'week') return `📊 本周统计`
   else if (range === 'today') return `📊 今日统计`
   else return `📊 ${range}统计`
+}
+
+// 执行 Admin 测试的函数
+async function executeAdminTest(chatId, action, adminId) {
+  try {
+    // 发送开始测试的消息
+    await sendTelegramMessage(chatId, `🧪 开始执行 ${action} 测试...\n\n⏳ 请稍候，测试完成后会收到详细报告。`)
+    
+    // 调用 Admin 测试 API
+    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/admin-test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        action: action,
+        adminId: adminId
+      })
+    })
+    
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.error || '测试执行失败')
+    }
+    
+    const result = await response.json()
+    
+    if (result.ok) {
+      await sendTelegramMessage(chatId, `✅ 测试执行完成！\n\n🎯 测试动作：${action}\n📊 总发送：${result.results.totalSent}\n❌ 总失败：${result.results.totalFailed}\n\n📋 详细报告已发送，请查收。`)
+    } else {
+      throw new Error(result.error || '测试执行失败')
+    }
+    
+  } catch (e) {
+    console.error('[admin-test] 执行测试失败:', e)
+    await sendTelegramMessage(chatId, `❌ 测试执行失败\n\n错误信息：${e.message}\n\n请检查系统配置或稍后重试。`)
+  }
 }
 
