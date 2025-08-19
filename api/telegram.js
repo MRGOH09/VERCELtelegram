@@ -1880,7 +1880,9 @@ export async function handleCallback(update, req, res) {
       const categoryList = availableCategories.map(([code, label]) => `• ${label} (${code})`).join('\n')
       
       await setState(userId, 'batch', 'input', { group, groupLabel })
-      await sendTelegramMessage(chatId, `🔄 批量记录模式\n\n请按以下格式输入记录（每行一条，最多20条）：\n\n格式：分类 金额 备注\n\n📋 可用分类：\n${categoryList}\n\n示例：\n餐饮 20 吃饭\n购物 15 买菜\n交通 8 公交\n\n💡 提示：\n• 系统会自动识别分类\n• 不匹配的分类会归到"其他"\n• 支持中文分类名称\n• 建议使用上方列出的分类名称`, { reply_markup: { inline_keyboard: [[{ text: '❌ 取消', callback_data: 'batch:cancel' }]] } })
+      await sendTelegramMessage(chatId, `🔄 ${groupLabel}批量记录模式\n\n请按以下格式输入记录（每行一条，最多20条）：\n\n格式：分类 金额 备注\n\n📋 可用分类：\n${categoryList}\n\n示例：\n${group === 'A' ? '餐饮 20 吃饭\n购物 15 买菜\n交通 8 公交' : 
+  group === 'B' ? '课程 500 编程课\n书籍 80 技术书\n培训 200 技能培训' : 
+  '股票 1000 投资\n定存 500 定期存款\n保险 300 医疗保险'}\n\n💡 提示：\n• 系统会自动识别分类\n• 不匹配的分类会归到"其他"\n• 建议使用上方列出的分类名称`, { reply_markup: { inline_keyboard: [[{ text: '❌ 取消', callback_data: 'batch:cancel' }]] } })
       return res.status(200).json({ ok: true })
     }
     if (data.startsWith('rec:cat:')) {
