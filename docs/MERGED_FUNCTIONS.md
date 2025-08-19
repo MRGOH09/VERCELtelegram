@@ -52,7 +52,7 @@ Body: { "action": "quick-test", "type": "public" }
 POST /api/test-system
 Body: { "action": "all", "adminId": "YOUR_ADMIN_ID" }
 
-# 🆕 公开推送测试（非admin用户）
+# 🆕 公开推送测试（需要admin权限）
 POST /api/test-system
 Body: { 
   "action": "test-push",
@@ -60,6 +60,11 @@ Body: {
   "testType": "reminder"  # 或 "daily-report", "evening-reminder", "quick-message"
 }
 ```
+
+**⚠️ 重要说明：**
+- `test-push` 功能**需要admin权限**
+- 非admin用户会收到明确的权限提示："您不是admin，无法使用testpush功能"
+- 这有助于测试权限检查是否正常工作
 
 **公开推送测试类型：**
 - `reminder` - 测试提醒推送
@@ -184,7 +189,7 @@ Body: {
 3. **测试功能：** 支持完整的测试和调试功能
 4. **用户管理：** 完整的用户资料和统计功能
 5. **记录管理：** 完整的记录CRUD操作
-6. **🆕 公开测试：** 普通用户可测试推送功能
+6. **🆕 权限测试：** 非admin用户可测试权限检查功能
 
 ## ⚠️ 注意事项
 
@@ -192,7 +197,7 @@ Body: {
 2. **环境变量：** 确保 `ADMIN_TG_IDS` 已正确配置
 3. **Cron限制：** 由于Hobby计划限制，中午和晚间任务数据已准备，需要通过其他方式触发
 4. **API调用：** 所有功能都通过统一的API端点，使用 `action` 参数区分功能
-5. **🆕 公开测试：** 非admin用户可通过 `test-push` 测试推送功能
+5. **🆕 testpush权限：** `test-push` 功能需要admin权限，非admin用户会收到明确提示
 
 ## 🔧 故障排除
 
@@ -202,27 +207,51 @@ Body: {
 3. 数据库连接状态
 4. Telegram Bot Token 配置
 5. API调用参数是否正确
-6. 🆕 公开测试时确保 `userId` 和 `testType` 参数正确
+6. 🆕 权限检查：testpush时确保userId在ADMIN_TG_IDS中
+7. 🆕 权限提示：非admin用户会收到"您不是admin"的明确提示
 
-## 🆕 新增功能：公开推送测试
+## 🆕 新增功能：权限检查测试
 
 ### **用途**
-让普通用户（非admin）也能测试推送功能，验证系统是否正常工作。
+测试权限检查功能是否正常工作，帮助定位权限相关问题。
 
 ### **使用场景**
-- 用户想测试推送系统是否正常
-- 验证Telegram Bot是否能正常发送消息
-- 测试不同类型的推送消息格式
+- 测试权限检查系统是否正常
+- 验证非admin用户是否能正确收到权限提示
+- 调试权限相关的配置问题
+- 确保系统安全性
+
+### **权限要求**
+- **需要admin权限**：只有ADMIN_TG_IDS中的用户才能使用
+- **权限检查**：系统会自动验证用户身份
+- **明确提示**：非admin用户会收到详细的权限说明
 
 ### **测试类型**
-1. **reminder** - 测试提醒推送（模拟中午提醒）
-2. **daily-report** - 测试日报推送（模拟每日报告）
-3. **evening-reminder** - 测试晚间提醒（模拟晚上提醒）
-4. **quick-message** - 测试快速消息（通用测试消息）
+1. **reminder** - 测试提醒推送（需要admin权限）
+2. **daily-report** - 测试日报推送（需要admin权限）
+3. **evening-reminder** - 测试晚间提醒（需要admin权限）
+4. **quick-message** - 测试快速消息（需要admin权限）
+
+### **权限提示示例**
+当非admin用户尝试使用testpush时，会收到：
+```
+❌ 权限不足
+
+👤 用户ID：123456789
+🔒 状态：非管理员
+
+💡 提示：您不是admin，无法使用testpush功能
+
+🔧 解决方案：
+• 联系管理员获取权限
+• 或使用其他公开测试功能
+
+📞 如需帮助，请联系管理员
+```
 
 ### **示例调用**
 ```bash
-# 测试提醒推送
+# 测试权限检查（需要admin权限）
 curl -X POST https://your-domain.vercel.app/api/test-system \
   -H "Content-Type: application/json" \
   -d '{

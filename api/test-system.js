@@ -60,6 +60,29 @@ async function handlePublicPushTest(req, res, userId, testType) {
   try {
     console.log(`[public-push-test] 用户 ${userId} 开始测试推送，类型：${testType}`)
     
+    // 检查用户是否为admin
+    const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+    const isAdmin = adminIds.includes(userId.toString())
+    
+    if (!isAdmin) {
+      // 非admin用户显示权限提示
+      const errorMessage = `❌ 权限不足\n\n👤 用户ID：${userId}\n🔒 状态：非管理员\n\n💡 提示：您不是admin，无法使用testpush功能\n\n🔧 解决方案：\n• 联系管理员获取权限\n• 或使用其他公开测试功能\n\n📞 如需帮助，请联系管理员`
+      
+      console.log(`[public-push-test] 非admin用户 ${userId} 尝试使用testpush，已拒绝`)
+      
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'Permission denied: You are not an admin',
+        message: errorMessage,
+        details: {
+          userId,
+          isAdmin: false,
+          requiredRole: 'admin',
+          suggestion: 'Contact admin for access or use public test functions'
+        }
+      })
+    }
+    
     if (!testType) {
       return res.status(400).json({ 
         ok: false, 
@@ -75,6 +98,7 @@ async function handlePublicPushTest(req, res, userId, testType) {
       type: 'public-push',
       userId,
       testType,
+      isAdmin: true,
       testTime: now.toISOString(),
       timestamp: new Date().toISOString(),
       success: false,
@@ -821,4 +845,4 @@ function generateAdminTestReport(results, now) {
   report += `🧪 Admin测试完成！请检查实际效果。`
   
   return report
-} 
+}
