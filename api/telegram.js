@@ -1877,7 +1877,7 @@ export async function handleCallback(update, req, res) {
       
       // 获取该组的可用分类
       const availableCategories = GROUP_CATEGORIES[group] || []
-      const categoryList = availableCategories.map(([code, label]) => `• ${label} (${code})`).join('\n')
+      const categoryList = availableCategories.map(([code, label]) => `• ${label}`).join('\n')
       
       await setState(userId, 'batch', 'input', { group, groupLabel })
       await sendTelegramMessage(chatId, `🔄 ${groupLabel}批量记录模式\n\n请按以下格式输入记录（每行一条，最多20条）：\n\n格式：分类 金额 备注\n\n📋 可用分类：\n${categoryList}\n\n示例：\n${group === 'A' ? '餐饮 20 吃饭\n购物 15 买菜\n交通 8 公交' : 
