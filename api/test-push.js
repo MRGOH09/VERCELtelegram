@@ -203,7 +203,7 @@ async function testEveningTasks(now) {
   
   const results = {}
   
-  // 测试夜猫子提醒
+  // 测试晚间提醒
   try {
     const usersWithoutRecord = await usersWithoutRecordToday(now)
     const eveningMessages = usersWithoutRecord.map(chatId => ({
@@ -298,7 +298,7 @@ function generateTestReminder(chatId, now) {
 }
 
 function generateTestEveningReminder(chatId, now) {
-  return `🧪 测试夜猫子提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 这是一条测试夜猫子提醒！\n\n🌃 这是一条测试消息，请忽略！\n💰 保持记录，管理财务！\n\n💪 夜猫子也要记得记账！`
+  return `🧪 测试晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 这是一条测试晚间提醒！\n\n🌃 这是一条测试消息，请忽略！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
 }
 
 function calculateTotalSent(details) {
@@ -394,7 +394,7 @@ function generateTestReport(results, now) {
   if (results.action === 'evening' || results.action === 'all') {
     report += `🌙 晚上任务测试结果：\n`
     if (results.details.eveningReminder) {
-      report += `   • 夜猫子提醒：${results.details.eveningReminder.success ? '✅ 成功' : '❌ 失败'} (${results.details.eveningReminder.userCount || 0} 用户)\n`
+      report += `   • 晚间提醒：${results.details.eveningReminder.success ? '✅ 成功' : '❌ 失败'} (${results.details.eveningReminder.userCount || 0} 用户)\n`
     }
     report += '\n'
   }

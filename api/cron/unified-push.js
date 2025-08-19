@@ -43,12 +43,12 @@ export default async function handler(req, res) {
       results.totalFailed += (results.noon?.totalFailed || 0)
     }
     
-    // 晚上 10:00 - 夜猫子提醒
-    if (hour === 22) {
-      results.evening = await handleEveningTasks(now)
-      results.totalSent += (results.evening?.totalSent || 0)
-      results.totalFailed += (results.evening?.totalFailed || 0)
-    }
+    // 晚上 10:00 - 晚间提醒
+if (hour === 22) {
+  results.evening = await handleEveningTasks(now)
+  results.totalSent += (results.evening?.totalSent || 0)
+  results.totalFailed += (results.evening?.totalFailed || 0)
+}
     
     // 发送 admin 总报告
     await sendAdminReport(results, now)
@@ -142,16 +142,16 @@ async function handleNoonTasks(now) {
 async function handleEveningTasks(now) {
   console.log('[evening] 开始执行晚上任务...')
   
-  // 获取今日未记录用户（夜猫子提醒）
+  // 获取今日未记录用户（晚间提醒）
   const usersWithoutRecord = await usersWithoutRecordToday(now)
   
-  // 生成夜猫子提醒消息
+  // 生成晚间提醒消息
   const eveningMessages = usersWithoutRecord.map(chatId => ({
     chat_id: chatId,
     text: generateEveningReminder(chatId, now)
   }))
   
-  // 发送夜猫子提醒
+  // 发送晚间提醒
   const eveningResults = await sendBatchMessages(eveningMessages)
   
   return {
@@ -221,7 +221,7 @@ function generatePersonalizedReminder(chatId, now) {
 }
 
 function generateEveningReminder(chatId, now) {
-  return `🌙 夜猫子提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 今天还没有记录支出哦！\n\n🌃 趁着夜深人静，记录一下今天的支出吧！\n💰 保持记录，管理财务！\n\n💪 夜猫子也要记得记账！`
+  return `🌙 晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 今天还没有记录支出哦！\n\n🌃 趁着晚上时间，记录一下今天的支出吧！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
 }
 
 async function sendAdminReport(results, now) {
@@ -274,7 +274,7 @@ function generateAdminReport(results, now) {
   // 晚上任务报告
   if (results.evening) {
     report += `🌙 晚上推送 (10:00 PM)：\n`
-    report += `   • 夜猫子提醒：成功 ${results.evening.evening?.sent || 0}，失败 ${results.evening.evening?.failed || 0}\n`
+    report += `   • 晚间提醒：成功 ${results.evening.evening?.sent || 0}，失败 ${results.evening.evening?.failed || 0}\n`
     report += `   • 总计：成功 ${results.evening.totalSent}，失败 ${results.evening.totalFailed}\n\n`
   }
   
