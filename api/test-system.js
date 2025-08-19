@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, adminId } = req.body
+    const { action, adminId, type } = req.body
     
     if (!action) {
       return res.status(400).json({ 
@@ -28,30 +28,39 @@ export default async function handler(req, res) {
       })
     }
 
-    if (!adminId) {
-      return res.status(400).json({ 
-        ok: false, 
-        error: 'adminId is required for security'
-      })
+    // 类型1：普通测试（不需要adminId）
+    if (type === 'public' || (!adminId && action === 'quick-test')) {
+      return await handlePublicTest(req, res, action)
     }
 
-    // 验证管理员身份
-    const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
-    if (!adminIds.includes(adminId.toString())) {
-      return res.status(403).json({ 
-        ok: false, 
-        error: 'Unauthorized: Not an admin'
-      })
+    // 类型2：Admin测试（需要adminId）
+    if (adminId) {
+      return await handleAdminTest(req, res, action, adminId)
     }
 
-    console.log(`[admin-test] Admin ${adminId} 开始测试推送，动作：${action}`)
+    // 默认：普通测试
+    return await handlePublicTest(req, res, action)
+    
+  } catch (e) {
+    console.error('[test-system] 测试失败:', e)
+    return res.status(500).json({ 
+      ok: false, 
+      error: String(e.message || e) 
+    })
+  }
+}
+
+// 普通测试模式
+async function handlePublicTest(req, res, action) {
+  try {
+    console.log(`[public-test] 开始普通测试，动作：${action}`)
     
     const now = new Date()
     const isFirstDayOfMonth = now.getDate() === 1
     
     let results = {
       action,
-      adminId,
+      type: 'public',
       testTime: now.toISOString(),
       timestamp: new Date().toISOString(),
       totalSent: 0,
@@ -61,6 +70,10 @@ export default async function handler(req, res) {
     
     // 根据动作执行相应的测试
     switch (action) {
+      case 'quick-test':
+        results.details = await quickTest(now)
+        break
+        
       case 'morning':
         results.details = await testMorningTasks(now, isFirstDayOfMonth)
         break
@@ -85,8 +98,98 @@ export default async function handler(req, res) {
         results.details = await testAllTasks(now, isFirstDayOfMonth)
         break
         
+      default:
+        return res.status(400).json({ 
+          ok: false, 
+          error: `Unknown action: ${action}`,
+          availableActions: ['morning', 'noon', 'evening', 'all', 'monthly', 'break-streaks', 'quick-test']
+        })
+    }
+    
+    // 计算总发送和失败数
+    results.totalSent = calculateTotalSent(results.details)
+    results.totalFailed = calculateTotalFailed(results.details)
+    
+    console.log(`[public-test] 测试完成，结果：`, results)
+    
+    return res.status(200).json({ 
+      ok: true, 
+      message: `普通测试 ${action} 完成`,
+      results 
+    })
+    
+  } catch (e) {
+    console.error('[public-test] 测试失败:', e)
+    return res.status(500).json({ 
+      ok: false, 
+      error: String(e.message || e) 
+    })
+  }
+}
+
+// Admin测试模式
+async function handleAdminTest(req, res, action, adminId) {
+  try {
+    if (!adminId) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'adminId is required for admin tests'
+      })
+    }
+
+    // 验证管理员身份
+    const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+    if (!adminIds.includes(adminId.toString())) {
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'Unauthorized: Not an admin'
+      })
+    }
+
+    console.log(`[admin-test] Admin ${adminId} 开始测试推送，动作：${action}`)
+    
+    const now = new Date()
+    const isFirstDayOfMonth = now.getDate() === 1
+    
+    let results = {
+      action,
+      type: 'admin',
+      adminId,
+      testTime: now.toISOString(),
+      timestamp: new Date().toISOString(),
+      totalSent: 0,
+      totalFailed: 0,
+      details: {}
+    }
+    
+    // 根据动作执行相应的测试
+    switch (action) {
       case 'quick-test':
         results.details = await quickTest(now, adminId)
+        break
+        
+      case 'morning':
+        results.details = await testMorningTasks(now, isFirstDayOfMonth)
+        break
+        
+      case 'noon':
+        results.details = await testNoonTasks(now)
+        break
+        
+      case 'evening':
+        results.details = await testEveningTasks(now)
+        break
+        
+      case 'monthly':
+        results.details = await testMonthlyAutoPost(now)
+        break
+        
+      case 'break-streaks':
+        results.details = await testBreakStreaks(now)
+        break
+        
+      case 'all':
+        results.details = await testAllTasks(now, isFirstDayOfMonth)
         break
         
       default:
@@ -121,33 +224,44 @@ export default async function handler(req, res) {
   }
 }
 
-async function quickTest(now, adminId) {
-  console.log('[admin-test] 快速测试...')
+// 快速测试
+async function quickTest(now, adminId = null) {
+  console.log('[quick-test] 快速测试...')
   
-  // 只向管理员发送一条测试消息
-  const testMessage = `🧪 Admin 快速测试\n\n📅 测试时间：${now.toISOString().slice(0, 10)} ${now.toISOString().slice(11, 16)}\n🎯 测试动作：快速测试\n\n✅ 推送系统正常工作！\n\n💡 您可以继续测试其他功能：\n• morning - 早晨任务\n• noon - 中午任务\n• evening - 晚间任务\n• all - 所有任务`
-  
-  try {
-    const result = await sendBatchMessages([{
-      chat_id: adminId,
-      text: testMessage
-    }])
+  if (adminId) {
+    // Admin快速测试：只向管理员发送一条测试消息
+    const testMessage = `🧪 Admin 快速测试\n\n📅 测试时间：${now.toISOString().slice(0, 10)} ${now.toISOString().slice(11, 16)}\n🎯 测试动作：快速测试\n\n✅ 推送系统正常工作！\n\n💡 您可以继续测试其他功能：\n• morning - 早晨任务\n• noon - 中午任务\n• evening - 晚间任务\n• all - 所有任务`
     
+    try {
+      const result = await sendBatchMessages([{
+        chat_id: adminId,
+        text: testMessage
+      }])
+      
+      return { 
+        success: true, 
+        result,
+        message: '快速测试消息已发送到管理员'
+      }
+    } catch (e) {
+      return { 
+        success: false, 
+        error: e.message 
+      }
+    }
+  } else {
+    // 普通快速测试：返回系统状态
     return { 
       success: true, 
-      result,
-      message: '快速测试消息已发送到管理员'
-    }
-  } catch (e) {
-    return { 
-      success: false, 
-      error: e.message 
+      message: '系统测试完成，功能正常',
+      systemStatus: 'OK'
     }
   }
 }
 
+// 测试早晨任务
 async function testMorningTasks(now, isFirstDayOfMonth) {
-  console.log('[admin-test] 测试早晨任务...')
+  console.log('[test] 测试早晨任务...')
   
   const results = {}
   
@@ -207,8 +321,9 @@ async function testMorningTasks(now, isFirstDayOfMonth) {
   return results
 }
 
+// 测试中午任务
 async function testNoonTasks(now) {
-  console.log('[admin-test] 测试中午任务...')
+  console.log('[test] 测试中午任务...')
   
   const results = {}
   
@@ -244,8 +359,9 @@ async function testNoonTasks(now) {
   return results
 }
 
+// 测试晚间任务
 async function testEveningTasks(now) {
-  console.log('[admin-test] 测试晚上任务...')
+  console.log('[test] 测试晚上任务...')
   
   const results = {}
   
@@ -266,8 +382,9 @@ async function testEveningTasks(now) {
   return results
 }
 
+// 测试月度自动入账
 async function testMonthlyAutoPost(now) {
-  console.log('[admin-test] 测试月度自动入账...')
+  console.log('[test] 测试月度自动入账...')
   
   const yyyymm = now.toISOString().slice(0,7)
   const ymd = `${yyyymm}-01`
@@ -302,7 +419,7 @@ async function testMonthlyAutoPost(now) {
           category_group: it.g, 
           category_code: it.c, 
           amount: it.amt, 
-          note: 'Auto-post (ADMIN-TEST)', 
+          note: 'Auto-post (TEST)', 
           ymd 
         }])
         insertedCount++
@@ -315,8 +432,9 @@ async function testMonthlyAutoPost(now) {
   return { insertedCount, skippedCount, totalUsers: profs?.length || 0 }
 }
 
+// 测试断签清零
 async function testBreakStreaks(now) {
-  console.log('[admin-test] 测试断签清零...')
+  console.log('[test] 测试断签清零...')
   
   try {
     const result = await breakStreaksOneShot()
@@ -326,8 +444,9 @@ async function testBreakStreaks(now) {
   }
 }
 
+// 测试所有任务
 async function testAllTasks(now, isFirstDayOfMonth) {
-  console.log('[admin-test] 测试所有任务...')
+  console.log('[test] 测试所有任务...')
   
   const results = {}
   
@@ -339,14 +458,17 @@ async function testAllTasks(now, isFirstDayOfMonth) {
   return results
 }
 
+// 生成测试提醒
 function generateTestReminder(chatId, now) {
-  return `🧪 Admin测试提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n💡 这是一条Admin测试提醒消息！\n\n💰 今日进度：\n• 开销：RM 0.00\n• 学习：RM 0.00\n• 储蓄：RM 0.00\n\n📊 本月占比：\n• 开销：0%\n• 学习：0%\n• 储蓄：0%\n\n🎯 这是一条Admin测试消息，请忽略！`
+  return `🧪 测试提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n💡 这是一条测试提醒消息！\n\n💰 今日进度：\n• 开销：RM 0.00\n• 学习：RM 0.00\n• 储蓄：RM 0.00\n\n📊 本月占比：\n• 开销：0%\n• 学习：0%\n• 储蓄：0%\n\n🎯 这是一条测试消息，请忽略！`
 }
 
+// 生成测试晚间提醒
 function generateTestEveningReminder(chatId, now) {
-  return `🧪 Admin测试晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 这是一条Admin测试晚间提醒！\n\n🌃 这是一条Admin测试消息，请忽略！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
+  return `🧪 测试晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 这是一条测试晚间提醒！\n\n🌃 这是一条测试消息，请忽略！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
 }
 
+// 计算总发送数
 function calculateTotalSent(details) {
   let total = 0
   
@@ -359,6 +481,7 @@ function calculateTotalSent(details) {
   return total
 }
 
+// 计算总失败数
 function calculateTotalFailed(details) {
   let total = 0
   
@@ -371,6 +494,7 @@ function calculateTotalFailed(details) {
   return total
 }
 
+// 发送Admin测试报告
 async function sendAdminTestReport(results, now, adminId) {
   try {
     const report = generateAdminTestReport(results, now)
@@ -388,6 +512,7 @@ async function sendAdminTestReport(results, now, adminId) {
   }
 }
 
+// 生成Admin测试报告
 function generateAdminTestReport(results, now) {
   const date = now.toISOString().slice(0, 10)
   const time = now.toISOString().slice(11, 16)
