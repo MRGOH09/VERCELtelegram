@@ -800,7 +800,9 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true })
         }
         if (lines.length > 20) {
-          await sendTelegramMessage(chatId, '❌ 单次最多支持20条记录，请分批输入')
+          const errorMessage = '❌ 单次最多支持20条记录，请分批输入或点击取消'
+          const cancelButton = { inline_keyboard: [[{ text: '❌ 取消', callback_data: 'batch:cancel' }]] }
+          await sendTelegramMessage(chatId, errorMessage, { reply_markup: cancelButton })
           return res.status(200).json({ ok: true })
         }
 
@@ -845,12 +847,16 @@ export default async function handler(req, res) {
         }
         
         if (errors.length > 0) {
-          await sendTelegramMessage(chatId, `❌ 输入有误：\n\n${errors.join('\n')}\n\n请重新输入`)
+          const errorMessage = `❌ 输入有误：\n\n${errors.join('\n')}\n\n请重新输入或点击取消`
+          const cancelButton = { inline_keyboard: [[{ text: '❌ 取消', callback_data: 'batch:cancel' }]] }
+          await sendTelegramMessage(chatId, errorMessage, { reply_markup: cancelButton })
           return res.status(200).json({ ok: true })
         }
         
         if (records.length === 0) {
-          await sendTelegramMessage(chatId, '❌ 没有有效的记录，请重新输入')
+          const errorMessage = '❌ 没有有效的记录，请重新输入或点击取消'
+          const cancelButton = { inline_keyboard: [[{ text: '❌ 取消', callback_data: 'batch:cancel' }]] }
+          await sendTelegramMessage(chatId, errorMessage, { reply_markup: cancelButton })
           return res.status(200).json({ ok: true })
         }
         
