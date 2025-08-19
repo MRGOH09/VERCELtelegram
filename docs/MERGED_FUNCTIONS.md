@@ -39,6 +39,7 @@ Body: {
 **功能：**
 - ✅ 普通测试（public模式）
 - ✅ Admin测试（admin模式）
+- ✅ **新增：公开推送测试（public-push模式）**
 - ✅ 快速测试、早晨任务、中午任务、晚间任务等
 
 **使用方式：**
@@ -50,7 +51,21 @@ Body: { "action": "quick-test", "type": "public" }
 # Admin测试
 POST /api/test-system
 Body: { "action": "all", "adminId": "YOUR_ADMIN_ID" }
+
+# 🆕 公开推送测试（非admin用户）
+POST /api/test-system
+Body: { 
+  "action": "test-push",
+  "userId": "YOUR_TELEGRAM_ID",
+  "testType": "reminder"  # 或 "daily-report", "evening-reminder", "quick-message"
+}
 ```
+
+**公开推送测试类型：**
+- `reminder` - 测试提醒推送
+- `daily-report` - 测试日报推送  
+- `evening-reminder` - 测试晚间提醒
+- `quick-message` - 测试快速消息
 
 ### 3. `api/user/user-system.js` - 统一用户系统
 **功能：**
@@ -169,6 +184,7 @@ Body: {
 3. **测试功能：** 支持完整的测试和调试功能
 4. **用户管理：** 完整的用户资料和统计功能
 5. **记录管理：** 完整的记录CRUD操作
+6. **🆕 公开测试：** 普通用户可测试推送功能
 
 ## ⚠️ 注意事项
 
@@ -176,6 +192,7 @@ Body: {
 2. **环境变量：** 确保 `ADMIN_TG_IDS` 已正确配置
 3. **Cron限制：** 由于Hobby计划限制，中午和晚间任务数据已准备，需要通过其他方式触发
 4. **API调用：** 所有功能都通过统一的API端点，使用 `action` 参数区分功能
+5. **🆕 公开测试：** 非admin用户可通过 `test-push` 测试推送功能
 
 ## 🔧 故障排除
 
@@ -185,6 +202,35 @@ Body: {
 3. 数据库连接状态
 4. Telegram Bot Token 配置
 5. API调用参数是否正确
+6. 🆕 公开测试时确保 `userId` 和 `testType` 参数正确
+
+## 🆕 新增功能：公开推送测试
+
+### **用途**
+让普通用户（非admin）也能测试推送功能，验证系统是否正常工作。
+
+### **使用场景**
+- 用户想测试推送系统是否正常
+- 验证Telegram Bot是否能正常发送消息
+- 测试不同类型的推送消息格式
+
+### **测试类型**
+1. **reminder** - 测试提醒推送（模拟中午提醒）
+2. **daily-report** - 测试日报推送（模拟每日报告）
+3. **evening-reminder** - 测试晚间提醒（模拟晚上提醒）
+4. **quick-message** - 测试快速消息（通用测试消息）
+
+### **示例调用**
+```bash
+# 测试提醒推送
+curl -X POST https://your-domain.vercel.app/api/test-system \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "test-push",
+    "userId": "123456789",
+    "testType": "reminder"
+  }'
+```
 
 ## 📞 技术支持
 

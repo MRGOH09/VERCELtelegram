@@ -18,22 +18,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { action, adminId, type } = req.body
+    const { action, adminId, type, userId, testType } = req.body
     
     if (!action) {
       return res.status(400).json({ 
         ok: false, 
         error: 'action is required',
-        availableActions: ['morning', 'noon', 'evening', 'all', 'monthly', 'break-streaks', 'quick-test']
+        availableActions: ['morning', 'noon', 'evening', 'all', 'monthly', 'break-streaks', 'quick-test', 'test-push']
       })
     }
 
-    // 类型1：普通测试（不需要adminId）
+    // 类型1：公开推送测试（不需要adminId，但需要userId）
+    if (action === 'test-push' && userId) {
+      return await handlePublicPushTest(req, res, userId, testType)
+    }
+
+    // 类型2：普通测试（不需要adminId）
     if (type === 'public' || (!adminId && action === 'quick-test')) {
       return await handlePublicTest(req, res, action)
     }
 
-    // 类型2：Admin测试（需要adminId）
+    // 类型3：Admin测试（需要adminId）
     if (adminId) {
       return await handleAdminTest(req, res, action, adminId)
     }
@@ -48,6 +53,221 @@ export default async function handler(req, res) {
       error: String(e.message || e) 
     })
   }
+}
+
+// 公开推送测试模式
+async function handlePublicPushTest(req, res, userId, testType) {
+  try {
+    console.log(`[public-push-test] 用户 ${userId} 开始测试推送，类型：${testType}`)
+    
+    if (!testType) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'testType is required for push test',
+        availableTestTypes: ['reminder', 'daily-report', 'evening-reminder', 'quick-message']
+      })
+    }
+
+    const now = new Date()
+    
+    let results = {
+      action: 'test-push',
+      type: 'public-push',
+      userId,
+      testType,
+      testTime: now.toISOString(),
+      timestamp: new Date().toISOString(),
+      success: false,
+      details: {}
+    }
+    
+    // 根据测试类型执行相应的推送测试
+    switch (testType) {
+      case 'reminder':
+        results.details = await testReminderPush(now, userId)
+        break
+        
+      case 'daily-report':
+        results.details = await testDailyReportPush(now, userId)
+        break
+        
+      case 'evening-reminder':
+        results.details = await testEveningReminderPush(now, userId)
+        break
+        
+      case 'quick-message':
+        results.details = await testQuickMessagePush(now, userId)
+        break
+        
+      default:
+        return res.status(400).json({ 
+          ok: false, 
+          error: `Unknown testType: ${testType}`,
+          availableTestTypes: ['reminder', 'daily-report', 'evening-reminder', 'quick-message']
+        })
+    }
+    
+    results.success = results.details.success
+    
+    console.log(`[public-push-test] 推送测试完成，结果：`, results)
+    
+    return res.status(200).json({ 
+      ok: true, 
+      message: `公开推送测试 ${testType} 完成`,
+      results 
+    })
+    
+  } catch (e) {
+    console.error('[public-push-test] 推送测试失败:', e)
+    return res.status(500).json({ 
+      ok: false, 
+      error: String(e.message || e) 
+    })
+  }
+}
+
+// 测试提醒推送
+async function testReminderPush(now, userId) {
+  console.log('[public-push-test] 测试提醒推送...')
+  
+  try {
+    // 生成测试提醒消息
+    const testMessage = generateTestReminderMessage(now, userId)
+    
+    // 发送到指定用户
+    const result = await sendBatchMessages([{
+      chat_id: userId,
+      text: testMessage
+    }])
+    
+    return { 
+      success: true, 
+      result,
+      message: '提醒推送测试消息已发送',
+      messageContent: testMessage
+    }
+  } catch (e) {
+    return { 
+      success: false, 
+      error: e.message 
+    }
+  }
+}
+
+// 测试日报推送
+async function testDailyReportPush(now, userId) {
+  console.log('[public-push-test] 测试日报推送...')
+  
+  try {
+    // 生成测试日报消息
+    const testMessage = generateTestDailyReportMessage(now, userId)
+    
+    // 发送到指定用户
+    const result = await sendBatchMessages([{
+      chat_id: userId,
+      text: testMessage
+    }])
+    
+    return { 
+      success: true, 
+      result,
+      message: '日报推送测试消息已发送',
+      messageContent: testMessage
+    }
+  } catch (e) {
+    return { 
+      success: false, 
+      error: e.message 
+    }
+  }
+}
+
+// 测试晚间提醒推送
+async function testEveningReminderPush(now, userId) {
+  console.log('[public-push-test] 测试晚间提醒推送...')
+  
+  try {
+    // 生成测试晚间提醒消息
+    const testMessage = generateTestEveningReminderMessage(now, userId)
+    
+    // 发送到指定用户
+    const result = await sendBatchMessages([{
+      chat_id: userId,
+      text: testMessage
+    }])
+    
+    return { 
+      success: true, 
+      result,
+      message: '晚间提醒推送测试消息已发送',
+      messageContent: testMessage
+    }
+  } catch (e) {
+    return { 
+      success: false, 
+      error: e.message 
+    }
+  }
+}
+
+// 测试快速消息推送
+async function testQuickMessagePush(now, userId) {
+  console.log('[public-push-test] 测试快速消息推送...')
+  
+  try {
+    // 生成测试快速消息
+    const testMessage = generateTestQuickMessage(now, userId)
+    
+    // 发送到指定用户
+    const result = await sendBatchMessages([{
+      chat_id: userId,
+      text: testMessage
+    }])
+    
+    return { 
+      success: true, 
+      result,
+      message: '快速消息推送测试消息已发送',
+      messageContent: testMessage
+    }
+  } catch (e) {
+    return { 
+      success: false, 
+      error: e.message 
+    }
+  }
+}
+
+// 生成测试提醒消息
+function generateTestReminderMessage(now, userId) {
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toISOString().slice(11, 16)
+  
+  return `🧪 测试提醒推送\n\n📅 测试日期：${date}\n⏰ 测试时间：${time}\n👤 测试用户：${userId}\n\n💰 今日进度：\n• 开销：RM 0.00\n• 学习：RM 0.00\n• 储蓄：RM 0.00\n\n📊 本月占比：\n• 开销：0%\n• 学习：0%\n• 储蓄：0%\n\n🎯 这是一条测试提醒消息！\n💡 用于验证推送系统是否正常工作\n\n✅ 如果您收到这条消息，说明推送系统正常！`
+}
+
+// 生成测试日报消息
+function generateTestDailyReportMessage(now, userId) {
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toISOString().slice(11, 16)
+  
+  return `🧪 测试日报推送\n\n📅 测试日期：${date}\n⏰ 测试时间：${time}\n👤 测试用户：${userId}\n\n📊 今日统计：\n• 开销：RM 0.00 (0%)\n• 学习：RM 0.00 (0%)\n• 储蓄：RM 0.00 (0%)\n• 旅行：RM 0.00\n\n🎯 这是一条测试日报消息！\n💡 用于验证日报推送功能\n\n✅ 如果您收到这条消息，说明日报推送系统正常！`
+}
+
+// 生成测试晚间提醒消息
+function generateTestEveningReminderMessage(now, userId) {
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toISOString().slice(11, 16)
+  
+  return `🧪 测试晚间提醒推送\n\n📅 测试日期：${date}\n⏰ 测试时间：${time}\n👤 测试用户：${userId}\n\n🌙 晚间提醒测试：\n💡 这是一条测试晚间提醒消息！\n\n🌃 用于验证晚间推送功能\n💰 保持记录，管理财务！\n\n💪 记得记账哦！\n\n✅ 如果您收到这条消息，说明晚间推送系统正常！`
+}
+
+// 生成测试快速消息
+function generateTestQuickMessage(now, userId) {
+  const date = now.toISOString().slice(0, 10)
+  const time = now.toISOString().slice(11, 16)
+  
+  return `🧪 测试快速消息推送\n\n📅 测试日期：${date}\n⏰ 测试时间：${time}\n👤 测试用户：${userId}\n\n⚡ 快速消息测试：\n💡 这是一条测试快速消息！\n\n🎯 用于验证快速推送功能\n🚀 测试推送系统的响应速度\n\n✅ 如果您收到这条消息，说明快速推送系统正常！\n\n💡 您可以继续测试其他功能：\n• reminder - 提醒推送\n• daily-report - 日报推送\n• evening-reminder - 晚间提醒\n• quick-message - 快速消息`
 }
 
 // 普通测试模式
