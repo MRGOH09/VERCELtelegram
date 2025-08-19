@@ -1900,7 +1900,7 @@ export async function handleCallback(update, req, res) {
     const isAdmin = adminIds.includes(from.id.toString())
     
     if (!isAdmin) {
-      await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
+      await sendTelegramMessage(chatId, '非admin')
       return
     }
     
@@ -1931,7 +1931,7 @@ export async function handleCallback(update, req, res) {
     const isAdmin = adminIds.includes(from.id.toString())
     
     if (!isAdmin) {
-      await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
+      await sendTelegramMessage(chatId, '非admin')
       return
     }
     
