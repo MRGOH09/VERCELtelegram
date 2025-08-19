@@ -1893,52 +1893,52 @@ export async function handleCallback(update, req, res) {
       return res.status(200).json({ ok: true })
     }
 
-    // 处理 /test-push 命令
-    if (text === '/test-push') {
-      // 检查是否是管理员
-      const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
-      const isAdmin = adminIds.includes(from.id.toString())
-      
-      if (!isAdmin) {
-        await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
-        return
-      }
-      
-      // 显示测试选项
-      const testOptions = [
-        [{ text: '🧪 快速测试', callback_data: 'admin:quick-test' }],
-        [{ text: '🌅 早晨推送', callback_data: 'admin:morning' }],
-        [{ text: '🌞 中午推送', callback_data: 'admin:noon' }],
-        [{ text: '🌙 晚间推送', callback_data: 'admin:evening' }],
-        [{ text: '📅 月度入账', callback_data: 'admin:monthly' }],
-        [{ text: '⏰ 断签清零', callback_data: 'admin:break-streaks' }],
-        [{ text: '🚀 全部测试', callback_data: 'admin:all' }]
-      ]
-      
-      await sendTelegramMessage(chatId, 
-        '🧪 Admin 推送功能测试\n\n请选择要测试的功能：\n\n💡 建议先使用"快速测试"验证基本功能', 
-        { reply_markup: { inline_keyboard: testOptions } }
-      )
+      // 处理 /testpush 命令
+  if (text === '/testpush') {
+    // 检查是否是管理员
+    const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+    const isAdmin = adminIds.includes(from.id.toString())
+    
+    if (!isAdmin) {
+      await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
       return
     }
+    
+    // 显示测试选项
+    const testOptions = [
+      [{ text: '🧪 快速测试', callback_data: 'admin:quick-test' }],
+      [{ text: '🌅 早晨推送', callback_data: 'admin:morning' }],
+      [{ text: '🌞 中午推送', callback_data: 'admin:noon' }],
+      [{ text: '🌙 晚间推送', callback_data: 'admin:evening' }],
+      [{ text: '📅 月度入账', callback_data: 'admin:monthly' }],
+      [{ text: '⏰ 断签清零', callback_data: 'admin:break-streaks' }],
+      [{ text: '🚀 全部测试', callback_data: 'admin:all' }]
+    ]
+    
+    await sendTelegramMessage(chatId, 
+      '🧪 Admin 推送功能测试\n\n请选择要测试的功能：\n\n💡 建议先使用"快速测试"验证基本功能', 
+      { reply_markup: { inline_keyboard: testOptions } }
+    )
+    return
+  }
 
-    // 处理 /test-push [action] 格式的命令
-    if (text.startsWith('/test-push ')) {
-      const action = text.split(' ')[1]
-      
-      // 检查是否是管理员
-      const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
-      const isAdmin = adminIds.includes(from.id.toString())
-      
-      if (!isAdmin) {
-        await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
-        return
-      }
-      
-      // 直接执行测试
-      await executeAdminTest(chatId, action, from.id)
+      // 处理 /testpush [action] 格式的命令
+  if (text.startsWith('/testpush ')) {
+    const action = text.split(' ')[1]
+    
+    // 检查是否是管理员
+    const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+    const isAdmin = adminIds.includes(from.id.toString())
+    
+    if (!isAdmin) {
+      await sendTelegramMessage(chatId, '❌ 权限不足\n\n只有管理员可以使用此命令。')
       return
     }
+    
+    // 直接执行测试
+    await executeAdminTest(chatId, action, from.id)
+    return
+  }
 
     // 处理 Admin 测试回调
     if (data.startsWith('admin:')) {
