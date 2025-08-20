@@ -2127,7 +2127,7 @@ async function executeAdminTest(chatId, action, adminId) {
     await sendTelegramMessage(chatId, `🧪 开始执行 ${action} 测试...\n\n⏳ 请稍候，测试完成后会收到详细报告。`)
     
     // 调用 Admin 测试 API
-    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/admin-test`, {
+    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/test-system`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
