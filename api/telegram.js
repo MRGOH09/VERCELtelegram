@@ -458,7 +458,7 @@ export default async function handler(req, res) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId, recordId, amount, note }) })
+      const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'update', userId, recordId, data: { amount, note } }) })
       const payload = await resp.json().catch(() => ({}))
       if (!resp.ok) { await sendTelegramMessage(chatId, `编辑失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
       await sendTelegramMessage(chatId, '✅ 已更新')
@@ -471,7 +471,7 @@ export default async function handler(req, res) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/record?userId=${userId}&recordId=${encodeURIComponent(recordId)}`, { method: 'DELETE' })
+      const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId, recordId }) })
       const payload = await resp.json().catch(() => ({}))
       if (!resp.ok) { await sendTelegramMessage(chatId, `删除失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
       await sendTelegramMessage(chatId, '✅ 已删除')
@@ -505,9 +505,13 @@ export default async function handler(req, res) {
         const base = `${url.protocol}//${url.host}`
         console.log('API 基础 URL:', base)
         
-        // 3. 调用 /api/my 接口
-        console.log('📡 调用 /api/my 接口...')
-        const r = await fetch(`${base}/api/my?userId=${u.id}&range=month`)
+        // 3. 调用 /api/user/user-system 接口
+        console.log('📡 调用 /api/user/user-system 接口...')
+        const r = await fetch(`${base}/api/user/user-system`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-summary', userId: u.id })
+        })
         console.log('API 响应状态:', r.status, r.ok)
         
         const data = await r.json()
@@ -930,7 +934,7 @@ export default async function handler(req, res) {
         if (amt == null) { await sendTelegramMessage(chatId, messages.record.amount_invalid); return res.status(200).json({ ok: true }) }
         const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
         const base = `${url.protocol}//${url.host}`
-        const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: userIdForState, recordId, amount: amt }) })
+        const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'update', userId: userIdForState, recordId, data: { amount: amt } }) })
         if (!resp.ok) { await sendTelegramMessage(chatId, '编辑失败'); return res.status(200).json({ ok: true }) }
         await clearState(userIdForState)
         await sendTelegramMessage(chatId, messages.history.updated)
@@ -940,7 +944,7 @@ export default async function handler(req, res) {
         const note = text.slice(0, 200)
         const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
         const base = `${url.protocol}//${url.host}`
-        const resp = await fetch(`${base}/api/record`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ userId: userIdForState, recordId, note }) })
+        const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'update', userId: userIdForState, recordId, data: { note } }) })
         if (!resp.ok) { await sendTelegramMessage(chatId, '编辑失败'); return res.status(200).json({ ok: true }) }
         await clearState(userIdForState)
         await sendTelegramMessage(chatId, messages.history.updated)
@@ -1105,7 +1109,7 @@ export async function handleCallback(update, req, res) {
       const page = parseInt(pageStr || '1', 10) || 1
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/record?userId=${userId}&range=${encodeURIComponent(range)}&page=${page}&pageSize=5`)
+      const r = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list', userId, data: { range, page, pageSize: 5 } }) })
       const payload = await r.json()
       if (!r.ok) { 
         await answerCallbackQuery(cq.id, '❌ 查询失败，请稍后重试')
@@ -1189,7 +1193,7 @@ export async function handleCallback(update, req, res) {
       
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/record?userId=${userId}&recordId=${encodeURIComponent(recordId)}`, { method: 'DELETE' })
+      const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId, recordId }) })
       if (!resp.ok) { await sendTelegramMessage(chatId, '删除失败'); return res.status(200).json({ ok: true }) }
       await sendTelegramMessage(chatId, messages.history.deleted)
       return res.status(200).json({ ok: true })
@@ -1665,10 +1669,10 @@ export async function handleCallback(update, req, res) {
       // 调用后端 /api/record 执行入库 + 聚合 + streak
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/record`, {
+      const resp = await fetch(`${base}/api/records/record-system`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ userId: userId, category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) })
+        body: JSON.stringify({ action: 'create', userId: userId, data: { category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) } })
       })
       if (!resp.ok) { await sendTelegramMessage(chatId, messages.record.save_failed); return res.status(200).json({ ok: true }) }
       await clearState(userId)
@@ -1885,7 +1889,7 @@ export async function handleCallback(update, req, res) {
       const range = data.split(':')[1] || 'month'
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/records/list?userId=${userId}&range=${encodeURIComponent(range)}&page=1&pageSize=10`)
+      const r = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list', userId, data: { range, page: 1, pageSize: 10 } }) })
       const payload = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
       
