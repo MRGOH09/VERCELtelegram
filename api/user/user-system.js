@@ -1,7 +1,7 @@
 import { todayYMD } from '../../lib/time.js'
 import supabase from '../../lib/supabase.js'
 import { zh } from '../../lib/i18n.js'
-import { formatTemplate } from '../../lib/helpers.js'
+import { formatTemplate, getYYYYMM } from '../../lib/helpers.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -209,7 +209,10 @@ async function handleGetSummary(req, res, userId) {
       })
     }
 
-    const yyyymm = todayYMD().slice(0, 7)
+    const yyyymm = getYYYYMM()
+    
+    // 调试日志：检查日期格式
+    console.log(`[DEBUG] 获取到的日期格式: ${yyyymm}`)
     
     // 获取本月记录
     const { data: records, error: recordsError } = await supabase
@@ -242,9 +245,15 @@ async function handleGetSummary(req, res, userId) {
         error: 'Failed to get user profile' 
       })
     }
+    
+    // 调试日志：检查用户资料
+    console.log(`[DEBUG] 用户 ${userId} 资料:`, profile)
 
     // 计算摘要
     const summary = calculateSummary(records, profile, yyyymm)
+    
+    // 调试日志：检查计算结果
+    console.log(`[DEBUG] 计算结果:`, summary)
     
     return res.status(200).json({ 
       ok: true, 
