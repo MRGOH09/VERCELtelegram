@@ -234,7 +234,7 @@ async function handleGetSummary(req, res, userId) {
     // 获取用户资料
     const { data: profile, error: profileError } = await supabase
       .from('user_profile')
-      .select('monthly_income, travel_budget_annual, annual_medical_insurance, annual_car_insurance')
+      .select('monthly_income, travel_budget_annual, annual_medical_insurance, annual_car_insurance, epf_pct')
       .eq('user_id', userId)
       .single()
 
@@ -257,6 +257,23 @@ async function handleGetSummary(req, res, userId) {
     
     // 转换为 telegram.js 期望的数据格式
     try {
+      // 计算EPF月供
+      const monthlyIncome = summary.monthlyIncome || 0
+      const epfPct = Number(profile?.epf_pct || 24) // 默认24%
+      const monthlyEPF = (monthlyIncome * epfPct) / 100
+      
+      // 计算余额（收入 - A - B - C - EPF - 其他月度支出）
+      const monthlyExpenses = (
+        (summary.groups.A.total || 0) + 
+        (summary.groups.B.total || 0) + 
+        (summary.groups.C.total || 0) + 
+        monthlyEPF +
+        ((profile?.travel_budget_annual || 0) / 12) +
+        ((profile?.annual_medical_insurance || 0) / 12) +
+        ((profile?.annual_car_insurance || 0) / 12)
+      )
+      const monthlyBalance = Math.max(0, monthlyIncome - monthlyExpenses)
+      
       const responseData = {
         progress: {
           a: summary.groups.A.total || 0,
@@ -269,13 +286,13 @@ async function handleGetSummary(req, res, userId) {
           c: summary.groups.C.percentage || '0.0'
         },
         snapshotView: {
-          income: summary.monthlyIncome || 0,
+          income: monthlyIncome,
           a_pct: 60, // 默认开销目标60%
           b_pct: 20, // 默认学习目标20%
           cap_a: summary.groups.A.target || 0,
           cap_b: summary.groups.B.target || 0,
           cap_c: summary.groups.C.target || 0,
-          epf: 0, // 暂时设为0
+          epf: monthlyEPF, // 计算的EPF月供
           travelMonthly: (profile?.travel_budget_annual || 0) / 12,
           medicalMonthly: (profile?.annual_medical_insurance || 0) / 12,
           carInsuranceMonthly: (profile?.annual_car_insurance || 0) / 12
@@ -290,8 +307,8 @@ async function handleGetSummary(req, res, userId) {
           b: (summary.groups.B.total || 0).toFixed(2),
           c_residual: (summary.groups.C.total || 0).toFixed(2)
         },
-        categoryBreakdown: calculateCategoryBreakdown(records, summary.monthlyIncome),
-        balance: 0
+        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome),
+        balance: monthlyBalance // 计算的月度余额
       }
 
       // 调试日志：检查转换后的数据
