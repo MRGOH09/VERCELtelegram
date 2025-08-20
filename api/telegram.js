@@ -1093,11 +1093,6 @@ export async function handleCallback(update, req, res) {
     try { await answerCallbackQuery(cq.id) } catch {}
     const userId = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userId)
-    if (data === 'rec:again') {
-      await setState(userId, 'record', 'choose_group', {})
-      await sendTelegramMessage(chatId, messages.record.choose_group, { reply_markup: groupKeyboard() })
-      return res.status(200).json({ ok: true })
-    }
     if (data.startsWith('hist:page:')) {
       const [, , range, pageStr] = data.split(':')
       const page = parseInt(pageStr || '1', 10) || 1
@@ -1531,7 +1526,7 @@ export async function handleCallback(update, req, res) {
       await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
-    if (data === 'my:today' || data === 'my:lastmonth') {
+    if (data === 'my:lastmonth' || data === 'my:week') {
       const range = data.split(':')[1]
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
