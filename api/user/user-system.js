@@ -289,7 +289,7 @@ async function handleGetSummary(req, res, userId) {
         b: summary.groups.B.total.toFixed(2),
         c_residual: summary.groups.C.total.toFixed(2)
       },
-      categoryBreakdown: {},
+      categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome),
       balance: 0
     }
 
@@ -415,4 +415,36 @@ function calculateSummary(records, profile, yyyymm) {
   }
   
   return summary
+}
+
+// 计算分类明细
+function calculateCategoryBreakdown(records, monthlyIncome) {
+  if (!records || records.length === 0) {
+    return {}
+  }
+  
+  // 按分类统计
+  const categoryStats = {}
+  
+  records.forEach(record => {
+    const category = record.category_code
+    if (!categoryStats[category]) {
+      categoryStats[category] = {
+        total: 0,
+        count: 0,
+        percentage: 0
+      }
+    }
+    categoryStats[category].total += Number(record.amount || 0)
+    categoryStats[category].count += 1
+  })
+  
+  // 计算百分比
+  Object.keys(categoryStats).forEach(category => {
+    categoryStats[category].percentage = monthlyIncome > 0 
+      ? (categoryStats[category].total / monthlyIncome * 100).toFixed(1)
+      : '0.0'
+  })
+  
+  return categoryStats
 } 
