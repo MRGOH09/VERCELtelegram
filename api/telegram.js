@@ -107,13 +107,17 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     finalSavingsTotal += balance
   }
   
-  // 计算实际百分比（基于真实金额）
-  const groupAPercentage = monthlyIncome > 0 ? ((groupTotals['A'] || 0) / monthlyIncome) * 100 : 0
-  const groupBPercentage = monthlyIncome > 0 ? ((groupTotals['B'] || 0) / monthlyIncome) * 100 : 0
-  const groupCPercentage = monthlyIncome > 0 ? (finalSavingsTotal / monthlyIncome) * 100 : 0
+  // 强制重新分配百分比，确保总和为100%
+  // 开销组百分比（固定）
+  const groupAPercentage = ((groupTotals['A'] || 0) / monthlyIncome) * 100
+  // 学习组百分比（固定）
+  const groupBPercentage = ((groupTotals['B'] || 0) / monthlyIncome) * 100
+  // 储蓄组百分比（自动计算，确保总和为100%）
+  const groupCPercentage = Math.max(0, 100 - groupAPercentage - groupBPercentage)
   
-  // 更新储蓄组总额（使用实际计算的金额，而不是强制匹配百分比）
-  groupTotals['C'] = finalSavingsTotal
+  // 更新储蓄组总额以匹配目标百分比，但保持EPF和余额的明细显示
+  const calculatedSavingsTotal = (groupCPercentage / 100) * monthlyIncome
+  groupTotals['C'] = calculatedSavingsTotal
   
   console.log('百分比重新分配:', {
     groupA: groupAPercentage.toFixed(1) + '%',
@@ -148,16 +152,23 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
       result += `  • ${categoryLabel}（${categoryPercentage}%）：RM ${categoryAmount.toFixed(2)}\n`
     }
     
-    // 如果是储蓄组且有EPF，添加EPF信息
-    if (group === 'C' && epf > 0) {
-      const epfPercentage = monthlyIncome > 0 ? ((epf / monthlyIncome) * 100).toFixed(1) : '0.0'
-      result += `  • EPF（月）（${epfPercentage}%）：RM ${epf.toFixed(2)}\n`
-    }
-    
-    // 如果是储蓄组且有余额，添加余额信息
-    if (group === 'C' && balance > 0) {
-      const balancePercentage = monthlyIncome > 0 ? ((balance / monthlyIncome) * 100).toFixed(1) : '0.0'
-      result += `  • 余额（${balancePercentage}%）：RM ${balance.toFixed(2)}\n`
+    // 如果是储蓄组，添加EPF和余额信息，并计算调整后的余额
+    if (group === 'C') {
+      // 显示EPF
+      if (epf > 0) {
+        const epfPercentage = monthlyIncome > 0 ? ((epf / monthlyIncome) * 100).toFixed(1) : '0.0'
+        result += `  • EPF（月）（${epfPercentage}%）：RM ${epf.toFixed(2)}\n`
+      }
+      
+      // 计算调整后的余额（总储蓄 - 原有储蓄项目 - EPF）
+      const originalSavings = Object.values(categories).reduce((sum, amount) => sum + Number(amount), 0)
+      const adjustedBalance = groupTotal - originalSavings - epf
+      
+      // 显示调整后的余额
+      if (adjustedBalance > 0) {
+        const adjustedBalancePercentage = monthlyIncome > 0 ? ((adjustedBalance / monthlyIncome) * 100).toFixed(1) : '0.0'
+        result += `  • 余额（${adjustedBalancePercentage}%）：RM ${adjustedBalance.toFixed(2)}\n`
+      }
     }
   }
   
