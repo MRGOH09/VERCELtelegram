@@ -1655,15 +1655,51 @@ export async function handleCallback(update, req, res) {
     if (data === 'rec:confirm') {
       if (st.step !== 'confirm') { await sendTelegramMessage(chatId, '状态已过期，请重新 /record'); await clearState(userId); return res.status(200).json({ ok: true }) }
       const payload = st.payload || {}
+      
+      console.log('[记录保存] 开始保存记录:', {
+        userId,
+        payload,
+        step: st.step
+      })
+      
       // 调用后端 /api/record 执行入库 + 聚合 + streak
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
+      
+      const requestData = { 
+        action: 'create', 
+        userId: userId, 
+        data: { 
+          category_group: payload.group, 
+          category_code: payload.category, 
+          amount: payload.amount, 
+          note: payload.note || '', 
+          ymd: new Date().toISOString().slice(0,10) 
+        } 
+      }
+      
+      console.log('[记录保存] 请求数据:', {
+        url: `${base}/api/records/record-system`,
+        requestData
+      })
+      
       const resp = await fetch(`${base}/api/records/record-system`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'create', userId: userId, data: { category_group: payload.group, category_code: payload.category, amount: payload.amount, note: payload.note || '', ymd: new Date().toISOString().slice(0,10) } })
+        body: JSON.stringify(requestData)
       })
-      if (!resp.ok) { await sendTelegramMessage(chatId, messages.record.save_failed); return res.status(200).json({ ok: true }) }
+      
+      if (!resp.ok) { 
+        const errorData = await resp.text().catch(() => '无法获取错误信息')
+        console.error('[记录保存] API调用失败:', {
+          status: resp.status,
+          statusText: resp.statusText,
+          errorData,
+          requestData
+        })
+        await sendTelegramMessage(chatId, `❌ 保存失败，请重试\n错误详情：${resp.status} ${resp.statusText}`)
+        return res.status(200).json({ ok: true }) 
+      }
       await clearState(userId)
       await sendTelegramMessage(chatId,
         formatTemplate(messages.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }),
