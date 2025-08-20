@@ -185,9 +185,9 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
 
 // 格式化实时开销占比显示
 function formatRealtimePercentages(realtimeData) {
-  const ra = realtimeData?.a == null ? 'N/A' : `${realtimeData.a}%`
-  const rb = realtimeData?.b == null ? 'N/A' : `${realtimeData.b}%`
-  const rc = realtimeData?.c == null ? 'N/A' : `${realtimeData.c}%`
+  const ra = realtimeData?.a == null ? 'N/A' : realtimeData.a
+  const rb = realtimeData?.b == null ? 'N/A' : realtimeData.b
+  const rc = realtimeData?.c == null ? 'N/A' : realtimeData.c
   return { ra, rb, rc }
 }
 
