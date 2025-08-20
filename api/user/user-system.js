@@ -434,6 +434,23 @@ function calculateCategoryBreakdown(records, monthlyIncome) {
     return {}
   }
   
+  // 分类名称映射（英文转中文）
+  const categoryNames = {
+    'food': '餐饮',
+    'shop': '购物',
+    'course': '课程',
+    'mobile': '手机',
+    'ins_med_auto': '医疗保险',
+    'ins_car_auto': '车险',
+    'other': '其他',
+    'transport': '交通',
+    'ent': '娱乐',
+    'utilities': '水电费',
+    'travel': '旅游',
+    'investment': '投资',
+    'savings': '储蓄'
+  }
+  
   // 按分类统计
   const categoryStats = {}
   
@@ -443,7 +460,8 @@ function calculateCategoryBreakdown(records, monthlyIncome) {
       categoryStats[category] = {
         total: 0,
         count: 0,
-        percentage: 0
+        percentage: 0,
+        name: categoryNames[category] || category // 使用中文名称，如果没有则使用原名称
       }
     }
     categoryStats[category].total += Number(record.amount || 0)
