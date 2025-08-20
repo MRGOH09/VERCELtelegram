@@ -428,52 +428,30 @@ function calculateSummary(records, profile, yyyymm) {
   return summary
 }
 
-// 计算分类明细
+// 计算分类明细（按组别组织）
 function calculateCategoryBreakdown(records, monthlyIncome) {
   if (!records || records.length === 0) {
     return {}
   }
   
-  // 分类名称映射（英文转中文）
-  const categoryNames = {
-    'food': '餐饮',
-    'shop': '购物',
-    'course': '课程',
-    'mobile': '手机',
-    'ins_med_auto': '医疗保险',
-    'ins_car_auto': '车险',
-    'other': '其他',
-    'transport': '交通',
-    'ent': '娱乐',
-    'utilities': '水电费',
-    'travel': '旅游',
-    'investment': '投资',
-    'savings': '储蓄'
-  }
-  
-  // 按分类统计
-  const categoryStats = {}
+  // 按组别和分类统计金额
+  const groupedBreakdown = {}
   
   records.forEach(record => {
+    const group = record.category_group
     const category = record.category_code
-    if (!categoryStats[category]) {
-      categoryStats[category] = {
-        total: 0,
-        count: 0,
-        percentage: 0,
-        name: categoryNames[category] || category // 使用中文名称，如果没有则使用原名称
-      }
+    const amount = Number(record.amount || 0)
+    
+    if (!groupedBreakdown[group]) {
+      groupedBreakdown[group] = {}
     }
-    categoryStats[category].total += Number(record.amount || 0)
-    categoryStats[category].count += 1
+    
+    if (!groupedBreakdown[group][category]) {
+      groupedBreakdown[group][category] = 0
+    }
+    
+    groupedBreakdown[group][category] += amount
   })
   
-  // 计算百分比
-  Object.keys(categoryStats).forEach(category => {
-    categoryStats[category].percentage = monthlyIncome > 0 
-      ? (categoryStats[category].total / monthlyIncome * 100).toFixed(1)
-      : '0.0'
-  })
-  
-  return categoryStats
+  return groupedBreakdown
 } 
