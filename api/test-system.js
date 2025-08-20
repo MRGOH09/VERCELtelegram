@@ -60,15 +60,27 @@ async function handlePublicPushTest(req, res, userId, testType) {
   try {
     console.log(`[public-push-test] 用户 ${userId} 开始测试推送，类型：${testType}`)
     
+    // 详细的环境变量调试信息
+    console.log(`[debug] 环境变量检查:`)
+    console.log(`[debug] ADMIN_TG_IDS 原始值: "${process.env.ADMIN_TG_IDS}"`)
+    console.log(`[debug] ADMIN_TG_IDS 类型: ${typeof process.env.ADMIN_TG_IDS}`)
+    
     // 检查用户是否为admin
     const adminIds = (process.env.ADMIN_TG_IDS || '').split(',').map(s => s.trim()).filter(Boolean)
+    console.log(`[debug] 解析后的adminIds:`, adminIds)
+    console.log(`[debug] 当前用户ID: ${userId} (类型: ${typeof userId})`)
+    
     const isAdmin = adminIds.includes(userId.toString())
+    console.log(`[debug] 权限检查结果: ${isAdmin}`)
+    console.log(`[debug] userId.toString(): "${userId.toString()}"`)
+    console.log(`[debug] adminIds.includes检查:`, adminIds.map(id => ({ id, type: typeof id, matches: id === userId.toString() })))
     
     if (!isAdmin) {
       // 非admin用户显示权限提示
-      const errorMessage = `❌ 权限不足\n\n👤 用户ID：${userId}\n🔒 状态：非管理员\n\n💡 提示：您不是admin，无法使用testpush功能\n\n🔧 解决方案：\n• 联系管理员获取权限\n• 或使用其他公开测试功能\n\n📞 如需帮助，请联系管理员`
+      const errorMessage = `❌ 权限不足\n\n👤 用户ID：${userId}\n🔒 状态：非管理员\n\n💡 提示：您不是admin，无法使用testpush功能\n\n🔧 解决方案：\n• 联系管理员获取权限\n• 或使用其他公开测试功能\n\n📞 如需帮助，请联系管理员\n\n🔍 调试信息：\n• 环境变量ADMIN_TG_IDS: ${process.env.ADMIN_TG_IDS || '未设置'}\n• 解析后的admin列表: ${adminIds.join(', ') || '空列表'}`
       
       console.log(`[public-push-test] 非admin用户 ${userId} 尝试使用testpush，已拒绝`)
+      console.log(`[debug] 拒绝原因: 用户ID ${userId} 不在admin列表 ${adminIds} 中`)
       
       return res.status(403).json({ 
         ok: false, 
@@ -78,10 +90,18 @@ async function handlePublicPushTest(req, res, userId, testType) {
           userId,
           isAdmin: false,
           requiredRole: 'admin',
-          suggestion: 'Contact admin for access or use public test functions'
+          suggestion: 'Contact admin for access or use public test functions',
+          debug: {
+            adminIds,
+            envVar: process.env.ADMIN_TG_IDS,
+            userIdType: typeof userId,
+            comparison: adminIds.map(id => ({ id, matches: id === userId.toString() }))
+          }
         }
       })
     }
+    
+    console.log(`[debug] 用户 ${userId} 权限验证通过，继续执行...`)
     
     if (!testType) {
       return res.status(400).json({ 
