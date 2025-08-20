@@ -255,10 +255,48 @@ async function handleGetSummary(req, res, userId) {
     // 调试日志：检查计算结果
     console.log(`[DEBUG] 计算结果:`, summary)
     
-    return res.status(200).json({ 
-      ok: true, 
-      summary 
-    })
+    // 转换为 telegram.js 期望的数据格式
+    const responseData = {
+      progress: {
+        a: summary.groups.A.total,
+        b: summary.groups.B.total,
+        c: summary.groups.C.total
+      },
+      realtime: {
+        a: summary.groups.A.percentage,
+        b: summary.groups.B.percentage,
+        c: summary.groups.C.percentage
+      },
+      snapshotView: {
+        income: summary.monthlyIncome,
+        a_pct: 60, // 默认开销目标60%
+        b_pct: 20, // 默认学习目标20%
+        cap_a: summary.groups.A.target,
+        cap_b: summary.groups.B.target,
+        cap_c: summary.groups.C.target,
+        epf: 0, // 暂时设为0
+        travelMonthly: profile?.travel_budget_annual / 12 || 0,
+        medicalMonthly: profile?.annual_medical_insurance / 12 || 0,
+        carInsuranceMonthly: profile?.annual_car_insurance / 12 || 0
+      },
+      totals: {
+        a: summary.groups.A.total,
+        b: summary.groups.B.total,
+        c: summary.groups.C.total
+      },
+      display: {
+        a: summary.groups.A.total.toFixed(2),
+        b: summary.groups.B.total.toFixed(2),
+        c_residual: summary.groups.C.total.toFixed(2)
+      },
+      categoryBreakdown: {},
+      balance: 0
+    }
+
+    // 调试日志：检查转换后的数据
+    console.log(`[DEBUG] 转换后的数据:`, responseData)
+    
+    return res.status(200).json(responseData)
     
   } catch (e) {
     console.error('[user-system] 获取用户摘要失败:', e)
