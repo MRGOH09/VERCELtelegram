@@ -574,9 +574,9 @@ async function testMorningTasks(now, isFirstDayOfMonth) {
   
   // 测试个人排名推送
   try {
-    const personalResults = await personalMorningReports(now, (myRank, topText) => 
-      formatTemplate(zh.cron.morning_rank, { rank: myRank, top: topText })
-    )
+          const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak) => 
+        formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak })
+      )
     results.personalReports = { success: true, result: personalResults }
   } catch (e) {
     results.personalReports = { success: false, error: e.message }

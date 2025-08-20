@@ -257,8 +257,8 @@ async function handleMorningTasks(now, isFirstDayOfMonth) {
   )
   
   // 推送个人排名报告
-  const personalResults = await personalMorningReports(now, (myRank, topText) => 
-    formatTemplate(zh.cron.morning_rank, { rank: myRank, top: topText })
+  const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak) => 
+    formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak })
   )
   
   const totalSent = (branchResults?.sent || 0) + (personalResults?.sent || 0)
