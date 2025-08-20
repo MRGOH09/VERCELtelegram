@@ -163,8 +163,7 @@ async function handleUpdateRecord(req, res, userId, recordId, data) {
     }
 
     const updateData = {
-      ...data,
-      updated_at: new Date().toISOString()
+      ...data
     }
 
     // 如果更新金额，转换为数字
@@ -238,8 +237,7 @@ async function handleDeleteRecord(req, res, userId, recordId) {
     const { error } = await supabase
       .from('records')
       .update({ 
-        is_voided: true,
-        updated_at: new Date().toISOString()
+        is_voided: true
       })
       .eq('id', recordId)
 
@@ -445,8 +443,7 @@ async function handleCorrectRecord(req, res, userId, recordId, data) {
     const updateData = {
       amount: correctionData.corrected_amount,
       category_group: correctionData.corrected_category_group,
-      category_code: correctionData.corrected_category_code,
-      updated_at: new Date().toISOString()
+      category_code: correctionData.corrected_category_code
     }
 
     const { data: updatedRecord, error: updateError } = await supabase
@@ -525,8 +522,6 @@ async function handleBatchCreate(req, res, userId, data) {
         amount: Number(amount),
         ymd,
         note: record.note || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       })
     }
 
