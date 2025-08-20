@@ -107,18 +107,12 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
     finalSavingsTotal += balance
   }
   
-  // 强制重新分配百分比，确保总和为100%
-  // 开销组百分比（固定）
-  const groupAPercentage = ((groupTotals['A'] || 0) / monthlyIncome) * 100
-  // 学习组百分比（固定）
-  const groupBPercentage = ((groupTotals['B'] || 0) / monthlyIncome) * 100
-  // 储蓄组百分比（自动计算，确保总和为100%）
-  const groupCPercentage = Math.max(0, 100 - groupAPercentage - groupBPercentage)
+  // 计算实际百分比（基于真实金额）
+  const groupAPercentage = monthlyIncome > 0 ? ((groupTotals['A'] || 0) / monthlyIncome) * 100 : 0
+  const groupBPercentage = monthlyIncome > 0 ? ((groupTotals['B'] || 0) / monthlyIncome) * 100 : 0
+  const groupCPercentage = monthlyIncome > 0 ? (finalSavingsTotal / monthlyIncome) * 100 : 0
   
-  // 更新储蓄组总额以匹配目标百分比
-  finalSavingsTotal = (groupCPercentage / 100) * monthlyIncome
-  
-  // 更新储蓄组总额
+  // 更新储蓄组总额（使用实际计算的金额，而不是强制匹配百分比）
   groupTotals['C'] = finalSavingsTotal
   
   console.log('百分比重新分配:', {
