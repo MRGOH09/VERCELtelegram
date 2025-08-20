@@ -290,7 +290,7 @@ async function handleGetSummary(req, res, userId) {
           b: (summary.groups.B.total || 0).toFixed(2),
           c_residual: (summary.groups.C.total || 0).toFixed(2)
         },
-        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome),
+        categoryBreakdown: calculateCategoryBreakdown(records, summary.monthlyIncome),
         balance: 0
       }
 
