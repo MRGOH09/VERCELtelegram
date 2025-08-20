@@ -598,25 +598,14 @@ export default async function handler(req, res) {
         
         console.log('模板渲染完成，消息长度:', msg.length)
         
-        // 6. 添加时间段选择按钮
-        const keyboard = {
-          inline_keyboard: [
-            [
-              { text: '📅 本月', callback_data: 'my:month' },
-              { text: '📊 上月', callback_data: 'my:lastmonth' },
-              { text: '🗓 本周', callback_data: 'my:week' }
-            ]
-          ]
-        };
-        
-        // 7. 生成具体的月份标题
+        // 6. 生成具体的月份标题
         console.log('📅 生成月份标题...')
         const monthTitle = generateMonthTitle('month')
         const finalMsg = msg.replace('📊 month 数据总览', monthTitle)
         
-        // 8. 发送消息
+        // 7. 发送消息
         console.log('📤 发送消息...')
-        await sendTelegramMessage(chatId, finalMsg, { reply_markup: keyboard })
+        await sendTelegramMessage(chatId, finalMsg)
         
         console.log('✅ /my 命令执行成功')
         return res.status(200).json({ ok: true })
