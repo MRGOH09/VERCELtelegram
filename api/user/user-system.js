@@ -281,9 +281,9 @@ async function handleGetSummary(req, res, userId) {
           c: summary.groups.C.total || 0
         },
         realtime: {
-          a: summary.groups.A.percentage || '0.0',
-          b: summary.groups.B.percentage || '0.0',
-          c: summary.groups.C.percentage || '0.0'
+          a: monthlyIncome > 0 ? ((summary.groups.A.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
+          b: monthlyIncome > 0 ? ((summary.groups.B.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
+          c: monthlyIncome > 0 ? Math.max(0, 100 - ((summary.groups.A.total || 0) / monthlyIncome * 100) - ((summary.groups.B.total || 0) / monthlyIncome * 100)).toFixed(1) : '0.0'
         },
         snapshotView: {
           income: monthlyIncome,
