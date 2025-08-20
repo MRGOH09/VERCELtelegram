@@ -692,9 +692,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
       
-      // 直接执行测试
-      await executeAdminTest(chatId, action, from.id)
-      return res.status(200).json({ ok: true })
+          // 直接执行测试
+    await executeAdminTest(chatId, action, from.id, req)
+    return res.status(200).json({ ok: true })
     }
 
     if (text.startsWith('收入') || text.includes('A%') || text.includes('B%')) {
@@ -1953,7 +1953,7 @@ export async function handleCallback(update, req, res) {
     // 处理 Admin 测试回调
     if (data.startsWith('admin:')) {
       const action = data.split(':')[1]
-      await executeAdminTest(chatId, action, from.id)
+      await executeAdminTest(chatId, action, from.id, req)
       return
     }
 
@@ -2125,13 +2125,34 @@ function generateMonthTitle(range) {
 }
 
 // 执行 Admin 测试的函数
-async function executeAdminTest(chatId, action, adminId) {
+async function executeAdminTest(chatId, action, adminId, req) {
   try {
     // 发送开始测试的消息
     await sendTelegramMessage(chatId, `🧪 开始执行 ${action} 测试...\n\n⏳ 请稍候，测试完成后会收到详细报告。`)
     
     // 调用 Admin 测试 API
-    const response = await fetch(`${process.env.VERCEL_URL || 'http://localhost:3000'}/api/test-system`, {
+    // 使用请求头信息构建正确的API URL
+    let baseUrl = 'http://localhost:3000'
+    
+    if (req && req.headers) {
+      // 从请求头获取当前域名
+      const host = req.headers.host
+      const protocol = req.headers['x-forwarded-proto'] || 'https'
+      
+      if (host) {
+        baseUrl = `${protocol}://${host}`
+      }
+    }
+    
+    // 如果从请求头无法获取，尝试环境变量
+    if (baseUrl === 'http://localhost:3000' && process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`
+    }
+    
+    console.log(`[admin-test] 构建API URL: ${baseUrl}`)
+    console.log(`[admin-test] 请求头信息: host=${req?.headers?.host}, protocol=${req?.headers?.['x-forwarded-proto']}`)
+    
+    const response = await fetch(`${baseUrl}/api/test-system`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
