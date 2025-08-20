@@ -246,27 +246,31 @@ async function handleMorningTasks(now, isFirstDayOfMonth) {
   // 计算排行榜
   await computeLeaderboards(now)
   
-  // 推送分行排行榜
-  const branchResults = await pushBranchLeaderboards(now, (code, stat) => 
-    formatTemplate(zh.cron.branch_lead, { 
-      code, 
-      rate: stat.rate||0, 
-      done: stat.done||0, 
-      total: stat.total||0 
-    })
-  )
-  
   // 推送个人排名报告
   const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak) => 
     formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak })
   )
   
-  const totalSent = (branchResults?.sent || 0) + (personalResults?.sent || 0)
-  const totalFailed = (branchResults?.failed || 0) + (personalResults?.failed || 0)
+  // 每周一推送分行排行榜
+  const isMonday = now.getDay() === 1
+  let branchResults = null
+  if (isMonday) {
+    branchResults = await pushBranchLeaderboards(now, (code, stat) => 
+      formatTemplate(zh.cron.branch_lead, { 
+        code, 
+        rate: stat.rate||0, 
+        done: stat.done||0, 
+        total: stat.total||0 
+      })
+    )
+  }
+  
+  const totalSent = (personalResults?.sent || 0) + (branchResults?.sent || 0)
+  const totalFailed = (personalResults?.failed || 0) + (branchResults?.failed || 0)
   
   return {
-    branch: branchResults,
     personal: personalResults,
+    branch: branchResults,
     autoPost: isFirstDayOfMonth,
     totalSent,
     totalFailed
@@ -510,7 +514,7 @@ function generatePersonalizedReminder(chatId, now) {
 
 // 生成晚间提醒
 function generateEveningReminder(chatId, now) {
-  return `🌙 晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n💡 今天还没有记录支出哦！\n\n🌃 趁着晚上时间，记录一下今天的支出吧！\n💰 保持记录，管理财务！\n\n💪 记得记账哦！`
+  return `🌙 晚间提醒\n\n📅 今天是 ${now.toISOString().slice(0, 10)}\n⏰ 现在是晚上 10:00\n\n💡 你还没有记录任何开销哦！\n\n🚀 行动才会改变！\n💰 记录今天的支出，让理财更精准！\n\n💪 现在就开始记账吧！`
 }
 
 // 发送 Admin 报告
