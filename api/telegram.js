@@ -822,7 +822,7 @@ export default async function handler(req, res) {
         const note = text === '/skip' ? '' : text.slice(0, 200)
         const payload = { ...st.payload, note }
         await setState(userIdForState, 'record', 'confirm', payload)
-        const preview = formatTemplate(messages.record.preview, { group: payload.group, category: payload.category, amount: payload.amount.toFixed(2), note: note || '—' })
+        const preview = formatTemplate(messages.record.preview, { groupLabel: payload.groupLabel, category: payload.category, amount: payload.amount.toFixed(2), note: note || '—' })
         await sendTelegramMessage(chatId, preview, { reply_markup: { inline_keyboard: [[{ text: '✅ 确认', callback_data: 'rec:confirm' }, { text: '❌ 取消', callback_data: 'rec:cancel' }]] } })
         return res.status(200).json({ ok: true })
       }

@@ -91,9 +91,7 @@ async function handleCreateRecord(req, res, userId, data) {
       category_code,
       amount: Number(amount),
       ymd,
-      note: data.note || '',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      note: data.note || ''
     }
 
     const { data: record, error } = await supabase
