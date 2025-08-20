@@ -830,12 +830,6 @@ export default async function handler(req, res) {
 
     // 批量记录流程处理
     if (st?.flow === 'batch') {
-      // 检查是否有其他流程的状态冲突
-      if (st.flow !== 'batch') {
-        await clearState(userIdForState)
-        await sendTelegramMessage(chatId, '⚠️ 检测到状态冲突，已重置状态。请重新开始批量记录。')
-        return res.status(200).json({ ok: true })
-      }
       
       if (st.step === 'input') {
         // 解析批量输入
@@ -2097,10 +2091,11 @@ async function showBatchConfirmPage(chatId, records, page, groupLabel) {
   }
   
   // 操作按钮
-  keyboard.push([
-    { text: '✏️ 修改分类', callback_data: 'batch:edit' },
-    { text: '🗑️ 删除记录', callback_data: 'batch:delete' }
-  ])
+  // 修改和删除功能暂未实现，先隐藏按钮避免用户困惑
+  // keyboard.push([
+  //   { text: '✏️ 修改分类', callback_data: 'batch:edit' },
+  //   { text: '🗑️ 删除记录', callback_data: 'batch:delete' }
+  // ])
   
   keyboard.push([
     { text: '✅ 确认全部', callback_data: 'batch:confirm' },
