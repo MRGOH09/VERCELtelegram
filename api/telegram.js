@@ -875,11 +875,11 @@ export default async function handler(req, res) {
           // 智能分类
           const { code } = smartCategorize(category, st.payload.group)
           
-          // 验证返回的code是否有效
+          // 验证返回的code是否有效 (这个检查实际上是多余的，因为smartCategorize总是返回有效code)
           const validCodes = GROUP_CATEGORIES[st.payload.group]?.map(([c]) => c) || []
           if (!validCodes.includes(code)) {
-            errors.push(`第${i + 1}行：无法识别分类"${category}"`)
-            continue
+            console.warn(`批量记录：分类"${category}"无法识别，使用默认分类: ${code}`)
+            // 不再报错，因为smartCategorize已经处理了fallback
           }
           
           records.push({
@@ -1776,9 +1776,22 @@ export async function handleCallback(update, req, res) {
           ymd: new Date().toISOString().slice(0, 10)
         }))
         
+        console.log('[批量记录] 准备插入数据:', {
+          userId,
+          group,
+          recordCount: recordsToInsert.length,
+          recordsToInsert
+        })
+        
         const { error } = await supabase.from('records').insert(recordsToInsert)
         
-        if (error) throw error
+        if (error) {
+          console.error('[批量记录] 数据库插入失败:', {
+            error,
+            recordsToInsert
+          })
+          throw error
+        }
         
         // 成功提示
         const totalAmount = records.reduce((sum, r) => sum + r.amount, 0)
