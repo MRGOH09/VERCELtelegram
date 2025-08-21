@@ -14,25 +14,44 @@ import { sendBatchMessages } from '../../lib/telegram.js'
 
 export default async function handler(req, res) {
   try {
-    const { action, adminId, mode, task } = req.body
+    const now = new Date()
+    const hour = now.getHours()
+    const { action, adminId, mode, task } = req.body || {}
     
-    // 模式1：cron 自动执行（凌晨2点）
-    if (mode === 'cron' || (!action && !adminId && !task)) {
-      return await handleCronMode(req, res)
+    console.info(`[unified-cron] 执行时间：${now.toISOString()}，小时：${hour}`)
+    
+    // 如果是GET请求或者没有body参数，根据小时执行对应任务
+    if (req.method === 'GET' || (!action && !adminId && !task)) {
+      switch (hour) {
+        case 2:
+          // 凌晨2点：每日结算
+          return await handleDailySettlement(req, res, now)
+        case 8:
+          // 早上8点：晨间推送
+          return await handleMorningPush(req, res, now)
+        case 22:
+          // 晚上10点：晚间提醒
+          return await handleEveningReminder(req, res, now)
+        default:
+          return res.status(400).json({ 
+            ok: false, 
+            error: `Unexpected execution hour: ${hour}`,
+            expectedHours: [2, 8, 22]
+          })
+      }
     }
     
-    // 模式2：手动触发推送
+    // 兼容旧的手动触发模式
     if (action && adminId) {
       return await handleTriggerMode(req, res, action, adminId)
     }
     
-    // 模式3：执行特定任务
     if (task) {
       return await handleSpecificTask(req, res, task, adminId)
     }
     
-    // 默认模式：cron 自动执行
-    return await handleCronMode(req, res)
+    // 默认按小时执行
+    return await handleDailySettlement(req, res, now)
     
   } catch (e) {
     console.error('[unified-cron] 执行失败:', e)
@@ -705,4 +724,143 @@ function generateTaskReport(results, now) {
   report += `🔧 特定任务执行完成！`
   
   return report
+}
+
+// 新增：每日结算处理函数
+async function handleDailySettlement(req, res, now) {
+  console.log('[daily-settlement] 凌晨2点：开始执行每日结算...')
+  
+  const results = {
+    action: 'daily-settlement',
+    timestamp: now.toISOString(),
+    hour: 2,
+    breakStreaks: null,
+    monthlyAutoPost: null,
+    totalSent: 0,
+    totalFailed: 0
+  }
+  
+  try {
+    // 1. 断签清零
+    console.log('[daily-settlement] 执行断签清零...')
+    results.breakStreaks = await breakStreaksOneShot()
+    
+    // 2. 每月1号自动入账
+    const isFirstDayOfMonth = now.getDate() === 1
+    if (isFirstDayOfMonth) {
+      console.log('[daily-settlement] 执行月度自动入账...')
+      results.monthlyAutoPost = await handleMonthlyAutoPost(now)
+    }
+    
+    // 发送管理员报告
+    await sendAdminReport(results, now)
+    
+    console.log('[daily-settlement] 每日结算完成')
+    return res.status(200).json({ ok: true, results })
+    
+  } catch (error) {
+    console.error('[daily-settlement] 执行失败:', error)
+    results.error = error.message
+    return res.status(500).json({ ok: false, error: error.message, results })
+  }
+}
+
+// 新增：晨间推送处理函数
+async function handleMorningPush(req, res, now) {
+  console.log('[morning-push] 早上8点：开始执行晨间推送...')
+  
+  const results = {
+    action: 'morning-push',
+    timestamp: now.toISOString(),
+    hour: 8,
+    personal: null,
+    branch: null,
+    totalSent: 0,
+    totalFailed: 0
+  }
+  
+  try {
+    // 1. 计算排行榜
+    await computeLeaderboards(now)
+    
+    // 2. 推送个人理财报告
+    console.log('[morning-push] 推送个人理财报告...')
+    results.personal = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a) => 
+      formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a })
+    )
+    
+    // 3. 推送分行排行榜
+    console.log('[morning-push] 推送分行排行榜...')
+    results.branch = await pushBranchLeaderboards(now, (code, stat) => 
+      formatTemplate(zh.cron.branch_lead, { 
+        code, 
+        rate: stat.rate||0, 
+        done: stat.done||0, 
+        total: stat.total||0,
+        avg7: stat.avg7||0
+      })
+    )
+    
+    // 汇总统计
+    results.totalSent = (results.personal?.sent || 0) + (results.branch?.sent || 0)
+    results.totalFailed = (results.personal?.failed || 0) + (results.branch?.failed || 0)
+    
+    // 发送管理员报告
+    await sendAdminReport(results, now)
+    
+    console.log(`[morning-push] 晨间推送完成，发送：${results.totalSent}，失败：${results.totalFailed}`)
+    return res.status(200).json({ ok: true, results })
+    
+  } catch (error) {
+    console.error('[morning-push] 执行失败:', error)
+    results.error = error.message
+    return res.status(500).json({ ok: false, error: error.message, results })
+  }
+}
+
+// 新增：晚间提醒处理函数
+async function handleEveningReminder(req, res, now) {
+  console.log('[evening-reminder] 晚上10点：开始执行晚间提醒...')
+  
+  const results = {
+    action: 'evening-reminder',
+    timestamp: now.toISOString(),
+    hour: 22,
+    userCount: 0,
+    totalSent: 0,
+    totalFailed: 0
+  }
+  
+  try {
+    // 获取今日未记录用户
+    const usersWithoutRecord = await usersWithoutRecordToday(now)
+    results.userCount = usersWithoutRecord.length
+    
+    if (usersWithoutRecord.length === 0) {
+      console.log('[evening-reminder] 所有用户都已记录，无需提醒')
+      return res.status(200).json({ ok: true, message: 'All users have recorded today', results })
+    }
+    
+    // 生成提醒消息
+    const reminderMessages = usersWithoutRecord.map(chatId => ({
+      chat_id: chatId,
+      text: generateEveningReminder(chatId, now)
+    }))
+    
+    // 批量发送提醒
+    const sendResults = await sendBatchMessages(reminderMessages)
+    results.totalSent = sendResults.sent || 0
+    results.totalFailed = sendResults.failed || 0
+    
+    // 发送管理员报告
+    await sendAdminReport(results, now)
+    
+    console.log(`[evening-reminder] 晚间提醒完成，提醒${results.userCount}用户，发送：${results.totalSent}，失败：${results.totalFailed}`)
+    return res.status(200).json({ ok: true, results })
+    
+  } catch (error) {
+    console.error('[evening-reminder] 执行失败:', error)
+    results.error = error.message
+    return res.status(500).json({ ok: false, error: error.message, results })
+  }
 } 
