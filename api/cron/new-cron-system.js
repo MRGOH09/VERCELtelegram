@@ -849,18 +849,17 @@ async function handleEveningReminder(req, res, now) {
   }
 }
 
-// 每日Cron任务：在凌晨2点执行8AM和10PM的功能
+// 每日Cron任务：在凌晨2点执行2AM+8AM功能
 async function handleDailyCron(req, res, now) {
-  console.log('[daily-cron] 凌晨2点Cron：执行8AM和10PM功能...')
+  console.log('[daily-cron] 凌晨2点Cron：执行2AM断签清零 + 8AM晨间推送...')
   
   const results = {
-    action: 'daily-cron',
+    action: 'daily-cron-2am-8am',
     timestamp: now.toISOString(),
     cronHour: now.getHours(),
     breakStreaks: null,        // 2AM: 断签清零
     monthlyAutoPost: null,     // 2AM: 月度入账
     morningPush: null,         // 8AM: 晨间推送
-    eveningReminder: null,     // 10PM: 晚间提醒
     totalSent: 0,
     totalFailed: 0
   }
@@ -898,29 +897,11 @@ async function handleDailyCron(req, res, now) {
       )
     }
     
-    // 4. 10PM功能：晚间提醒
-    console.log('[daily-cron] 执行10PM晚间提醒...')
-    const usersWithoutRecord = await usersWithoutRecordToday(now)
-    
-    if (usersWithoutRecord.length > 0) {
-      const reminderMessages = usersWithoutRecord.map(chatId => ({
-        chat_id: chatId,
-        text: generateEveningReminder(chatId, now)
-      }))
-      
-      results.eveningReminder = await sendBatchMessages(reminderMessages)
-      results.eveningReminder.userCount = usersWithoutRecord.length
-    } else {
-      results.eveningReminder = { sent: 0, failed: 0, userCount: 0, note: '所有用户都已记录' }
-    }
-    
-    // 汇总统计
+    // 汇总统计（只有2AM+8AM功能）
     results.totalSent = (results.morningPush?.personal?.sent || 0) + 
-                       (results.morningPush?.branch?.sent || 0) + 
-                       (results.eveningReminder?.sent || 0)
+                       (results.morningPush?.branch?.sent || 0)
     results.totalFailed = (results.morningPush?.personal?.failed || 0) + 
-                         (results.morningPush?.branch?.failed || 0) + 
-                         (results.eveningReminder?.failed || 0)
+                         (results.morningPush?.branch?.failed || 0)
     
     // 发送管理员报告
     await sendAdminReport(results, now)

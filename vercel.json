@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/new-cron-system", "schedule": "0 2 * * *" }
+    { "path": "/api/cron/daily-settlement", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/morning-push", "schedule": "0 8 * * *" }
   ]
 }
