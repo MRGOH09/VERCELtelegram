@@ -20,25 +20,9 @@ export default async function handler(req, res) {
     
     console.info(`[unified-cron] 执行时间：${now.toISOString()}，小时：${hour}`)
     
-    // 如果是GET请求或者没有body参数，根据小时执行对应任务
+    // 如果是GET请求或者没有body参数，执行每日cron任务
     if (req.method === 'GET' || (!action && !adminId && !task)) {
-      switch (hour) {
-        case 2:
-          // 凌晨2点：每日结算
-          return await handleDailySettlement(req, res, now)
-        case 8:
-          // 早上8点：晨间推送
-          return await handleMorningPush(req, res, now)
-        case 22:
-          // 晚上10点：晚间提醒
-          return await handleEveningReminder(req, res, now)
-        default:
-          return res.status(400).json({ 
-            ok: false, 
-            error: `Unexpected execution hour: ${hour}`,
-            expectedHours: [2, 8, 22]
-          })
-      }
+      return await handleDailyCron(req, res, now)
     }
     
     // 兼容旧的手动触发模式
@@ -860,6 +844,92 @@ async function handleEveningReminder(req, res, now) {
     
   } catch (error) {
     console.error('[evening-reminder] 执行失败:', error)
+    results.error = error.message
+    return res.status(500).json({ ok: false, error: error.message, results })
+  }
+}
+
+// 每日Cron任务：在凌晨2点执行8AM和10PM的功能
+async function handleDailyCron(req, res, now) {
+  console.log('[daily-cron] 凌晨2点Cron：执行8AM和10PM功能...')
+  
+  const results = {
+    action: 'daily-cron',
+    timestamp: now.toISOString(),
+    cronHour: now.getHours(),
+    breakStreaks: null,        // 2AM: 断签清零
+    monthlyAutoPost: null,     // 2AM: 月度入账
+    morningPush: null,         // 8AM: 晨间推送
+    eveningReminder: null,     // 10PM: 晚间提醒
+    totalSent: 0,
+    totalFailed: 0
+  }
+  
+  try {
+    // 1. 凌晨2点逻辑：断签清零（基于2AM时间判断）
+    console.log('[daily-cron] 执行断签清零（2AM逻辑）...')
+    results.breakStreaks = await breakStreaksOneShot()
+    
+    // 2. 月度自动入账（每月1号）
+    const isFirstDayOfMonth = now.getDate() === 1
+    if (isFirstDayOfMonth) {
+      console.log('[daily-cron] 执行月度自动入账...')
+      results.monthlyAutoPost = await handleMonthlyAutoPost(now)
+    }
+    
+    // 3. 8AM功能：晨间推送
+    console.log('[daily-cron] 执行8AM晨间推送...')
+    await computeLeaderboards(now)
+    
+    // 个人理财报告
+    results.morningPush = {
+      personal: await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a) => 
+        formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a })
+      ),
+      // 分行排行榜
+      branch: await pushBranchLeaderboards(now, (code, stat) => 
+        formatTemplate(zh.cron.branch_lead, { 
+          code, 
+          rate: stat.rate||0, 
+          done: stat.done||0, 
+          total: stat.total||0,
+          avg7: stat.avg7||0
+        })
+      )
+    }
+    
+    // 4. 10PM功能：晚间提醒
+    console.log('[daily-cron] 执行10PM晚间提醒...')
+    const usersWithoutRecord = await usersWithoutRecordToday(now)
+    
+    if (usersWithoutRecord.length > 0) {
+      const reminderMessages = usersWithoutRecord.map(chatId => ({
+        chat_id: chatId,
+        text: generateEveningReminder(chatId, now)
+      }))
+      
+      results.eveningReminder = await sendBatchMessages(reminderMessages)
+      results.eveningReminder.userCount = usersWithoutRecord.length
+    } else {
+      results.eveningReminder = { sent: 0, failed: 0, userCount: 0, note: '所有用户都已记录' }
+    }
+    
+    // 汇总统计
+    results.totalSent = (results.morningPush?.personal?.sent || 0) + 
+                       (results.morningPush?.branch?.sent || 0) + 
+                       (results.eveningReminder?.sent || 0)
+    results.totalFailed = (results.morningPush?.personal?.failed || 0) + 
+                         (results.morningPush?.branch?.failed || 0) + 
+                         (results.eveningReminder?.failed || 0)
+    
+    // 发送管理员报告
+    await sendAdminReport(results, now)
+    
+    console.log(`[daily-cron] 每日Cron完成，发送：${results.totalSent}，失败：${results.totalFailed}`)
+    return res.status(200).json({ ok: true, results })
+    
+  } catch (error) {
+    console.error('[daily-cron] 执行失败:', error)
     results.error = error.message
     return res.status(500).json({ ok: false, error: error.message, results })
   }
