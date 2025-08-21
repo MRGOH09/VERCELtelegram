@@ -338,7 +338,7 @@ export default async function handler(req, res) {
       // 已注册的判定：需要用户主动完成设置流程
       const { data: prof } = await supabase
         .from('user_profile')
-        .select('display_name,monthly_income,a_pct,b_pct')
+        .select('display_name,monthly_income,a_pct')
         .eq('user_id', userId)
         .maybeSingle()
       
@@ -364,7 +364,7 @@ export default async function handler(req, res) {
       await setState(userId, 'settings', 'choose', {})
   const { data: prof } = await supabase
         .from('user_profile')
-        .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
+        .select('display_name,phone_e164,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
         .eq('user_id', userId)
         .maybeSingle()
       const { data: urow } = await supabase
@@ -377,7 +377,6 @@ export default async function handler(req, res) {
         phone: prof?.phone_e164 || '-',
         income: (Number(prof?.monthly_income || 0)).toFixed(2),
         a_pct: Number(prof?.a_pct || 0).toFixed(2),
-        b_pct: Number(prof?.b_pct || 0).toFixed(2),
         travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
         ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
         ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
@@ -386,7 +385,7 @@ export default async function handler(req, res) {
       const kb = { inline_keyboard: [
         [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
         [ { text: messages.settings.fields.income, callback_data: 'set:income' }, { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
-        [ { text: messages.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
+        [ { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
         [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
         [ { text: messages.settings.fields.branch, callback_data: 'set:branch' } ],
         [ { text: '✅ 完成设置并保存所有修改', callback_data: 'set:done' } ]
@@ -727,7 +726,6 @@ export default async function handler(req, res) {
         chat_id: chatId,
         monthly_income: income,
         a_pct: aPct,
-        b_pct: bPct,
         travel_budget_annual: travel,
         prev_month_spend: prev
       })
@@ -739,7 +737,6 @@ export default async function handler(req, res) {
         yyyymm, 
         income, 
         a_pct: aPct, 
-        b_pct: bPct,
         epf_pct: 24 // 默认 EPF 百分比
       })
       await sendTelegramMessage(chatId, messages.start_saved)
@@ -777,9 +774,6 @@ export default async function handler(req, res) {
           break
         case 'a_pct':
           promptMsg = messages.registration.budgetA.prompt
-          break
-        case 'b_pct':
-          promptMsg = messages.registration.budgetB.prompt
           break
         case 'travel':
           promptMsg = messages.registration.travelBudget.prompt
@@ -968,16 +962,8 @@ export default async function handler(req, res) {
       if (st.step === 'a_pct') {
         const aPct = parsePercentageInput(text)
         if (aPct == null) { await sendTelegramMessage(chatId, messages.registration.budgetA.validation) ; return res.status(200).json({ ok: true }) }
-        await setState(userIdForState, 'start', 'b_pct', { ...st.payload, a_pct: aPct })
-        await sendTelegramMessage(chatId, messages.registration.budgetB.prompt)
-        return res.status(200).json({ ok: true })
-      }
-      if (st.step === 'b_pct') {
-        const bPct = parsePercentageInput(text)
-        if (bPct == null) { await sendTelegramMessage(chatId, messages.registration.budgetB.validation); return res.status(200).json({ ok: true }) }
-        const aPct = st.payload?.a_pct || 0
-        if (aPct + bPct > 100) { await sendTelegramMessage(chatId, formatTemplate(messages.registration.budgetOverflow, { total: aPct + bPct })); return res.status(200).json({ ok: true }) }
-        await setState(userIdForState, 'start', 'travel', { ...st.payload, b_pct: bPct })
+        if (aPct > 100) { await sendTelegramMessage(chatId, formatTemplate(messages.registration.budgetOverflow, { total: aPct })); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'travel', { ...st.payload, a_pct: aPct })
         await sendTelegramMessage(chatId, messages.registration.travelBudget.prompt)
         return res.status(200).json({ ok: true })
       }
@@ -1025,11 +1011,10 @@ export default async function handler(req, res) {
         await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
-      if (st.step === 'edit_a_pct' || st.step === 'edit_b_pct') {
+      if (st.step === 'edit_a_pct') {
         const pct = parsePercentageInput(text)
         if (pct == null) { await sendTelegramMessage(chatId, messages.registration.budgetA.validation); return res.status(200).json({ ok: true }) }
-        const field = st.step === 'edit_a_pct' ? { a_pct: pct } : { b_pct: pct }
-        await supabase.from('user_profile').update(field).eq('user_id', userIdForState)
+        await supabase.from('user_profile').update({ a_pct: pct }).eq('user_id', userIdForState)
         await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
@@ -1565,7 +1550,6 @@ export async function handleCallback(update, req, res) {
       if (data === 'set:phone') { await setState(userId, 'settings', 'edit_phone', {}); await sendTelegramMessage(chatId, messages.registration.phone.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:income') { await setState(userId, 'settings', 'edit_income', {}); await sendTelegramMessage(chatId, messages.registration.income.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, messages.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
-      if (data === 'set:b_pct') { await setState(userId, 'settings', 'edit_b_pct', {}); await sendTelegramMessage(chatId, messages.registration.budgetB.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, messages.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_med') { await setState(userId, 'settings', 'edit_ins_med', {}); await sendTelegramMessage(chatId, '请输入年度医疗保险金额（RM），例如 1200'); return res.status(200).json({ ok: true }) }
       if (data === 'set:ins_car') { await setState(userId, 'settings', 'edit_ins_car', {}); await sendTelegramMessage(chatId, '请输入年度车险金额（RM），例如 2400'); return res.status(200).json({ ok: true }) }
@@ -1838,9 +1822,6 @@ export async function handleCallback(update, req, res) {
         case 'a_pct':
           promptMsg = messages.registration.budgetA.prompt
           break
-        case 'b_pct':
-          promptMsg = messages.registration.budgetB.prompt
-          break
         case 'travel':
           promptMsg = messages.registration.travelBudget.prompt
           break
@@ -1888,10 +1869,10 @@ export async function handleCallback(update, req, res) {
         prev_month_spend: payload.prev_month_spend || 0
       })
       const yyyymm = new Date().toISOString().slice(0,7)
-      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, b_pct: payload.b_pct || 0, epf_pct: 24 })
+      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, epf_pct: 24 })
       await clearState(userId)
-      const cPct = Math.max(0, 100 - (payload.a_pct || 0) - (payload.b_pct || 0))
-      await sendTelegramMessage(chatId, formatTemplate(messages.registration.success, { budgetA: payload.a_pct||0, budgetB: payload.b_pct||0, budgetC: cPct, branch: code }))
+      const cPct = Math.max(0, 100 - (payload.a_pct || 0))
+      await sendTelegramMessage(chatId, formatTemplate(messages.registration.success, { budgetA: payload.a_pct||0, budgetC: cPct, branch: code }))
       return res.status(200).json({ ok: true })
     }
     
@@ -2003,7 +1984,7 @@ async function showUpdatedSettingsSummary(chatId, userId) {
     // 获取最新的用户资料
     const { data: prof } = await supabase
       .from('user_profile')
-      .select('display_name,phone_e164,monthly_income,a_pct,b_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
+      .select('display_name,phone_e164,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
       .eq('user_id', userId)
       .maybeSingle()
     
@@ -2030,7 +2011,7 @@ async function showUpdatedSettingsSummary(chatId, userId) {
     const kb = { inline_keyboard: [
       [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
       [ { text: messages.settings.fields.income, callback_data: 'set:income' }, { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
-      [ { text: messages.settings.fields.b_pct, callback_data: 'set:b_pct' }, { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
+      [ { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
       [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
       [ { text: messages.settings.fields.branch, callback_data: 'set:branch' } ],
       [ { text: '✅ 完成设置并保存所有修改', callback_data: 'set:done' } ]

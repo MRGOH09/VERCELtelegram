@@ -288,7 +288,6 @@ async function handleGetSummary(req, res, userId) {
         snapshotView: {
           income: monthlyIncome,
           a_pct: 60, // 默认开销目标60%
-          b_pct: 20, // 默认学习目标20%
           cap_a: summary.groups.A.target || 0,
           cap_b: summary.groups.B.target || 0,
           cap_c: summary.groups.C.target || 0,

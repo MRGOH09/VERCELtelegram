@@ -247,8 +247,8 @@ async function handleMorningTasks(now, isFirstDayOfMonth) {
   await computeLeaderboards(now)
   
   // 推送个人排名报告
-  const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak) => 
-    formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak })
+  const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a) => 
+    formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a })
   )
   
   // 每周一推送分行排行榜
