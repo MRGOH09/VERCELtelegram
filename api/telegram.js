@@ -1916,7 +1916,7 @@ export async function handleCallback(update, req, res) {
         phone_e164: payload.phone_e164 || null,
         monthly_income: payload.income || 0,
         a_pct: payload.a_pct || 0,
-        b_pct: payload.b_pct || 0,
+        // b_pct: payload.b_pct || 0,  // 已废弃，不再使用
         travel_budget_annual: payload.travel_budget_annual || 0,
         prev_month_spend: payload.prev_month_spend || 0
       })
