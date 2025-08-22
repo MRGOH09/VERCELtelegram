@@ -75,6 +75,77 @@ const BRANCH_CODES = [
 ]
 
 // 格式化分类明细
+// 提取 /my 命令核心逻辑为独立函数
+async function executeMyCommand(chatId, from, req, res) {
+  console.log('🔍 executeMyCommand 开始执行，用户ID:', from.id, '聊天ID:', chatId)
+  
+  try {
+    // 1. 查询用户信息
+    console.log('📊 查询用户信息...')
+    const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).single()
+    console.log('用户查询结果:', { user: u, error: uErr })
+    
+    if (uErr) { 
+      console.log('❌ 用户查询失败:', uErr)
+      await sendTelegramMessage(chatId, messages.my.need_start); 
+      return res.status(200).json({ ok: true }) 
+    }
+    
+    // 2. 构建 API URL
+    console.log('🔗 构建 API URL...')
+    const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+    const base = `${url.protocol}//${url.host}`
+    console.log('API 基础 URL:', base)
+    
+    // 3. 调用 /api/user/user-system 接口
+    console.log('📡 调用 /api/user/user-system 接口...')
+    const r = await fetch(`${base}/api/user/user-system`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get-summary', userId: u.id })
+    })
+    console.log('API 响应状态:', r.status, r.ok)
+    
+    const data = await r.json()
+    console.log('API 返回数据:', data)
+    
+    if (!r.ok) { 
+      console.log('❌ API 调用失败:', data)
+      await sendTelegramMessage(chatId, '查询失败'); 
+      return res.status(200).json({ ok: true }) 
+    }
+    
+    // 直接使用 user-system 返回的格式化消息
+    const msg = data.msg || '数据获取失败'
+    
+    console.log('使用API返回的格式化消息，消息长度:', msg.length)
+    
+    // 生成具体的月份标题
+    console.log('📅 生成月份标题...')
+    const monthTitle = generateMonthTitle('month')
+    const finalMsg = msg.replace('📊 month 数据总览', monthTitle)
+    
+    // 发送消息
+    console.log('📤 发送消息...')
+    await sendTelegramMessage(chatId, finalMsg)
+    
+    console.log('✅ executeMyCommand 执行成功')
+    return res.status(200).json({ ok: true })
+    
+  } catch (error) {
+    console.error('❌ executeMyCommand 执行异常:', error)
+    console.error('错误堆栈:', error.stack)
+    
+    try {
+      await sendTelegramMessage(chatId, '系统错误，请稍后重试')
+    } catch (sendError) {
+      console.error('发送错误消息也失败了:', sendError)
+    }
+    
+    return res.status(200).json({ ok: true })
+  }
+}
+
 function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, balance = 0) {
   if (!categoryBreakdown || Object.keys(categoryBreakdown).length === 0) {
     return '（暂无记录）'
@@ -489,6 +560,11 @@ export default async function handler(req, res) {
     }
 
     if (text.startsWith('/my')) {
+      // 使用统一的 executeMyCommand 函数
+      return await executeMyCommand(chatId, from, req, res)
+    }
+    
+    if (false && text.startsWith('/my')) {
       console.log('🔍 /my 命令开始执行，用户ID:', from.id, '聊天ID:', chatId)
       
       try {
@@ -1458,10 +1534,9 @@ export async function handleCallback(update, req, res) {
     console.log('处理回调数据:', data, 'userId:', userId)
     
     if (data === 'send_my') {
-      // 最简单的角度：发送固定的统计消息，用户可以点击 /my 查看详细
-      console.log('触发/my命令回退方案')
-      await sendTelegramMessage(chatId, '📊 查看统计请点击：/my')
-      return res.status(200).json({ ok: true })
+      // 直接模拟用户发送了 /my 命令
+      console.log('模拟/my命令执行')
+      return await executeMyCommand(chatId, cq.from, req, res)
     }
     
     if (data === 'my:month') {
