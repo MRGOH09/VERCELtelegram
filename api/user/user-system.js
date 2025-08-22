@@ -1,6 +1,6 @@
 import { todayYMD } from '../../lib/time.js'
 import supabase from '../../lib/supabase.js'
-import { zh } from '../../lib/i18n.js'
+import { messages } from '../../lib/i18n.js'
 import { formatTemplate, getYYYYMM } from '../../lib/helpers.js'
 
 export default async function handler(req, res) {
@@ -318,7 +318,7 @@ async function handleGetSummary(req, res, userId) {
       const aGap = (responseData.snapshotView.cap_a - responseData.totals.a).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       
-      const msg = formatTemplate(zh().my.summary, {
+      const msg = formatTemplate(messages.my.summary, {
         range,
         a: responseData.display?.a || responseData.totals.a.toFixed(2),
         b: responseData.display?.b || responseData.totals.b.toFixed(2),
