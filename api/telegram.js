@@ -512,12 +512,7 @@ export default async function handler(req, res) {
       const hasMore = totalCount > 10
       const kb = { inline_keyboard: [
         ...rowsKb,
-        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : []),
-        [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
-        ]
+        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : [])
       ] }
       await sendTelegramMessage(chatId, `🧾 最近记录\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
       return res.status(200).json({ ok: true })
@@ -1318,9 +1313,6 @@ export async function handleCallback(update, req, res) {
       const kb = { inline_keyboard: [
         ...rowsKb,
         [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
         ],
         [{ text: '🔙 返回最近记录', callback_data: 'history:recent' }]
       ] }
@@ -1376,12 +1368,7 @@ export async function handleCallback(update, req, res) {
       const hasMore = totalCount > 10
       const kb = { inline_keyboard: [
         ...rowsKb,
-        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : []),
-        [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
-        ]
+        ...(hasMore ? [[{ text: '📄 查看更多记录', callback_data: 'history:more' }]] : [])
       ] }
       
       await editMessageText(chatId, cq.message.message_id, `🧾 最近记录\n${list}\n\n${messages.history.hint}`, { reply_markup: kb })
@@ -1443,9 +1430,6 @@ export async function handleCallback(update, req, res) {
         ...(hasMore ? [[{ text: '📄 继续查看更多', callback_data: 'history:more2' }]] : []),
         [{ text: '🔙 返回最近记录', callback_data: 'history:recent' }],
         [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
         ]
       ] }
       
@@ -1500,9 +1484,6 @@ export async function handleCallback(update, req, res) {
         [{ text: '🔙 返回上一页', callback_data: 'history:more' }],
         [{ text: '🏠 返回最近记录', callback_data: 'history:recent' }],
         [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
         ]
       ] }
       
@@ -2004,9 +1985,6 @@ export async function handleCallback(update, req, res) {
         ...rowsKb,
         [ { text: '⬅️ 上一页', callback_data: `hist:page:${range}:${prev}` }, { text: '下一页 ➡️', callback_data: `hist:page:${range}:${next}` } ],
         [
-          { text: '📅 本月', callback_data: 'history:month' },
-          { text: '📊 上月', callback_data: 'history:lastmonth' },
-          { text: '🗓 本周', callback_data: 'history:week' }
         ]
       ] }
       
