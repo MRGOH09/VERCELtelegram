@@ -536,13 +536,17 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
     // 余额（储蓄类）- 扣除已显示的保险和C类记录，允许负数
     const displayedInsurance = medicalMonthly + carMonthly // 已在分类明细显示的保险
     const displayedCRecords = Object.keys(groupedBreakdown.C || {})
-      .filter(key => !key.includes('_auto') && key !== 'balance')
+      .filter(key => !key.includes('_auto') && key !== 'balance' && key !== 'overspent')
       .reduce((sum, key) => sum + (groupedBreakdown.C[key] || 0), 0)
     
     const remainingBalance = monthlyBalance - displayedInsurance - displayedCRecords
-    // 显示余额，即使是负数
+    // 显示余额或透支
     if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
-    groupedBreakdown['C']['balance'] = remainingBalance
+    if (remainingBalance >= 0) {
+      groupedBreakdown['C']['balance'] = remainingBalance
+    } else {
+      groupedBreakdown['C']['overspent'] = remainingBalance // 负数
+    }
   }
   
   return groupedBreakdown
@@ -585,7 +589,8 @@ function formatCategoryBreakdown(categoryBreakdown) {
     'ins_car_auto': '车险（月）',
     'epf_auto': 'EPF（月）',
     'travel_auto': '旅游基金（月）',
-    'balance': '余额'
+    'balance': '余额',
+    'overspent': '透支'
   }
   
   let result = ''
