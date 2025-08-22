@@ -262,16 +262,8 @@ async function handleGetSummary(req, res, userId) {
       const epfPct = Number(profile?.epf_pct || 24) // 默认24%
       const monthlyEPF = (monthlyIncome * epfPct) / 100
       
-      // 计算余额（收入 - A - B - 保险旅游等固定支出）
-      // 注意：EPF和C类记录都算入储蓄，不从余额中扣除
-      const monthlyExpenses = (
-        (summary.groups.A.total || 0) + 
-        (summary.groups.B.total || 0) + 
-        ((profile?.travel_budget_annual || 0) / 12) +
-        ((profile?.annual_medical_insurance || 0) / 12) +
-        ((profile?.annual_car_insurance || 0) / 12)
-      )
-      const monthlyBalance = Math.max(0, monthlyIncome - monthlyExpenses)
+      // 计算余额（简化：收入 - 开销 - 学习）
+      const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - (summary.groups.B.total || 0))
       
       // 储蓄 = 余额（简化算法）
       const totalSavings = monthlyBalance
