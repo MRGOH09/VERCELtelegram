@@ -306,7 +306,7 @@ async function handleGetSummary(req, res, userId) {
           b: totalLearning.toFixed(2),
           c_residual: totalSavings.toFixed(2)
         },
-        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance),
+        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance, summary),
         balance: monthlyBalance // 计算的月度余额
       }
 
@@ -472,7 +472,7 @@ function calculateSummary(records, profile, yyyymm) {
 }
 
 // 计算分类明细（按组别组织）
-function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance) {
+function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance, summary) {
   // 按组别和分类统计金额
   const groupedBreakdown = {}
   
@@ -518,10 +518,12 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
       groupedBreakdown['C']['ins_car_auto'] = carMonthly
     }
     
-    // 余额（储蓄类）
-    if (monthlyBalance > 0) {
+    // 余额（储蓄类）- 扣除保险费用和C类记录
+    const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
+    const actualBalance = monthlyBalance - insuranceMonthly - (summary?.groups?.C?.total || 0)
+    if (actualBalance > 0) {
       if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
-      groupedBreakdown['C']['balance'] = monthlyBalance
+      groupedBreakdown['C']['balance'] = actualBalance
     }
   }
   
