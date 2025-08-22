@@ -313,7 +313,26 @@ async function handleGetSummary(req, res, userId) {
       // 调试日志：检查转换后的数据
       console.log(`[DEBUG] 转换后的数据:`, responseData)
       
-      return res.status(200).json(responseData)
+      // 格式化消息以匹配telegram期望的格式
+      const range = 'month'
+      const aGap = (responseData.snapshotView.cap_a - responseData.totals.a).toFixed(2)
+      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      
+      const msg = formatTemplate(zh.my.summary, {
+        range,
+        a: responseData.display?.a || responseData.totals.a.toFixed(2),
+        b: responseData.display?.b || responseData.totals.b.toFixed(2),
+        c_residual: responseData.display?.c_residual || responseData.totals.c.toFixed(2),
+        realtime_a: responseData.realtime.a,
+        realtime_b: responseData.realtime.b,
+        realtime_c: responseData.realtime.c,
+        a_gap: aGapLine
+      })
+      
+      return res.status(200).json({
+        ...responseData,
+        msg
+      })
     } catch (error) {
       console.error('[user-system] 数据转换失败:', error)
       return res.status(500).json({ 
@@ -322,8 +341,6 @@ async function handleGetSummary(req, res, userId) {
       })
     }
 
-    // 调试日志：检查转换后的数据
-    console.log(`[DEBUG] 转换后的数据:`, responseData)
     
   } catch (e) {
     console.error('[user-system] 获取用户摘要失败:', e)
