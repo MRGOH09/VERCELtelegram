@@ -3,5 +3,6 @@ node_modules/
 .vercel/
 .DS_Store
 
-# Google Apps Script files (contains API keys and sensitive info)
-gas-scripts/
+# Google Apps Script sensitive files
+gas-scripts/.clasp.json
+gas-scripts/env-mapping.md
