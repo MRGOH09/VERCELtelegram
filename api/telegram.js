@@ -833,43 +833,8 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
       
-      // 显示当前进度和继续选项
-      const stepDesc = getStepDescription(st.step)
-      const progressMsg = `📋 检测到未完成的注册流程\n\n当前进度：${stepDesc}\n\n请继续完成注册：`
-      
-      // 根据当前步骤显示相应的提示
-      let promptMsg = ''
-      switch (st.step) {
-        case 'nickname':
-          promptMsg = messages.registration.nickname.prompt
-          break
-        case 'phone':
-          promptMsg = messages.registration.phone.prompt
-          break
-        case 'income':
-          promptMsg = messages.registration.income.prompt
-          break
-        case 'a_pct':
-          promptMsg = messages.registration.budgetA.prompt
-          break
-        case 'travel':
-          promptMsg = messages.registration.travelBudget.prompt
-          break
-        case 'prev':
-          promptMsg = messages.registration.lastMonthSpendingPct.prompt
-          break
-        case 'branch':
-          // 显示分行选择按钮
-          await sendTelegramMessage(chatId, 
-            `📋 检测到未完成的注册流程\n\n当前进度：${stepDesc}\n\n请选择分行完成注册：`, 
-            { reply_markup: branchKeyboard() })
-          return res.status(200).json({ ok: true })
-        default:
-          promptMsg = '请继续完成注册流程'
-      }
-      
-      await sendTelegramMessage(chatId, `${progressMsg}\n\n${promptMsg}`)
-      return res.status(200).json({ ok: true })
+      // 删除了重复的进度显示逻辑，让用户输入能继续到下面的处理逻辑
+      // 不要在这里 return，让流程继续到真正的输入处理代码
     }
 
     // If user is in state flow=record, handle steps for amount/note
