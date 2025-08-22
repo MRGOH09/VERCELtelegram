@@ -266,12 +266,16 @@ async function handleGetSummary(req, res, userId) {
       const travelMonthly = (profile?.travel_budget_annual || 0) / 12
       const totalLearning = (summary.groups.B.total || 0) + travelMonthly
       
-      // 计算余额（收入 - 开销 - 学习完整金额）
+      // 计算余额（收入 - 开销 - 学习完整金额）- 允许负数
       console.log(`[DEBUG] 余额计算: 收入${monthlyIncome} - 开销${summary.groups.A.total} - 学习${totalLearning}`)
-      const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - totalLearning)
+      const monthlyBalance = monthlyIncome - (summary.groups.A.total || 0) - totalLearning
       console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
-      // 储蓄 = monthlyBalance（简化，让分类明细自己计算合理分配）
+      // 判断是否超支
+      const isOverspent = monthlyBalance < 0
+      const overspentAmount = isOverspent ? Math.abs(monthlyBalance) : 0
+      
+      // 储蓄 = monthlyBalance（可以是负数）
       const totalSavings = monthlyBalance
       
       const responseData = {
@@ -318,10 +322,15 @@ async function handleGetSummary(req, res, userId) {
       const aGap = (responseData.snapshotView.cap_a - responseData.totals.a).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       
+      // 添加学习超支警告
+      const learningDisplay = isOverspent ? 
+        `${(responseData.display?.b || responseData.totals.b.toFixed(2))} ⚠️已超支` : 
+        (responseData.display?.b || responseData.totals.b.toFixed(2))
+      
       const msg = formatTemplate(messages.my.summary, {
         range,
         a: responseData.display?.a || responseData.totals.a.toFixed(2),
-        b: responseData.display?.b || responseData.totals.b.toFixed(2),
+        b: learningDisplay,
         c: responseData.display?.c_residual || responseData.totals.c.toFixed(2),
         ra: responseData.realtime.a,
         rb: responseData.realtime.b,
@@ -518,17 +527,16 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
       groupedBreakdown['C']['ins_car_auto'] = carMonthly
     }
     
-    // 余额（储蓄类）- 扣除已显示的保险和C类记录
+    // 余额（储蓄类）- 扣除已显示的保险和C类记录，允许负数
     const displayedInsurance = medicalMonthly + carMonthly // 已在分类明细显示的保险
     const displayedCRecords = Object.keys(groupedBreakdown.C || {})
       .filter(key => !key.includes('_auto') && key !== 'balance')
       .reduce((sum, key) => sum + (groupedBreakdown.C[key] || 0), 0)
     
     const remainingBalance = monthlyBalance - displayedInsurance - displayedCRecords
-    if (remainingBalance > 0) {
-      if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
-      groupedBreakdown['C']['balance'] = remainingBalance
-    }
+    // 显示余额，即使是负数
+    if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
+    groupedBreakdown['C']['balance'] = remainingBalance
   }
   
   return groupedBreakdown
