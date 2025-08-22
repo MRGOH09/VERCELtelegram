@@ -505,14 +505,55 @@ function formatCategoryBreakdown(categoryBreakdown) {
   }
   
   const groupLabels = { 'A': '开销', 'B': '学习', 'C': '储蓄' }
+  
+  // 分类代码到中文的映射
+  const categoryLabels = {
+    // 开销类别
+    'food': '餐饮', '餐饮': '餐饮',
+    'ent': '娱乐', '娱乐': '娱乐', 
+    'shop': '购物', '购物': '购物',
+    'transport': '交通', '交通': '交通',
+    'utilities': '水电', '水电': '水电',
+    'mobile': '手机', '手机': '手机',
+    'home': '家用', '家用': '家用',
+    'other': '其他', '其他': '其他',
+    
+    // 学习类别
+    'books': '书籍', '书籍': '书籍',
+    'course': '课程', '课程': '课程',
+    'training': '培训', '培训': '培训',
+    'cert': '认证', '认证': '认证',
+    
+    // 储蓄类别
+    'stock': '股票', '股票': '股票',
+    'fixed': '定存', '定存': '定存',
+    'insurance': '保险', '保险': '保险',
+    'emerg': '紧急基金', '紧急基金': '紧急基金',
+    
+    // 自动生成项目
+    'ins_med_auto': '医疗保险（月）',
+    'ins_car_auto': '车险（月）',
+    'epf_auto': 'EPF（月）',
+    'travel_auto': '旅游基金（月）'
+  }
+  
   let result = ''
   
   for (const [group, categories] of Object.entries(categoryBreakdown)) {
     const groupLabel = groupLabels[group] || group
     result += `\n${groupLabel}：\n`
     
+    // 合并同类项目（英文代码和中文标签指向同一项目）
+    const mergedCategories = {}
     for (const [category, amount] of Object.entries(categories)) {
-      result += `  • ${category}：RM ${Number(amount).toFixed(2)}\n`
+      const displayName = categoryLabels[category] || category
+      mergedCategories[displayName] = (mergedCategories[displayName] || 0) + Number(amount)
+    }
+    
+    for (const [displayName, amount] of Object.entries(mergedCategories)) {
+      if (amount > 0) {
+        result += `  • ${displayName}：RM ${amount.toFixed(2)}\n`
+      }
     }
   }
   
