@@ -6,3 +6,7 @@ node_modules/
 # Google Apps Script sensitive files
 gas-scripts/.clasp.json
 gas-scripts/env-mapping.md
+
+# Claude Code configuration (keep settings, ignore temp files)
+.claude/temp/
+.claude/cache/

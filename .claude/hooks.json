@@ -1,0 +1,24 @@
+{
+  "pre-edit": {
+    "enabled": true,
+    "commands": [
+      "echo '🔍 检查现有功能...'",
+      "echo '📊 当前API函数: 9/12'", 
+      "echo '⏰ 当前Cron任务: 2/2'"
+    ]
+  },
+  "post-edit": {
+    "enabled": true,
+    "commands": [
+      "echo '✅ 开始代码验证...'",
+      "echo '🔍 检查语法和依赖...'",
+      "echo '🎯 验证逻辑一致性...'"
+    ]
+  },
+  "validation-rules": {
+    "syntaxCheck": true,
+    "dependencyCheck": true,
+    "formatConsistency": true,
+    "platformLimits": true
+  }
+}
