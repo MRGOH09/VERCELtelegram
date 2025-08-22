@@ -1458,32 +1458,9 @@ export async function handleCallback(update, req, res) {
     console.log('处理回调数据:', data, 'userId:', userId)
     
     if (data === 'send_my') {
-      // 直接发送 /my 命令，重用现有逻辑
-      console.log('触发/my命令，userId:', userId)
-      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-      const base = `${url.protocol}//${url.host}`
-      console.log('调用API:', `${base}/api/user/user-system`)
-      const r = await fetch(`${base}/api/user/user-system`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get-summary', userId })
-      })
-      const data = await r.json()
-      console.log('API响应:', { status: r.status, ok: r.ok, data })
-      if (!r.ok) { 
-        console.error('API调用失败:', data)
-        await sendTelegramMessage(chatId, `查询失败: ${data.error || 'Unknown error'}`)
-        return res.status(200).json({ ok: true }) 
-      }
-      
-      if (!data.msg) {
-        console.error('API返回数据缺少msg字段:', data)
-        await sendTelegramMessage(chatId, '数据格式错误，请稍后重试')
-        return res.status(200).json({ ok: true }) 
-      }
-      
-      // 使用与 /my 命令相同的消息格式
-      await sendTelegramMessage(chatId, data.msg)
+      // 最简单的角度：发送固定的统计消息，用户可以点击 /my 查看详细
+      console.log('触发/my命令回退方案')
+      await sendTelegramMessage(chatId, '📊 查看统计请点击：/my')
       return res.status(200).json({ ok: true })
     }
     
