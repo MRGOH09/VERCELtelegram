@@ -52,131 +52,20 @@ function setupTriggers() {
   }
 }
 
-/**
- * 设置推送触发器
- * 创建定时推送任务（早中晚三次推送）
- */
-function setupPushTriggers() {
-  // 先清除现有推送触发器
-  clearPushTriggers();
-  
-  console.log('开始设置推送触发器...');
-  
-  try {
-    // 1. 早晨推送 - 每天早上8点
-    const morningTrigger = ScriptApp.newTrigger('morningPush')
-      .timeBased()
-      .everyDays(1)
-      .atHour(8)
-      .create();
-    
-    console.log(`早晨推送触发器已创建: ${morningTrigger.getUniqueId()}`);
-    
-    // 2. 中午推送 - 每天中午12点
-    const noonTrigger = ScriptApp.newTrigger('noonPush')
-      .timeBased()
-      .everyDays(1)
-      .atHour(12)
-      .create();
-    
-    console.log(`中午推送触发器已创建: ${noonTrigger.getUniqueId()}`);
-    
-    // 3. 晚间推送 - 每天晚上10点
-    const eveningTrigger = ScriptApp.newTrigger('eveningPush')
-      .timeBased()
-      .everyDays(1)
-      .atHour(22)
-      .create();
-    
-    console.log(`晚间推送触发器已创建: ${eveningTrigger.getUniqueId()}`);
-    
-    console.log('所有推送触发器设置完成!');
-    
-    // 显示当前推送触发器
-    listPushTriggers();
-    
-  } catch (error) {
-    console.error('设置推送触发器失败:', error);
-    throw error;
-  }
-}
+
+
 
 /**
- * 清除推送触发器
- */
-function clearPushTriggers() {
-  const triggers = ScriptApp.getProjectTriggers();
-  const pushFunctions = ['morningPush', 'noonPush', 'eveningPush'];
-  
-  console.log('清除现有推送触发器...');
-  
-  triggers.forEach(trigger => {
-    if (pushFunctions.includes(trigger.getHandlerFunction())) {
-      ScriptApp.deleteTrigger(trigger);
-      console.log(`已删除推送触发器: ${trigger.getHandlerFunction()}`);
-    }
-  });
-}
-
-/**
- * 列出推送触发器
- */
-function listPushTriggers() {
-  const triggers = ScriptApp.getProjectTriggers();
-  const pushFunctions = ['morningPush', 'noonPush', 'eveningPush'];
-  
-  const pushTriggers = triggers.filter(trigger => 
-    pushFunctions.includes(trigger.getHandlerFunction())
-  );
-  
-  console.log(`\n当前推送触发器 (${pushTriggers.length}个):`);
-  console.log('='.repeat(50));
-  
-  if (pushTriggers.length === 0) {
-    console.log('没有设置推送触发器');
-    return;
-  }
-  
-  pushTriggers.forEach((trigger, index) => {
-    const handlerFunction = trigger.getHandlerFunction();
-    const triggerId = trigger.getUniqueId();
-    
-    let timeDesc = '';
-    switch(handlerFunction) {
-      case 'morningPush':
-        timeDesc = '每天早上8点';
-        break;
-      case 'noonPush':
-        timeDesc = '每天中午12点';
-        break;
-      case 'eveningPush':
-        timeDesc = '每天晚上10点';
-        break;
-    }
-    
-    console.log(`${index + 1}. ${handlerFunction} - ${timeDesc}`);
-    console.log(`   ID: ${triggerId}`);
-    console.log('');
-  });
-}
-
-/**
- * 设置完整系统（同步 + 推送）
+ * 设置完整的同步系统
  */
 function setupAllTriggers() {
-  console.log('设置完整的触发器系统...');
+  console.log('设置完整的同步触发器系统...');
   
   // 设置数据同步触发器
   setupTriggers();
   
-  console.log('');
-  
-  // 设置推送触发器  
-  setupPushTriggers();
-  
-  console.log('\n✅ 完整系统设置完成！');
+  console.log('\n✅ 同步系统设置完成！');
   console.log('📊 数据同步：每小时同步，每天2点汇总，每周一8点周报');
-  console.log('📱 消息推送：每天8点/12点/22点自动推送');
 }
 
 /**

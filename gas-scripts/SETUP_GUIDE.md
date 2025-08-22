@@ -1,59 +1,105 @@
-# 🔐 GAS 安全配置指南
+# 🔐 GAS Supabase 同步系统配置指南
 
-## 🎯 问题解决
+## 🎯 系统概述
 
-**解决问题**：每次推送代码后需要重新设置密码/配置
-**解决方案**：使用 Google Apps Script PropertiesService 安全存储敏感信息
+此 GAS (Google Apps Script) 系统提供 **Supabase 数据库与 Google Sheets 的自动同步功能**，支持：
+- 每小时自动同步最新数据
+- 每日凌晨2点汇总数据  
+- 每周一早上8点生成周报
+- 安全的敏感信息存储
 
-## 📋 一次性配置步骤
+## 📋 主要功能
 
-### 步骤 1：上传所有脚本文件
+- **🔄 实时同步** - 每小时同步 Supabase 数据到 Google Sheets
+- **📊 每日汇总** - 自动生成每日统计数据
+- **📈 周报生成** - 每周自动生成用户活跃度报告
+- **🔐 安全存储** - 使用 PropertiesService 安全存储敏感配置
+- **📝 详细日志** - 完整的同步日志和错误记录
 
-确保已上传以下文件到 GAS 项目：
-- `config.gs` - 配置管理
-- `utils.gs` - 工具函数  
-- `push.gs` - 推送核心
-- `triggers.gs` - 定时器管理
+## 🛠 部署步骤
 
-### 步骤 2：运行配置设置函数
+### 步骤 1：创建 Google Apps Script 项目
 
-在 GAS 编辑器中运行以下函数进行一次性配置：
+1. 访问 [Google Apps Script](https://script.google.com/)
+2. 点击 "新建项目"
+3. 将项目重命名为 "Supabase Data Sync System"
+
+### 步骤 2：上传脚本文件
+
+创建以下文件并复制对应的代码：
+
+#### **config.gs** (配置管理)
+```javascript
+// 复制 /gas-scripts/config.gs 的内容
+```
+
+#### **utils.gs** (工具函数)
+```javascript
+// 复制 /gas-scripts/utils.gs 的内容
+```
+
+#### **main.gs** (同步核心)
+```javascript  
+// 复制 /gas-scripts/main.gs 的内容
+```
+
+#### **triggers.gs** (定时器管理)
+```javascript
+// 复制 /gas-scripts/triggers.gs 的内容
+```
+
+### 步骤 3：配置敏感信息
+
+在 Google Apps Script 编辑器中运行以下配置函数：
 
 ```javascript
-// 方式 1：使用配置函数（推荐）
 function mySetup() {
   setupSensitiveConfig({
     supabaseUrl: 'https://你的项目.supabase.co',
     supabaseServiceKey: '你的supabase-service-role-key',
-    vercelUrl: 'https://你的应用.vercel.app', 
-    adminId: '你的管理员TelegramID',
-    recordsSheetId: '你的记录SheetID',
-    logSheetId: '你的日志SheetID',
+    recordsSheetId: '你的主数据SheetID',
     // 可选配置
-    statsSheetId: '统计SheetID',
-    branchSheetId: '分支SheetID'
+    statsSheetId: '统计数据SheetID',
+    branchSheetId: '分支数据SheetID'
   });
 }
 ```
 
-### 步骤 3：验证配置
+### 步骤 4：设置定时触发器
+
+运行以下函数设置自动同步：
 
 ```javascript
-// 验证配置是否正确
+setupAllTriggers(); // 设置完整的同步系统
+```
+
+**或者手动设置触发器：**
+1. 点击左侧 "触发器" 图标
+2. 点击 "添加触发器"
+3. 设置以下触发器：
+
+| 函数名 | 事件类型 | 触发时间 | 说明 |
+|--------|----------|----------|------|
+| `syncSupabaseToSheets` | 时间驱动 | 每小时 | 主数据同步 |
+| `syncDailySummary` | 时间驱动 | 每天凌晨2点 | 日汇总数据 |
+| `syncWeeklyReport` | 时间驱动 | 每周一早上8点 | 周报生成 |
+
+### 步骤 5：测试系统
+
+运行测试函数验证系统：
+
+```javascript
+// 验证配置
 validateConfig();
 
-// 查看配置状态（隐藏敏感信息）
-showConfigStatus();
+// 测试同步功能
+testSync();
+
+// 手动同步测试
+syncSupabaseToSheets();
 ```
 
-### 步骤 4：测试功能
-
-```javascript
-// 测试推送功能
-testPush();
-```
-
-## 🔧 配置说明
+## 📊 配置说明
 
 ### 必需配置项
 
@@ -61,10 +107,7 @@ testPush();
 |--------|------|------|
 | `supabaseUrl` | Supabase 项目 URL | `https://abc123.supabase.co` |
 | `supabaseServiceKey` | Supabase Service Role Key | `eyJ...` |
-| `vercelUrl` | Vercel 应用 URL | `https://myapp.vercel.app` |
-| `adminId` | 管理员 Telegram ID | `1042061810` |
-| `recordsSheetId` | 主记录 Google Sheet ID | `1a2b3c...` |
-| `logSheetId` | 推送日志 Google Sheet ID | `4d5e6f...` |
+| `recordsSheetId` | 主数据 Google Sheet ID | `1a2b3c...` |
 
 ### 可选配置项
 
@@ -80,14 +123,6 @@ testPush();
 2. 选择项目 → Settings → API
 3. 复制 `URL` 和 `service_role key`
 
-### Vercel URL
-1. 登录 [Vercel Dashboard](https://vercel.com/dashboard)
-2. 选择项目，复制项目 URL
-
-### Telegram Admin ID
-1. 发送 `/start` 给 [@userinfobot](https://t.me/userinfobot)
-2. 复制显示的 ID 数字
-
 ### Google Sheet ID
 - Sheet URL: `https://docs.google.com/spreadsheets/d/SHEET_ID/edit`
 - 复制 `SHEET_ID` 部分
@@ -99,11 +134,6 @@ testPush();
 - ✅ **代码推送不影响** - 配置独立于代码文件
 - ✅ **团队友好** - 不会泄露敏感信息到代码库
 - ✅ **一次配置** - 永久有效，无需重复设置
-
-### ❌ 之前硬编码的问题
-- ❌ **不安全** - 密钥明文存储在代码中
-- ❌ **需重复设置** - 每次推送后需要重新修改
-- ❌ **容易泄露** - 敏感信息可能被误提交
 
 ## 🔧 管理函数
 
@@ -117,52 +147,99 @@ showConfigStatus(); // 显示配置状态（隐藏敏感信息）
 validateConfig(); // 验证所有必需配置是否正确
 ```
 
-### 清除配置（谨慎使用）
+### 查看同步日志
 ```javascript
-clearSensitiveConfig(); // 清除所有敏感配置
+getSyncLogs(); // 查看最近的同步日志
+getErrorLogs(); // 查看错误日志
 ```
+
+### 手动同步
+```javascript
+syncSupabaseToSheets(); // 手动执行主数据同步
+syncDailySummary(); // 手动执行日汇总
+syncWeeklyReport(); // 手动执行周报生成
+```
+
+## 📋 数据同步内容
+
+### 主数据同步 (每小时)
+- 用户记录数据
+- 支出分类统计
+- 用户资料更新
+
+### 每日汇总 (凌晨2点)
+- 按日期汇总用户支出
+- 分支统计数据
+- 活跃用户统计
+
+### 周报生成 (每周一8点)
+- 用户活跃度分析
+- 周度支出趋势
+- 分支表现对比
 
 ## 🚨 故障排除
 
-### 配置错误
-```javascript
-// 如果看到这些错误：
-// "缺少配置: SUPABASE_URL, SUPABASE_SERVICE_KEY"
-// "配置无效: VERCEL_URL"
+### 常见问题
 
-// 解决方法：重新运行配置函数
-mySetup(); // 使用正确的值重新配置
-```
+1. **配置错误**
+   ```javascript
+   // 如果看到这些错误：
+   // "缺少配置: SUPABASE_URL, SUPABASE_SERVICE_KEY"
+   
+   // 解决方法：重新运行配置函数
+   mySetup(); // 使用正确的值重新配置
+   ```
 
-### 权限问题
-1. 确保已授权 GAS 访问外部 URL
-2. 检查 Google Sheets 访问权限
-3. 验证 Supabase 和 Vercel API 可访问性
+2. **权限问题**
+   - 确保已授权 GAS 访问外部 URL
+   - 检查 Google Sheets 访问权限
+   - 验证 Supabase API 密钥权限
 
-### 测试连接
-```javascript
-// 测试 API 连接
-testPush();
+3. **同步失败**
+   ```javascript
+   // 检查同步日志
+   getErrorLogs();
+   
+   // 验证配置
+   validateConfig();
+   
+   // 手动测试同步
+   testSync();
+   ```
 
-// 测试 Supabase 连接  
-checkConfig();
-```
+### 调试步骤
+
+1. **检查配置**
+   ```javascript
+   validateConfig(); // 验证配置完整性
+   showConfigStatus(); // 查看配置状态
+   ```
+
+2. **测试连接**
+   ```javascript
+   testSync(); // 测试基本同步功能
+   ```
+
+3. **查看日志**
+   - 查看 GAS 执行记录
+   - 检查同步日志
+   - 查看错误日志
 
 ## 📝 配置完成检查清单
 
 - [ ] 上传所有 `.gs` 文件
 - [ ] 运行 `setupSensitiveConfig()` 配置函数
 - [ ] 运行 `validateConfig()` 验证配置
-- [ ] 运行 `testPush()` 测试功能
-- [ ] 设置定时触发器（8AM、10PM）
-- [ ] 验证推送功能正常工作
+- [ ] 运行 `testSync()` 测试功能
+- [ ] 设置定时触发器
+- [ ] 验证同步功能正常工作
 
 ## 🎉 完成
 
-配置完成后，你的 GAS 推送系统将：
-- 🔒 **安全存储**所有敏感配置
-- 🚀 **自动运行**定时推送任务  
-- 📊 **详细记录**推送和错误日志
-- 🔄 **持续工作**无需重复配置
+配置完成后，你的 GAS 同步系统将：
+- 🔄 **自动同步** Supabase 数据到 Google Sheets
+- 📊 **定期生成** 汇总报告和统计数据
+- 🔒 **安全存储** 所有敏感配置
+- 📝 **详细记录** 同步日志和错误信息
 
 **重要提醒**：完成配置后，请删除或注释掉 `mySetup()` 函数中的敏感信息，防止意外泄露。

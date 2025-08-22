@@ -80,46 +80,18 @@ function getApiUrl(endpoint, params = '') {
   return `${SUPABASE_CONFIG.url}${API_ENDPOINTS[endpoint]}${params}`;
 }
 
-// Vercel 推送配置 (新增)
-function getPUSH_CONFIG() {
-  const properties = PropertiesService.getScriptProperties();
-  
-  return {
-    // Vercel 应用 URL
-    vercelUrl: properties.getProperty('VERCEL_URL') || 'https://your-vercel-app.vercel.app',
-    
-    // 管理员 Telegram ID (用于推送权限验证)
-    adminId: properties.getProperty('ADMIN_ID') || '1042061810',
-    
-    // 推送系统设置
-    maxUsersPerBatch: 300,
-    retryAttempts: 3,
-    pushTimeout: 30000, // 30秒超时
-    
-    // 推送统计记录到的 Sheet
-    logSheetId: properties.getProperty('LOG_SHEET_ID') || 'your-push-log-sheet-id',
-    logSheetName: '推送日志'
-  };
-}
 
-// 向后兼容的配置获取
-const PUSH_CONFIG = getPUSH_CONFIG();
-
-// 获取完整配置 (新增)
+// 获取完整配置
 function getConfig() {
   const supabaseConfig = getSUPABASE_CONFIG();
   const sheetsConfig = getSHEETS_CONFIG();
-  const pushConfig = getPUSH_CONFIG();
   
   return {
     supabase: supabaseConfig,
     sheets: sheetsConfig,
     sync: SYNC_CONFIG,
-    push: pushConfig,
     api: API_ENDPOINTS,
     // 便捷访问
-    vercelUrl: pushConfig.vercelUrl,
-    adminId: pushConfig.adminId,
     sheetsId: sheetsConfig.recordsSheetId
   };
 }
@@ -147,10 +119,7 @@ function setupSensitiveConfig(config) {
   const requiredConfig = {
     'SUPABASE_URL': config.supabaseUrl,
     'SUPABASE_SERVICE_KEY': config.supabaseServiceKey,
-    'VERCEL_URL': config.vercelUrl,
-    'ADMIN_ID': config.adminId,
-    'RECORDS_SHEET_ID': config.recordsSheetId,
-    'LOG_SHEET_ID': config.logSheetId
+    'RECORDS_SHEET_ID': config.recordsSheetId
   };
   
   // 可选配置项
@@ -195,11 +164,8 @@ function validateConfig() {
   
   const requiredKeys = [
     'SUPABASE_URL',
-    'SUPABASE_SERVICE_KEY', 
-    'VERCEL_URL',
-    'ADMIN_ID',
-    'RECORDS_SHEET_ID',
-    'LOG_SHEET_ID'
+    'SUPABASE_SERVICE_KEY',
+    'RECORDS_SHEET_ID'
   ];
   
   const missing = [];
@@ -243,8 +209,6 @@ function showConfigStatus() {
   
   const configKeys = allKeys.filter(key => 
     key.includes('SUPABASE_') || 
-    key.includes('VERCEL_') || 
-    key.includes('ADMIN_') ||
     key.includes('_SHEET_ID')
   );
   
@@ -278,8 +242,6 @@ function clearSensitiveConfig() {
   
   const sensitiveKeys = allKeys.filter(key => 
     key.includes('SUPABASE_') || 
-    key.includes('VERCEL_') || 
-    key.includes('ADMIN_') ||
     key.includes('_SHEET_ID')
   );
   
