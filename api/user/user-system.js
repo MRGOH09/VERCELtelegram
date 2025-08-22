@@ -271,10 +271,8 @@ async function handleGetSummary(req, res, userId) {
       const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - totalLearning)
       console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
-      // 储蓄 = 分类明细总和（保险 + C类记录 + 实际余额）
-      const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
-      const actualBalance = monthlyBalance - insuranceMonthly - (summary.groups.C.total || 0)
-      const totalSavings = insuranceMonthly + (summary.groups.C.total || 0) + Math.max(0, actualBalance)
+      // 储蓄 = monthlyBalance（简化，让分类明细自己计算合理分配）
+      const totalSavings = monthlyBalance
       
       const responseData = {
         progress: {
@@ -520,14 +518,16 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
       groupedBreakdown['C']['ins_car_auto'] = carMonthly
     }
     
-    // 余额（储蓄类）- 扣除保险费用和C类记录
-    const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
-    console.log(`[DEBUG] 余额明细计算: monthlyBalance=${monthlyBalance}, insuranceMonthly=${insuranceMonthly}, C类记录=${summary?.groups?.C?.total || 0}`)
-    const actualBalance = monthlyBalance - insuranceMonthly - (summary?.groups?.C?.total || 0)
-    console.log(`[DEBUG] 计算后实际余额: ${actualBalance}`)
-    if (actualBalance > 0) {
+    // 余额（储蓄类）- 扣除已显示的保险和C类记录
+    const displayedInsurance = medicalMonthly + carMonthly // 已在分类明细显示的保险
+    const displayedCRecords = Object.keys(groupedBreakdown.C || {})
+      .filter(key => !key.includes('_auto') && key !== 'balance')
+      .reduce((sum, key) => sum + (groupedBreakdown.C[key] || 0), 0)
+    
+    const remainingBalance = monthlyBalance - displayedInsurance - displayedCRecords
+    if (remainingBalance > 0) {
       if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
-      groupedBreakdown['C']['balance'] = actualBalance
+      groupedBreakdown['C']['balance'] = remainingBalance
     }
   }
   
