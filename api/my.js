@@ -159,8 +159,8 @@ export default async function handler(req, res) {
       cap_a: budgetA.toFixed(2),
       epf: ((income * 0.11) || 0).toFixed(2), // 假设EPF为11%
       travel: ((profile.travel_budget_annual || 0) / 12).toFixed(2),
-      medical: ((profile.ins_med_annual || 0) / 12).toFixed(2),
-      car_insurance: ((profile.ins_car_annual || 0) / 12).toFixed(2),
+      medical: ((profile.annual_medical_insurance || 0) / 12).toFixed(2),
+      car_insurance: ((profile.annual_car_insurance || 0) / 12).toFixed(2),
       category_details: categoryDetailsText.trim()
     })
 
@@ -191,8 +191,8 @@ export default async function handler(req, res) {
         cap_c: (income * (100 - targetA) / 100), // 储蓄投资
         epf: (income * 0.11), // EPF 11%
         travelMonthly: ((profile.travel_budget_annual || 0) / 12),
-        medicalMonthly: ((profile.ins_med_annual || 0) / 12),
-        carInsuranceMonthly: ((profile.ins_car_annual || 0) / 12)
+        medicalMonthly: ((profile.annual_medical_insurance || 0) / 12),
+        carInsuranceMonthly: ((profile.annual_car_insurance || 0) / 12)
       },
       categoryBreakdown: categoryDetails,
       balance: Math.max(0, income - totalAmount),

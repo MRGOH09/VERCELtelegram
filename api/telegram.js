@@ -1454,12 +1454,19 @@ export async function handleCallback(update, req, res) {
       await answerCallbackQuery(cq.id, '📄 已显示更多记录')
       return res.status(200).json({ ok: true })
     }
+    console.log('处理回调数据:', data, 'userId:', userId)
     if (data === 'my:month') {
+      console.log('进入my:month处理逻辑')
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
+      console.log('调用统计API:', `${base}/api/my?userId=${userId}&range=month`)
       const r = await fetch(`${base}/api/my?userId=${userId}&range=month`)
       const myData = await r.json()
-      if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
+      console.log('统计API响应:', { status: r.status, ok: r.ok, data: myData })
+      if (!r.ok) { 
+        await sendTelegramMessage(chatId, `查询失败: ${r.status} - ${JSON.stringify(myData)}`)
+        return res.status(200).json({ ok: true }) 
+      }
       const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
       const rb = myData.realtime?.b == null ? 'N/A' : myData.realtime.b
       const rc = myData.realtime?.c == null ? 'N/A' : myData.realtime.c
