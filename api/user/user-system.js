@@ -273,8 +273,9 @@ async function handleGetSummary(req, res, userId) {
       )
       const monthlyBalance = Math.max(0, monthlyIncome - monthlyExpenses)
       
-      // 储蓄 = 余额 + EPF + C类记录
-      const totalSavings = monthlyBalance + monthlyEPF + (summary.groups.C.total || 0)
+      // 储蓄 = 余额 + EPF + C类记录 + 保险费用
+      const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
+      const totalSavings = monthlyBalance + monthlyEPF + (summary.groups.C.total || 0) + insuranceMonthly
       
       const responseData = {
         progress: {
