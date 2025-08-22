@@ -540,12 +540,16 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
       .reduce((sum, key) => sum + (groupedBreakdown.C[key] || 0), 0)
     
     const remainingBalance = monthlyBalance - displayedInsurance - displayedCRecords
+    console.log(`[DEBUG] 分类明细余额计算: monthlyBalance=${monthlyBalance}, displayedInsurance=${displayedInsurance}, displayedCRecords=${displayedCRecords}, remainingBalance=${remainingBalance}`)
+    
     // 显示余额或透支
     if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
     if (remainingBalance >= 0) {
       groupedBreakdown['C']['balance'] = remainingBalance
+      console.log(`[DEBUG] 添加余额: ${remainingBalance}`)
     } else {
       groupedBreakdown['C']['overspent'] = remainingBalance // 负数
+      console.log(`[DEBUG] 添加透支: ${remainingBalance}`)
     }
   }
   
