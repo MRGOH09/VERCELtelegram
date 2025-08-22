@@ -613,6 +613,9 @@ function formatCategoryBreakdown(categoryBreakdown) {
     for (const [displayName, amount] of Object.entries(mergedCategories)) {
       if (amount > 0) {
         result += `  • ${displayName}：RM ${amount.toFixed(2)}\n`
+      } else if (amount < 0 && displayName === '透支') {
+        // 透支项目特殊显示
+        result += `  • ${displayName}：RM ${amount.toFixed(2)}\n`
       }
     }
   }
