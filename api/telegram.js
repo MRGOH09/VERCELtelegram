@@ -1455,6 +1455,28 @@ export async function handleCallback(update, req, res) {
       return res.status(200).json({ ok: true })
     }
     console.log('处理回调数据:', data, 'userId:', userId)
+    
+    if (data === 'send_my') {
+      // 直接发送 /my 命令，重用现有逻辑
+      console.log('触发/my命令')
+      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
+      const base = `${url.protocol}//${url.host}`
+      const r = await fetch(`${base}/api/user/user-system`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-summary', userId })
+      })
+      const data = await r.json()
+      if (!r.ok) { 
+        await sendTelegramMessage(chatId, '查询失败，请稍后重试')
+        return res.status(200).json({ ok: true }) 
+      }
+      
+      // 使用与 /my 命令相同的消息格式
+      await sendTelegramMessage(chatId, data.msg)
+      return res.status(200).json({ ok: true })
+    }
+    
     if (data === 'my:month') {
       console.log('进入my:month处理逻辑')
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
@@ -1689,7 +1711,7 @@ export async function handleCallback(update, req, res) {
       await clearState(userId)
       await sendTelegramMessage(chatId,
         formatTemplate(messages.record.saved, { groupLabel: payload.groupLabel || payload.group, amount: Number(payload.amount).toFixed(2) }),
-        { reply_markup: { inline_keyboard: [[{ text: messages.post.again, callback_data: 'rec:again' }, { text: messages.post.my, callback_data: 'my:month' }]] } }
+        { reply_markup: { inline_keyboard: [[{ text: messages.post.again, callback_data: 'rec:again' }, { text: messages.post.my, callback_data: 'send_my' }]] } }
       )
       return res.status(200).json({ ok: true })
     }
@@ -1783,7 +1805,7 @@ export async function handleCallback(update, req, res) {
         const totalAmount = records.reduce((sum, r) => sum + r.amount, 0)
         await sendTelegramMessage(chatId, 
           `✅ 批量记录成功！\n\n💰 总计：RM ${totalAmount.toFixed(2)}\n📊 记录数：${records.length}笔\n\n🔄 继续记录：/record\n📊 查看统计：/my`, 
-          { reply_markup: { inline_keyboard: [[{ text: '🔄 继续记录', callback_data: 'rec:again' }, { text: '📊 查看统计', callback_data: 'my:month' }]] } }
+          { reply_markup: { inline_keyboard: [[{ text: '🔄 继续记录', callback_data: 'rec:again' }, { text: '📊 查看统计', callback_data: 'send_my' }]] } }
         )
         
         await clearState(userId)
