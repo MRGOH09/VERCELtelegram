@@ -283,11 +283,11 @@ async function handleGetSummary(req, res, userId) {
         realtime: {
           a: monthlyIncome > 0 ? ((summary.groups.A.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
           b: monthlyIncome > 0 ? ((summary.groups.B.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
-          c: monthlyIncome > 0 ? Math.max(0, 100 - ((summary.groups.A.total || 0) / monthlyIncome * 100) - ((summary.groups.B.total || 0) / monthlyIncome * 100)).toFixed(1) : '0.0'
+          c: monthlyIncome > 0 ? ((summary.groups.C.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0'
         },
         snapshotView: {
           income: monthlyIncome,
-          a_pct: 60, // 默认开销目标60%
+          a_pct: profile?.a_pct || 60, // 用户设置的开销目标占比
           cap_a: summary.groups.A.target || 0,
           cap_b: summary.groups.B.target || 0,
           cap_c: summary.groups.C.target || 0,
@@ -327,7 +327,7 @@ async function handleGetSummary(req, res, userId) {
         rb: responseData.realtime.b,
         rc: responseData.realtime.c,
         a_pct: responseData.snapshotView.a_pct || 60,
-        da: responseData.realtime.a ? (Number(responseData.realtime.a) - 60).toFixed(0) : 'N/A',
+        da: responseData.realtime.a ? (Number(responseData.realtime.a) - (responseData.snapshotView.a_pct || 60)).toFixed(0) : 'N/A',
         a_gap_line: aGapLine,
         income: responseData.snapshotView.income || 0,
         cap_a: responseData.snapshotView.cap_a || 0,
@@ -432,9 +432,10 @@ function calculateSummary(records, profile, yyyymm) {
   const remaining = monthlyIncome - totalSpent
   
   // 计算目标差异
-  const targetA = monthlyIncome * 0.6 // 开销目标60%
+  const aPct = Number(profile?.a_pct || 60) / 100 // 用户设置的开销占比
+  const targetA = monthlyIncome * aPct // 开销目标
   const targetB = monthlyIncome * 0.2 // 学习目标20%
-  const targetC = monthlyIncome * 0.2 // 储蓄目标20%
+  const targetC = monthlyIncome * (0.8 - aPct) // 储蓄目标 = 80% - 开销占比
   
   const summary = {
     month: yyyymm,

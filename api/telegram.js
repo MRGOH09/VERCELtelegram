@@ -1013,19 +1013,19 @@ export default async function handler(req, res) {
         const travel = parseAmountInput(text)
         if (travel == null || travel < 0) { await sendTelegramMessage(chatId, messages.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'ins_med', { ...st.payload, travel_budget_annual: travel })
-        await sendTelegramMessage(chatId, '💊 请输入年度医疗保险金额（RM）\n例如：1200\n💡 如果没有请输入 0')
+        await sendTelegramMessage(chatId, messages.registration.medicalInsurance.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'ins_med') {
         const insMed = parseAmountInput(text)
-        if (insMed == null || insMed < 0) { await sendTelegramMessage(chatId, '❌ 请输入有效金额（大于等于0）\n例如：1200 或 0'); return res.status(200).json({ ok: true }) }
+        if (insMed == null || insMed < 0) { await sendTelegramMessage(chatId, messages.registration.medicalInsurance.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'ins_car', { ...st.payload, annual_medical_insurance: insMed })
-        await sendTelegramMessage(chatId, '🚗 请输入年度车险金额（RM）\n例如：1500\n💡 如果没有请输入 0')
+        await sendTelegramMessage(chatId, messages.registration.carInsurance.prompt)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'ins_car') {
         const insCar = parseAmountInput(text)
-        if (insCar == null || insCar < 0) { await sendTelegramMessage(chatId, '❌ 请输入有效金额（大于等于0）\n例如：1500 或 0'); return res.status(200).json({ ok: true }) }
+        if (insCar == null || insCar < 0) { await sendTelegramMessage(chatId, messages.registration.carInsurance.validation); return res.status(200).json({ ok: true }) }
         await setState(userIdForState, 'start', 'prev', { ...st.payload, annual_car_insurance: insCar })
         await sendTelegramMessage(chatId, messages.registration.lastMonthSpendingPct.prompt)
         return res.status(200).json({ ok: true })
