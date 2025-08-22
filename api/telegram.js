@@ -1012,7 +1012,21 @@ export default async function handler(req, res) {
       if (st.step === 'travel') {
         const travel = parseAmountInput(text)
         if (travel == null || travel < 0) { await sendTelegramMessage(chatId, messages.registration.travelBudget.validation); return res.status(200).json({ ok: true }) }
-        await setState(userIdForState, 'start', 'prev', { ...st.payload, travel_budget_annual: travel })
+        await setState(userIdForState, 'start', 'ins_med', { ...st.payload, travel_budget_annual: travel })
+        await sendTelegramMessage(chatId, '💊 请输入年度医疗保险金额（RM）\n例如：1200\n💡 如果没有请输入 0')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'ins_med') {
+        const insMed = parseAmountInput(text)
+        if (insMed == null || insMed < 0) { await sendTelegramMessage(chatId, '❌ 请输入有效金额（大于等于0）\n例如：1200 或 0'); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'ins_car', { ...st.payload, annual_medical_insurance: insMed })
+        await sendTelegramMessage(chatId, '🚗 请输入年度车险金额（RM）\n例如：1500\n💡 如果没有请输入 0')
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'ins_car') {
+        const insCar = parseAmountInput(text)
+        if (insCar == null || insCar < 0) { await sendTelegramMessage(chatId, '❌ 请输入有效金额（大于等于0）\n例如：1500 或 0'); return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'prev', { ...st.payload, annual_car_insurance: insCar })
         await sendTelegramMessage(chatId, messages.registration.lastMonthSpendingPct.prompt)
         return res.status(200).json({ ok: true })
       }
@@ -1877,6 +1891,12 @@ export async function handleCallback(update, req, res) {
         case 'travel':
           promptMsg = messages.registration.travelBudget.prompt
           break
+        case 'ins_med':
+          promptMsg = '💊 请输入年度医疗保险金额（RM）\n例如：1200\n💡 如果没有请输入 0'
+          break
+        case 'ins_car':
+          promptMsg = '🚗 请输入年度车险金额（RM）\n例如：1500\n💡 如果没有请输入 0'
+          break
         case 'prev':
           promptMsg = messages.registration.lastMonthSpendingPct.prompt
           break
@@ -1918,6 +1938,8 @@ export async function handleCallback(update, req, res) {
         a_pct: payload.a_pct || 0,
         // b_pct: payload.b_pct || 0,  // 已废弃，不再使用
         travel_budget_annual: payload.travel_budget_annual || 0,
+        annual_medical_insurance: payload.annual_medical_insurance || 0,
+        annual_car_insurance: payload.annual_car_insurance || 0,
         prev_month_spend: payload.prev_month_spend || 0
       })
       const yyyymm = new Date().toISOString().slice(0,7)
