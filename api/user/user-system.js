@@ -262,28 +262,30 @@ async function handleGetSummary(req, res, userId) {
       const epfPct = Number(profile?.epf_pct || 24) // 默认24%
       const monthlyEPF = (monthlyIncome * epfPct) / 100
       
-      // 计算余额（收入 - A - B - C - EPF - 其他月度支出）
+      // 计算余额（收入 - A - B - 保险旅游等固定支出）
+      // 注意：EPF和C类记录都算入储蓄，不从余额中扣除
       const monthlyExpenses = (
         (summary.groups.A.total || 0) + 
         (summary.groups.B.total || 0) + 
-        (summary.groups.C.total || 0) + 
-        monthlyEPF +
         ((profile?.travel_budget_annual || 0) / 12) +
         ((profile?.annual_medical_insurance || 0) / 12) +
         ((profile?.annual_car_insurance || 0) / 12)
       )
       const monthlyBalance = Math.max(0, monthlyIncome - monthlyExpenses)
       
+      // 储蓄 = 余额 + EPF + C类记录
+      const totalSavings = monthlyBalance + monthlyEPF + (summary.groups.C.total || 0)
+      
       const responseData = {
         progress: {
           a: summary.groups.A.total || 0,
           b: summary.groups.B.total || 0,
-          c: summary.groups.C.total || 0
+          c: totalSavings // 储蓄 = 余额 + EPF + C类记录
         },
         realtime: {
           a: monthlyIncome > 0 ? ((summary.groups.A.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
           b: monthlyIncome > 0 ? ((summary.groups.B.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
-          c: monthlyIncome > 0 ? ((summary.groups.C.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0'
+          c: monthlyIncome > 0 ? (totalSavings / monthlyIncome * 100).toFixed(1) : '0.0'
         },
         snapshotView: {
           income: monthlyIncome,
@@ -306,7 +308,7 @@ async function handleGetSummary(req, res, userId) {
           b: (summary.groups.B.total || 0).toFixed(2),
           c_residual: (summary.groups.C.total || 0).toFixed(2)
         },
-        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome),
+        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile),
         balance: monthlyBalance // 计算的月度余额
       }
 
@@ -327,7 +329,7 @@ async function handleGetSummary(req, res, userId) {
         rb: responseData.realtime.b,
         rc: responseData.realtime.c,
         a_pct: responseData.snapshotView.a_pct || 60,
-        da: responseData.realtime.a ? (Number(responseData.realtime.a) - (responseData.snapshotView.a_pct || 60)).toFixed(0) : 'N/A',
+        da: `还可花 RM ${aGap >= 0 ? aGap : '0.00'}`,
         a_gap_line: aGapLine,
         income: responseData.snapshotView.income || 0,
         cap_a: responseData.snapshotView.cap_a || 0,
@@ -472,29 +474,52 @@ function calculateSummary(records, profile, yyyymm) {
 }
 
 // 计算分类明细（按组别组织）
-function calculateCategoryBreakdown(records, monthlyIncome) {
-  if (!records || records.length === 0) {
-    return {}
-  }
-  
+function calculateCategoryBreakdown(records, monthlyIncome, profile) {
   // 按组别和分类统计金额
   const groupedBreakdown = {}
   
-  records.forEach(record => {
-    const group = record.category_group
-    const category = record.category_code
-    const amount = Number(record.amount || 0)
-    
-    if (!groupedBreakdown[group]) {
-      groupedBreakdown[group] = {}
+  // 处理实际记录
+  if (records && records.length > 0) {
+    records.forEach(record => {
+      const group = record.category_group
+      const category = record.category_code
+      const amount = Number(record.amount || 0)
+      
+      if (!groupedBreakdown[group]) {
+        groupedBreakdown[group] = {}
+      }
+      
+      if (!groupedBreakdown[group][category]) {
+        groupedBreakdown[group][category] = 0
+      }
+      
+      groupedBreakdown[group][category] += amount
+    })
+  }
+  
+  // 加入自动生成的月度项目
+  if (profile) {
+    // 旅游基金（学习类）
+    const travelMonthly = Number(profile.travel_budget_annual || 0) / 12
+    if (travelMonthly > 0) {
+      if (!groupedBreakdown['B']) groupedBreakdown['B'] = {}
+      groupedBreakdown['B']['travel_auto'] = travelMonthly
     }
     
-    if (!groupedBreakdown[group][category]) {
-      groupedBreakdown[group][category] = 0
+    // 医疗保险（储蓄类）
+    const medicalMonthly = Number(profile.annual_medical_insurance || 0) / 12
+    if (medicalMonthly > 0) {
+      if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
+      groupedBreakdown['C']['ins_med_auto'] = medicalMonthly
     }
     
-    groupedBreakdown[group][category] += amount
-  })
+    // 车险（储蓄类）
+    const carMonthly = Number(profile.annual_car_insurance || 0) / 12
+    if (carMonthly > 0) {
+      if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
+      groupedBreakdown['C']['ins_car_auto'] = carMonthly
+    }
+  }
   
   return groupedBreakdown
 }
