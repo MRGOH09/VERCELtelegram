@@ -1027,7 +1027,7 @@ export default async function handler(req, res) {
     if (st?.flow === 'settings') {
       // 文本侧仅处理具体输入步骤，入口与选择走 callback
       if (st.step === 'edit_nickname') {
-        const name = (text || '').trim().slice(1, 30)
+        const name = (text || '').trim().slice(0, 30)
         if (!name) { await sendTelegramMessage(chatId, messages.registration.nickname.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ display_name: name }).eq('user_id', userIdForState)
         // 不立即清除状态，而是显示更新后的摘要和继续选项
