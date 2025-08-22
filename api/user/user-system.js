@@ -322,11 +322,20 @@ async function handleGetSummary(req, res, userId) {
         range,
         a: responseData.display?.a || responseData.totals.a.toFixed(2),
         b: responseData.display?.b || responseData.totals.b.toFixed(2),
-        c_residual: responseData.display?.c_residual || responseData.totals.c.toFixed(2),
-        realtime_a: responseData.realtime.a,
-        realtime_b: responseData.realtime.b,
-        realtime_c: responseData.realtime.c,
-        a_gap: aGapLine
+        c: responseData.display?.c_residual || responseData.totals.c.toFixed(2),
+        ra: responseData.realtime.a,
+        rb: responseData.realtime.b,
+        rc: responseData.realtime.c,
+        a_pct: responseData.snapshotView.a_pct || 60,
+        da: responseData.realtime.a ? (Number(responseData.realtime.a) - 60).toFixed(0) : 'N/A',
+        a_gap_line: aGapLine,
+        income: responseData.snapshotView.income || 0,
+        cap_a: responseData.snapshotView.cap_a || 0,
+        epf: responseData.snapshotView.epf || 0,
+        travel: (responseData.snapshotView.travelMonthly || 0).toFixed(2),
+        medical: (responseData.snapshotView.medicalMonthly || 0).toFixed(2),
+        car_insurance: (responseData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
+        category_details: formatCategoryBreakdown(responseData.categoryBreakdown)
       })
       
       return res.status(200).json({
@@ -487,4 +496,25 @@ function calculateCategoryBreakdown(records, monthlyIncome) {
   })
   
   return groupedBreakdown
+}
+
+// 格式化分类明细为显示字符串
+function formatCategoryBreakdown(categoryBreakdown) {
+  if (!categoryBreakdown || Object.keys(categoryBreakdown).length === 0) {
+    return '（暂无记录）'
+  }
+  
+  const groupLabels = { 'A': '开销', 'B': '学习', 'C': '储蓄' }
+  let result = ''
+  
+  for (const [group, categories] of Object.entries(categoryBreakdown)) {
+    const groupLabel = groupLabels[group] || group
+    result += `\n${groupLabel}：\n`
+    
+    for (const [category, amount] of Object.entries(categories)) {
+      result += `  • ${category}：RM ${Number(amount).toFixed(2)}\n`
+    }
+  }
+  
+  return result.trim() || '（暂无记录）'
 } 
