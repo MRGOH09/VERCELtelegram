@@ -271,7 +271,8 @@ async function handleGetSummary(req, res, userId) {
       const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - totalLearning)
       console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
-      // 储蓄 = 余额（简化算法）
+      // 储蓄 = 余额 + 保险 + C类记录（分类明细总和）
+      const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
       const totalSavings = monthlyBalance
       
       const responseData = {
@@ -520,7 +521,9 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBala
     
     // 余额（储蓄类）- 扣除保险费用和C类记录
     const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
+    console.log(`[DEBUG] 余额明细计算: monthlyBalance=${monthlyBalance}, insuranceMonthly=${insuranceMonthly}, C类记录=${summary?.groups?.C?.total || 0}`)
     const actualBalance = monthlyBalance - insuranceMonthly - (summary?.groups?.C?.total || 0)
+    console.log(`[DEBUG] 计算后实际余额: ${actualBalance}`)
     if (actualBalance > 0) {
       if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
       groupedBreakdown['C']['balance'] = actualBalance
