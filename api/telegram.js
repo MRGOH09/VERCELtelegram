@@ -82,9 +82,9 @@ function formatCategoryDetails(categoryBreakdown, monthlyIncome = 0, epf = 0, ba
   
   const groupLabels = { 'A': '开销', 'B': '学习', 'C': '储蓄' }
   const categoryLabels = {
-    'A': { 'food': '餐饮', 'ent': '娱乐', 'shop': '购物', 'transport': '交通', 'utilities': '水电', 'mobile': '手机', 'household': '家用', 'other': '其他' },
-    'B': { 'books': '书籍', 'course': '课程', 'training': '培训', 'cert': '认证', 'travel_auto': '旅游基金（月）' },
-    'C': { 'stock': '股票', 'fd': '定存', 'insurance': '保险', 'emerg': '紧急基金', 'other': '其他', 'ins_med_auto': '医疗保险（月）', 'ins_car_auto': '车险（月）', 'epf_auto': 'EPF（月）' }
+    'A': { '餐饮': '餐饮', '娱乐': '娱乐', '购物': '购物', '交通': '交通', '水电': '水电', '手机': '手机', '家用': '家用', '其他': '其他' },
+    'B': { '书籍': '书籍', '课程': '课程', '培训': '培训', '认证': '认证', 'travel_auto': '旅游基金（月）' },
+    'C': { '股票': '股票', '定存': '定存', '保险': '保险', '紧急基金': '紧急基金', '其他': '其他', 'ins_med_auto': '医疗保险（月）', 'ins_car_auto': '车险（月）', 'epf_auto': 'EPF（月）' }
   }
   
   let result = ''

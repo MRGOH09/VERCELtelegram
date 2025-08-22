@@ -167,6 +167,36 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       message: response,
+      // 匹配telegram.js期望的数据结构
+      realtime: {
+        a: percentages.A.toFixed(1),
+        b: percentages.B.toFixed(1), 
+        c: percentages.C.toFixed(1)
+      },
+      totals: {
+        a: stats.A.amount,
+        b: stats.B.amount,
+        c: stats.C.amount
+      },
+      display: {
+        a: stats.A.amount.toFixed(2),
+        b: stats.B.amount.toFixed(2),
+        c_residual: stats.C.amount.toFixed(2)
+      },
+      snapshotView: {
+        a_pct: targetA,
+        income: income,
+        cap_a: budgetA,
+        cap_b: (income * (100 - targetA) / 100), // 学习投资 + 储蓄
+        cap_c: (income * (100 - targetA) / 100), // 储蓄投资
+        epf: (income * 0.11), // EPF 11%
+        travelMonthly: ((profile.travel_budget_annual || 0) / 12),
+        medicalMonthly: ((profile.ins_med_annual || 0) / 12),
+        carInsuranceMonthly: ((profile.ins_car_annual || 0) / 12)
+      },
+      categoryBreakdown: categoryDetails,
+      balance: Math.max(0, income - totalAmount),
+      // 保持向后兼容
       data: {
         range: rangeLabel,
         stats,
