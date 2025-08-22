@@ -322,16 +322,22 @@ async function handleGetSummary(req, res, userId) {
       const aGap = (responseData.snapshotView.cap_a - responseData.totals.a).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
       
-      // 添加学习超支警告
-      const learningDisplay = isOverspent ? 
-        `${(responseData.display?.b || responseData.totals.b.toFixed(2))} ⚠️已超支` : 
-        (responseData.display?.b || responseData.totals.b.toFixed(2))
+      // 添加开销超支警告（当开销占比>100%）
+      const expensePercentage = monthlyIncome > 0 ? ((summary.groups.A.total || 0) / monthlyIncome * 100) : 0
+      const expenseDisplay = expensePercentage > 100 ? 
+        `${(responseData.display?.a || responseData.totals.a.toFixed(2))} ⚠️已超支` : 
+        (responseData.display?.a || responseData.totals.a.toFixed(2))
+      
+      // 储蓄负数时显示"已动用过去储蓄"
+      const savingsDisplay = totalSavings < 0 ? 
+        `已动用过去储蓄 RM ${Math.abs(totalSavings).toFixed(2)}` : 
+        `RM ${totalSavings.toFixed(2)}`
       
       const msg = formatTemplate(messages.my.summary, {
         range,
-        a: responseData.display?.a || responseData.totals.a.toFixed(2),
-        b: learningDisplay,
-        c: responseData.display?.c_residual || responseData.totals.c.toFixed(2),
+        a: expenseDisplay,
+        b: responseData.display?.b || responseData.totals.b.toFixed(2),
+        c: savingsDisplay,
         ra: responseData.realtime.a,
         rb: responseData.realtime.b,
         rc: responseData.realtime.c,
