@@ -1473,8 +1473,9 @@ export async function handleCallback(update, req, res) {
       const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
       const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
       const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
+      const range = 'month' // 定义range变量
       const msg = formatTemplate(messages.my.summary, {
-        range: 'month',
+        range: range,
         a: myData.display?.a || myData.totals.a.toFixed(2),
         b: myData.display?.b || myData.totals.b.toFixed(2),
         c: myData.display?.c_residual || myData.totals.c.toFixed(2),
