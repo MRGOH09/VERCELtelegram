@@ -263,7 +263,9 @@ async function handleGetSummary(req, res, userId) {
       const monthlyEPF = (monthlyIncome * epfPct) / 100
       
       // 计算余额（简化：收入 - 开销 - 学习）
+      console.log(`[DEBUG] 余额计算: 收入${monthlyIncome} - 开销${summary.groups.A.total} - 学习${summary.groups.B.total}`)
       const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - (summary.groups.B.total || 0))
+      console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
       // 储蓄 = 余额（简化算法）
       const totalSavings = monthlyBalance
