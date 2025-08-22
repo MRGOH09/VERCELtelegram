@@ -262,9 +262,13 @@ async function handleGetSummary(req, res, userId) {
       const epfPct = Number(profile?.epf_pct || 24) // 默认24%
       const monthlyEPF = (monthlyIncome * epfPct) / 100
       
-      // 计算余额（简化：收入 - 开销 - 学习）
-      console.log(`[DEBUG] 余额计算: 收入${monthlyIncome} - 开销${summary.groups.A.total} - 学习${summary.groups.B.total}`)
-      const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - (summary.groups.B.total || 0))
+      // 学习总额 = B类记录 + 旅游基金
+      const travelMonthly = (profile?.travel_budget_annual || 0) / 12
+      const totalLearning = (summary.groups.B.total || 0) + travelMonthly
+      
+      // 计算余额（收入 - 开销 - 学习完整金额）
+      console.log(`[DEBUG] 余额计算: 收入${monthlyIncome} - 开销${summary.groups.A.total} - 学习${totalLearning}`)
+      const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - totalLearning)
       console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
       // 储蓄 = 余额（简化算法）
@@ -273,12 +277,12 @@ async function handleGetSummary(req, res, userId) {
       const responseData = {
         progress: {
           a: summary.groups.A.total || 0,
-          b: summary.groups.B.total || 0,
-          c: totalSavings // 储蓄 = 余额 + EPF + C类记录
+          b: totalLearning, // 学习 = B类记录 + 旅游基金
+          c: totalSavings // 储蓄 = 余额
         },
         realtime: {
           a: monthlyIncome > 0 ? ((summary.groups.A.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
-          b: monthlyIncome > 0 ? ((summary.groups.B.total || 0) / monthlyIncome * 100).toFixed(1) : '0.0',
+          b: monthlyIncome > 0 ? (totalLearning / monthlyIncome * 100).toFixed(1) : '0.0',
           c: monthlyIncome > 0 ? (totalSavings / monthlyIncome * 100).toFixed(1) : '0.0'
         },
         snapshotView: {
@@ -294,13 +298,13 @@ async function handleGetSummary(req, res, userId) {
         },
         totals: {
           a: summary.groups.A.total || 0,
-          b: summary.groups.B.total || 0,
-          c: summary.groups.C.total || 0
+          b: totalLearning,
+          c: totalSavings
         },
         display: {
           a: (summary.groups.A.total || 0).toFixed(2),
-          b: (summary.groups.B.total || 0).toFixed(2),
-          c_residual: (summary.groups.C.total || 0).toFixed(2)
+          b: totalLearning.toFixed(2),
+          c_residual: totalSavings.toFixed(2)
         },
         categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance),
         balance: monthlyBalance // 计算的月度余额
