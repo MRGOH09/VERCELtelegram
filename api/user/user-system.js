@@ -271,9 +271,10 @@ async function handleGetSummary(req, res, userId) {
       const monthlyBalance = Math.max(0, monthlyIncome - (summary.groups.A.total || 0) - totalLearning)
       console.log(`[DEBUG] 计算后余额: ${monthlyBalance}`)
       
-      // 储蓄 = 余额 + 保险 + C类记录（分类明细总和）
+      // 储蓄 = 分类明细总和（保险 + C类记录 + 实际余额）
       const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
-      const totalSavings = monthlyBalance
+      const actualBalance = monthlyBalance - insuranceMonthly - (summary.groups.C.total || 0)
+      const totalSavings = insuranceMonthly + (summary.groups.C.total || 0) + Math.max(0, actualBalance)
       
       const responseData = {
         progress: {
