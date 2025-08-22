@@ -593,9 +593,10 @@ export default async function handler(req, res) {
         
         console.log('模板参数:', templateParams)
         
-        const msg = formatTemplate(messages.my.summary, templateParams)
+        // 直接使用 user-system 返回的格式化消息
+        const msg = data.msg || '数据获取失败'
         
-        console.log('模板渲染完成，消息长度:', msg.length)
+        console.log('使用API返回的格式化消息，消息长度:', msg.length)
         
         // 6. 生成具体的月份标题
         console.log('📅 生成月份标题...')
@@ -1481,43 +1482,24 @@ export async function handleCallback(update, req, res) {
       console.log('进入my:month处理逻辑')
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      console.log('调用统计API:', `${base}/api/my?userId=${userId}&range=month`)
-      const r = await fetch(`${base}/api/my?userId=${userId}&range=month`)
+      console.log('调用统计API:', `${base}/api/user/user-system`)
+      const r = await fetch(`${base}/api/user/user-system`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-summary', userId })
+      })
       const myData = await r.json()
       console.log('统计API响应:', { status: r.status, ok: r.ok, data: myData })
       if (!r.ok) { 
         await sendTelegramMessage(chatId, `查询失败: ${r.status} - ${JSON.stringify(myData)}`)
         return res.status(200).json({ ok: true }) 
       }
-      const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
-      const rb = myData.realtime?.b == null ? 'N/A' : myData.realtime.b
-      const rc = myData.realtime?.c == null ? 'N/A' : myData.realtime.c
-      const da = ra === 'N/A' ? 'N/A' : (Number(ra) - Number(myData.snapshotView.a_pct)).toFixed(0)
-      const aGap = (Number(myData.snapshotView.cap_a) - Number(myData.totals.a)).toFixed(2)
-      const aGapLine = Number(aGap) >= 0 ? `剩余额度 RM ${aGap}` : `已超出 RM ${Math.abs(Number(aGap)).toFixed(2)}`
-      const range = 'month' // 定义range变量
-      const msg = formatTemplate(messages.my.summary, {
-        range: range,
-        a: myData.display?.a || myData.totals.a.toFixed(2),
-        b: myData.display?.b || myData.totals.b.toFixed(2),
-        c: myData.display?.c_residual || myData.totals.c.toFixed(2),
-        ra, rb, rc,
-        a_pct: myData.snapshotView.a_pct,
-        da,
-        a_gap_line: aGapLine,
-        income: myData.snapshotView.income,
-        cap_a: myData.snapshotView.cap_a,
-        cap_b: myData.snapshotView.cap_b,
-        cap_c: myData.snapshotView.cap_c,
-        epf: myData.snapshotView.epf,
-        travel: Number(myData.snapshotView.travelMonthly || 0).toFixed(2),
-        medical: Number(myData.snapshotView.medicalMonthly || 0).toFixed(2),
-        car_insurance: Number(myData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
-        category_details: formatCategoryDetails(myData.categoryBreakdown, myData.snapshotView.income, myData.snapshotView.epf, Number(myData.balance || 0))
-      })
+      
+      // 直接使用 user-system 返回的格式化消息
+      const msg = myData.msg
       
       // 根据时间范围替换标题
-      let title = generateMonthTitle(range)
+      let title = generateMonthTitle('month')
       
       // 保持相同的时间段选择按钮
       const keyboard = {
@@ -1531,15 +1513,25 @@ export async function handleCallback(update, req, res) {
       };
       
       // 使用 editMessageText 更新消息
-      await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 ${range} 数据总览`, title), { reply_markup: keyboard })
+      await editMessageText(chatId, cq.message.message_id, msg.replace(`📊 month 数据总览`, title), { reply_markup: keyboard })
       await answerCallbackQuery(cq.id);
       return res.status(200).json({ ok: true })
     }
     if (data === 'my:lastmonth' || data === 'my:week') {
+      await sendTelegramMessage(chatId, '暂时只支持本月数据查看')
+      await answerCallbackQuery(cq.id)
+      return res.status(200).json({ ok: true })
+    }
+    
+    if (false && (data === 'my:lastmonth' || data === 'my:week')) {
       const range = data.split(':')[1]
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/my?userId=${userId}&range=${encodeURIComponent(range)}`)
+      const r = await fetch(`${base}/api/user/user-system`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-summary', userId })
+      })
       const myData = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
       const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
@@ -1594,7 +1586,11 @@ export async function handleCallback(update, req, res) {
       const range = data.split(':')[1] || 'month'
       const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
       const base = `${url.protocol}//${url.host}`
-      const r = await fetch(`${base}/api/my?userId=${userId}&range=${encodeURIComponent(range)}`)
+      const r = await fetch(`${base}/api/user/user-system`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-summary', userId })
+      })
       const myData = await r.json()
       if (!r.ok) { await sendTelegramMessage(chatId, '查询失败'); return res.status(200).json({ ok: true }) }
       const ra = myData.realtime?.a == null ? 'N/A' : myData.realtime.a
