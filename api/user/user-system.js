@@ -273,9 +273,8 @@ async function handleGetSummary(req, res, userId) {
       )
       const monthlyBalance = Math.max(0, monthlyIncome - monthlyExpenses)
       
-      // 储蓄 = 余额 + EPF + C类记录 + 保险费用
-      const insuranceMonthly = ((profile?.annual_medical_insurance || 0) / 12) + ((profile?.annual_car_insurance || 0) / 12)
-      const totalSavings = monthlyBalance + monthlyEPF + (summary.groups.C.total || 0) + insuranceMonthly
+      // 储蓄 = 余额（简化算法）
+      const totalSavings = monthlyBalance
       
       const responseData = {
         progress: {
@@ -309,7 +308,7 @@ async function handleGetSummary(req, res, userId) {
           b: (summary.groups.B.total || 0).toFixed(2),
           c_residual: (summary.groups.C.total || 0).toFixed(2)
         },
-        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile),
+        categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance),
         balance: monthlyBalance // 计算的月度余额
       }
 
@@ -475,7 +474,7 @@ function calculateSummary(records, profile, yyyymm) {
 }
 
 // 计算分类明细（按组别组织）
-function calculateCategoryBreakdown(records, monthlyIncome, profile) {
+function calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance) {
   // 按组别和分类统计金额
   const groupedBreakdown = {}
   
@@ -520,6 +519,12 @@ function calculateCategoryBreakdown(records, monthlyIncome, profile) {
       if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
       groupedBreakdown['C']['ins_car_auto'] = carMonthly
     }
+    
+    // 余额（储蓄类）
+    if (monthlyBalance > 0) {
+      if (!groupedBreakdown['C']) groupedBreakdown['C'] = {}
+      groupedBreakdown['C']['balance'] = monthlyBalance
+    }
   }
   
   return groupedBreakdown
@@ -561,7 +566,8 @@ function formatCategoryBreakdown(categoryBreakdown) {
     'ins_med_auto': '医疗保险（月）',
     'ins_car_auto': '车险（月）',
     'epf_auto': 'EPF（月）',
-    'travel_auto': '旅游基金（月）'
+    'travel_auto': '旅游基金（月）',
+    'balance': '余额'
   }
   
   let result = ''
