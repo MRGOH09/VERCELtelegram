@@ -2,6 +2,7 @@ import { todayYMD } from '../../lib/time.js'
 import supabase from '../../lib/supabase.js'
 import { messages } from '../../lib/i18n.js'
 import { formatTemplate, getYYYYMM } from '../../lib/helpers.js'
+import { ensureMonthlyBudget, getCurrentYYYYMM } from '../../lib/monthly-budget.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -150,6 +151,13 @@ async function handleGetStats(req, res, userId) {
 
     const yyyymm = todayYMD().slice(0, 7)
     
+    // 确保用户有当前月份的预算记录
+    try {
+      await ensureMonthlyBudget(userId, yyyymm)
+    } catch (budgetError) {
+      console.warn(`[user-system] 创建月度预算失败，继续使用profile数据:`, budgetError)
+    }
+    
     // 获取本月记录
     const { data: records, error: recordsError } = await supabase
       .from('records')
@@ -214,6 +222,13 @@ async function handleGetSummary(req, res, userId) {
     // 调试日志：检查日期格式
     console.log(`[DEBUG] 获取到的日期格式: ${yyyymm}`)
     
+    // 确保用户有当前月份的预算记录
+    try {
+      await ensureMonthlyBudget(userId, yyyymm)
+    } catch (budgetError) {
+      console.warn(`[user-system] 创建月度预算失败，继续使用profile数据:`, budgetError)
+    }
+    
     // 获取本月记录
     const { data: records, error: recordsError } = await supabase
       .from('records')
@@ -234,7 +249,7 @@ async function handleGetSummary(req, res, userId) {
     // 获取用户资料
     const { data: profile, error: profileError } = await supabase
       .from('user_profile')
-      .select('monthly_income, travel_budget_annual, annual_medical_insurance, annual_car_insurance, epf_pct')
+      .select('monthly_income, travel_budget_annual, annual_medical_insurance, annual_car_insurance, current_streak')
       .eq('user_id', userId)
       .single()
 
@@ -259,7 +274,7 @@ async function handleGetSummary(req, res, userId) {
     try {
       // 计算EPF月供
       const monthlyIncome = summary.monthlyIncome || 0
-      const epfPct = Number(profile?.epf_pct || 24) // 默认24%
+      const epfPct = 24 // 固定24%
       const monthlyEPF = (monthlyIncome * epfPct) / 100
       
       // 学习总额 = B类记录 + 旅游基金
@@ -311,7 +326,9 @@ async function handleGetSummary(req, res, userId) {
           c_residual: totalSavings.toFixed(2)
         },
         categoryBreakdown: calculateCategoryBreakdown(records, monthlyIncome, profile, monthlyBalance, summary),
-        balance: monthlyBalance // 计算的月度余额
+        balance: monthlyBalance, // 计算的月度余额
+        // 新增记录指标
+        recordMetrics: summary.recordMetrics
       }
 
       // 调试日志：检查转换后的数据
@@ -331,7 +348,7 @@ async function handleGetSummary(req, res, userId) {
       // 储蓄负数时显示"已动用过去储蓄"
       const savingsDisplay = totalSavings < 0 ? 
         `已动用过去储蓄 RM ${Math.abs(totalSavings).toFixed(2)}` : 
-        `RM ${totalSavings.toFixed(2)}`
+        `${totalSavings.toFixed(2)}`
       
       const msg = formatTemplate(messages.my.summary, {
         range,
@@ -350,6 +367,11 @@ async function handleGetSummary(req, res, userId) {
         travel: (responseData.snapshotView.travelMonthly || 0).toFixed(2),
         medical: (responseData.snapshotView.medicalMonthly || 0).toFixed(2),
         car_insurance: (responseData.snapshotView.carInsuranceMonthly || 0).toFixed(2),
+        // 新增记录指标参数
+        total_records: responseData.recordMetrics?.totalRecords || 0,
+        record_days: responseData.recordMetrics?.recordDays || 0,
+        avg_records_per_day: responseData.recordMetrics?.avgRecordsPerDay || '0.0',
+        current_streak: profile?.current_streak || 0,
         category_details: formatCategoryBreakdown(responseData.categoryBreakdown)
       })
       
@@ -434,13 +456,28 @@ function calculateSummary(records, profile, yyyymm) {
     C: { total: 0, count: 0 }  // 储蓄
   }
   
+  // 收集记录日期用于计算记录天数
+  const recordDates = new Set()
+  
   records.forEach(record => {
     const group = record.category_group
     if (groupStats[group]) {
       groupStats[group].total += Number(record.amount || 0)
       groupStats[group].count += 1
     }
+    
+    // 收集不重复的记录日期
+    if (record.ymd) {
+      recordDates.add(record.ymd)
+    }
   })
+  
+  // 计算新的记录指标
+  const recordMetrics = {
+    totalRecords: records.length,        // 总记录笔数
+    recordDays: recordDates.size,        // 记录天数（不重复日期数量）
+    avgRecordsPerDay: recordDates.size > 0 ? (records.length / recordDates.size).toFixed(1) : '0.0'  // 平均每天记录数
+  }
   
   // 计算百分比
   const totalSpent = groupStats.A.total + groupStats.B.total + groupStats.C.total
@@ -480,7 +517,9 @@ function calculateSummary(records, profile, yyyymm) {
         status: groupStats.C.total <= targetC ? 'within' : 'exceeded'
       }
     },
-    overallPercentage: monthlyIncome > 0 ? (totalSpent / monthlyIncome * 100).toFixed(1) : '0.0'
+    overallPercentage: monthlyIncome > 0 ? (totalSpent / monthlyIncome * 100).toFixed(1) : '0.0',
+    // 新增记录指标
+    recordMetrics: recordMetrics
   }
   
   return summary

@@ -8,6 +8,7 @@ import { formatTemplate } from '../../lib/helpers.js'
 import { sendBatchMessages } from '../../lib/telegram.js'
 import supabase from '../../lib/supabase.js'
 import { format } from 'date-fns'
+import { addChallengeMessageToMorningRank, isInSeptemberChallenge } from '../../lib/september-challenge-messages.js'
 
 export default async function handler(req, res) {
   try {
@@ -82,10 +83,18 @@ async function sendAdminReport(results, now) {
 
 // 个人理财报告 + 分行排行榜合并发送
 async function personalMorningReportsWithBranch(forDate) {
-  // 1. 获取个人理财报告数据
-  const personalResults = await personalMorningReports(forDate, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a) => 
-    formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a })
-  )
+  // 1. 获取个人理财报告数据  
+  const personalResults = await personalMorningReports(forDate, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day) => {
+    // 生成基础的理财报告
+    const baseMessage = formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day })
+    
+    // 如果在9月挑战期间，添加每日挑战消息
+    if (isInSeptemberChallenge(forDate)) {
+      return addChallengeMessageToMorningRank(baseMessage, forDate)
+    }
+    
+    return baseMessage
+  })
   
   // 2. 获取分行排行榜数据
   const branchRankings = await getBranchRankingsData(forDate)
@@ -102,13 +111,23 @@ async function personalMorningReportsWithBranch(forDate) {
   })
   
   // 4. 为每个用户的个人报告添加分行排行榜
+  console.log(`[personalMorningReportsWithBranch] 处理 ${personalResults.messages?.length || 0} 个用户消息`)
+  console.log(`[personalMorningReportsWithBranch] 分行排行榜数量: ${branchRankings.size}`)
+  
   const enhancedMessages = personalResults.messages?.map(msg => {
     const userBranch = userBranchMap.get(msg.chat_id)
     const branchRanking = branchRankings.get(userBranch)
     
+    if (userBranch) {
+      console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 分行: ${userBranch}`)
+    }
+    
     if (branchRanking) {
       // 合并个人报告 + 分行排行榜
       msg.text = msg.text + '\n\n' + branchRanking
+      console.log(`[personalMorningReportsWithBranch] 为用户 ${msg.chat_id} 添加了分行排行榜`)
+    } else if (userBranch) {
+      console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 分行 ${userBranch} 没有找到排行榜数据`)
     }
     
     return msg
@@ -137,28 +156,25 @@ async function getBranchRankingsData(forDate) {
     .maybeSingle()
   
   const branchTop = lb?.branch_top_json || []
+  console.log(`[getBranchRankingsData] 获取到 ${branchTop.length} 个分行数据`)
+  
   const map = new Map()
   
   for (const b of branchTop) {
-    map.set(b.branch_code || b.branch || b.code, b)
+    const branchCode = b.branch_code || b.branch || b.code
+    if (branchCode) {
+      map.set(branchCode, b)
+      console.log(`[getBranchRankingsData] 添加分行: ${branchCode}, rate: ${b.rate}`)
+    }
   }
   
-  // 近7天均值
-  const since = new Date(forDate)
-  since.setDate(since.getDate() - 6)
-  
-  const { data: seven } = await supabase
-    .from('branch_daily')
-    .select('branch_code,rate,ymd')
-    .gte('ymd', format(since, 'yyyy-MM-dd'))
-    .lte('ymd', ymd)
-  
+  // 近7天均值 - 暂时使用当前值作为近7天平均（因为branch_daily表未填充）
   const avgMap = new Map()
-  for (const r of seven || []) {
-    const k = r.branch_code
-    const arr = avgMap.get(k) || []
-    arr.push(Number(r.rate || 0))
-    avgMap.set(k, arr)
+  
+  // 为每个分行设置当前完成率作为临时7天平均值
+  for (const [branchCode, stat] of map.entries()) {
+    avgMap.set(branchCode, [Number(stat.rate || 0)])
+    console.log(`[getBranchRankingsData] 分行 ${branchCode} 使用当前完成率 ${stat.rate}% 作为临时7天平均`)
   }
   
   // 生成分行排行榜消息
@@ -170,14 +186,20 @@ async function getBranchRankingsData(forDate) {
     
     const branchText = formatTemplate(zh.cron.branch_lead, {
       code: branchCode,
-      rate: stat.rate || 0,
+      yesterday_rate: stat.yesterday_rate || 0,
       done: stat.done || 0,
       total: stat.total || 0,
-      avg7: avg7
+      avg_record_days: stat.avg_record_days || 0,
+      max_streak: stat.max_streak || 0,
+      max_streak_user: stat.max_streak_user || '无',
+      avg_streak: stat.avg_streak || 0
     })
     
     branchMessages.set(branchCode, branchText)
+    console.log(`[getBranchRankingsData] 生成分行消息: ${branchCode}`)
   }
+  
+  console.log(`[getBranchRankingsData] 总共生成 ${branchMessages.size} 个分行消息`)
   
   return branchMessages
 }
