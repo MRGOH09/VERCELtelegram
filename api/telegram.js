@@ -1938,8 +1938,22 @@ export async function handleCallback(update, req, res) {
     // SETTINGS flow: branch selection (when called from settings)
     if (data.startsWith('set:branch:')) {
       const code = data.split(':').pop().toUpperCase()
+      console.log(`[设置分行] 用户 ${userId} 设置分行为: ${code}`)
+      
       // 直接更新分行信息
-      await supabase.from('users').upsert({ id: userId, branch_code: code }, { onConflict: 'id' })
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ branch_code: code })
+        .eq('id', userId)
+      
+      if (updateError) {
+        console.error('[设置分行] 更新失败:', updateError)
+        await sendTelegramMessage(chatId, '❌ 分行设置失败，请重试')
+        return res.status(200).json({ ok: true })
+      }
+      
+      console.log(`[设置分行] 更新成功，分行: ${code}`)
+      
       // 显示更新后的设置摘要
       await showUpdatedSettingsSummary(chatId, userId)
       return res.status(200).json({ ok: true })
