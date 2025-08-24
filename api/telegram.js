@@ -727,17 +727,14 @@ export default async function handler(req, res) {
       
       // 显示测试选项
       const testOptions = [
-        [{ text: '🧪 快速测试', callback_data: 'admin:quick-test' }],
-        [{ text: '🌅 早晨推送', callback_data: 'admin:morning' }],
-        [{ text: '🌞 中午推送', callback_data: 'admin:noon' }],
-        [{ text: '🌙 晚间推送', callback_data: 'admin:evening' }],
-        [{ text: '📅 月度入账', callback_data: 'admin:monthly' }],
-        [{ text: '⏰ 断签清零', callback_data: 'admin:break-streaks' }],
-        [{ text: '🚀 全部测试', callback_data: 'admin:all' }]
+        [{ text: '🌅 早晨推送 (8:00 AM)', callback_data: 'admin:morning' }],
+        [{ text: '🌙 晚间推送 (10:00 PM)', callback_data: 'admin:evening' }],
+        [{ text: '⏰ 断签清零 (2:00 AM)', callback_data: 'admin:break-streaks' }],
+        [{ text: '📅 月度入账 (每月1号)', callback_data: 'admin:monthly' }]
       ]
       
       await sendTelegramMessage(chatId, 
-        '🧪 Admin 推送功能测试\n\n请选择要测试的功能：\n\n💡 建议先使用"快速测试"验证基本功能', 
+        '📝 实际推送功能测试\n\n以下功能都有对应的定时任务：\n\n⏰ 括号内为自动执行时间\n💡 测试会使用和cron完全相同的逻辑', 
         { reply_markup: { inline_keyboard: testOptions } }
       )
       return res.status(200).json({ ok: true })
