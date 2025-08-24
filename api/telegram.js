@@ -450,7 +450,7 @@ export default async function handler(req, res) {
         travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
         ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
         ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
-        branch: (urow?.branch_code || '-')
+        branch: (urow?.branch_code || '未设置')
       })
       const kb = { inline_keyboard: [
         [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
@@ -2060,7 +2060,7 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
       ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
       ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
-      branch: (urow?.branch_code || '-')
+      branch: (urow?.branch_code || '未设置')
     })
     
     // 提供继续修改的选项
