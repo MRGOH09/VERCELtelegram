@@ -772,21 +772,24 @@ export default async function handler(req, res) {
       const bPct = parsePercentageInput(kvs['B%']) ?? 0
       const travel = parseAmountInput(kvs['旅游年额']) ?? 0
       const prev = parseAmountInput(kvs['上月开销']) ?? 0
-      const branch = (kvs['分行'] || process.env.DEFAULT_BRANCH || 'MAIN').toUpperCase()
+      const branch = kvs['分行'] ? kvs['分行'].toUpperCase() : null
 
-      const { data: u, error: uErr } = await supabase.from('users').select('id').eq('telegram_id', from.id).maybeSingle()
+      const { data: u, error: uErr } = await supabase.from('users').select('id,branch_code').eq('telegram_id', from.id).maybeSingle()
       if (uErr) throw uErr
       let userId = u?.id
       if (!userId) {
         const { data: newU, error: insUErr } = await supabase
           .from('users')
-          .insert([{ telegram_id: from.id, name: from.first_name || from.username || 'user', branch_code: branch }])
+          .insert([{ telegram_id: from.id, name: from.first_name || from.username || 'user', branch_code: branch || process.env.DEFAULT_BRANCH || '快点设置分行' }])
           .select('id')
           .single()
         if (insUErr) throw insUErr
         userId = newU.id
       } else {
-        await supabase.from('users').update({ branch_code: branch }).eq('id', userId)
+        // 只有明确指定了分行时才更新分行信息，否则保留现有的分行设置
+        if (branch) {
+          await supabase.from('users').update({ branch_code: branch }).eq('id', userId)
+        }
       }
       await supabase.from('user_profile').upsert({
         user_id: userId,
