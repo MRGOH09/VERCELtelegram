@@ -3,6 +3,7 @@ import {
   computeLeaderboards, 
   pushBranchLeaderboards, 
   personalMorningReports, 
+  personalMorningReportsWithBranch,
   breakStreaksOneShot,
   usersWithoutRecordToday,
   dailyReports
@@ -559,29 +560,13 @@ async function testMorningTasks(now, isFirstDayOfMonth) {
     results.leaderboards = { success: false, error: e.message }
   }
   
-  // 测试分行排行榜推送
+  // 测试个人理财报告 + 分行排行榜合并推送（和真实morning-push一致）
   try {
-    const branchResults = await pushBranchLeaderboards(now, (code, stat) => 
-      formatTemplate(zh.cron.branch_lead, { 
-        code, 
-        rate: stat.rate||0, 
-        done: stat.done||0, 
-        total: stat.total||0 
-      })
-    )
-    results.branchLeaderboards = { success: true, result: branchResults }
+    const combinedResults = await personalMorningReportsWithBranch(now)
+    results.personalReportsWithBranch = { success: true, result: combinedResults }
+    console.log('[test] 个人理财报告 + 分行排行榜合并推送完成')
   } catch (e) {
-    results.branchLeaderboards = { success: false, error: e.message }
-  }
-  
-  // 测试个人排名推送
-  try {
-          const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day) => 
-        formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day })
-      )
-    results.personalReports = { success: true, result: personalResults }
-  } catch (e) {
-    results.personalReports = { success: false, error: e.message }
+    results.personalReportsWithBranch = { success: false, error: e.message }
   }
   
   return results
@@ -740,6 +725,7 @@ function calculateTotalSent(details) {
   
   if (details.branchLeaderboards?.result?.sent) total += details.branchLeaderboards.result.sent
   if (details.personalReports?.result?.sent) total += details.personalReports.result.sent
+  if (details.personalReportsWithBranch?.result?.sent) total += details.personalReportsWithBranch.result.sent
   if (details.reminder?.result?.sent) total += details.reminder.result.sent
   if (details.dailyReports?.result?.sent) total += details.dailyReports.result.sent
   if (details.eveningReminder?.result?.sent) total += details.eveningReminder.result.sent
@@ -753,6 +739,7 @@ function calculateTotalFailed(details) {
   
   if (details.branchLeaderboards?.result?.failed) total += details.branchLeaderboards.result.failed
   if (details.personalReports?.result?.failed) total += details.personalReports.result.failed
+  if (details.personalReportsWithBranch?.result?.failed) total += details.personalReportsWithBranch.result.failed
   if (details.reminder?.result?.failed) total += details.reminder.result.failed
   if (details.dailyReports?.result?.failed) total += details.dailyReports.result.failed
   if (details.eveningReminder?.result?.failed) total += details.eveningReminder.result.failed
@@ -810,11 +797,15 @@ function generateAdminTestReport(results, now) {
     if (results.details.leaderboards) {
       report += `   • 排行榜计算：${results.details.leaderboards.success ? '✅ 成功' : '❌ 失败'}\n`
     }
-    if (results.details.branchLeaderboards) {
-      report += `   • 分行排行：${results.details.branchLeaderboards.success ? '✅ 成功' : '❌ 失败'}\n`
-    }
-    if (results.details.personalReports) {
-      report += `   • 个人排名：${results.details.personalReports.success ? '✅ 成功' : '❌ 失败'}\n`
+    if (results.details.personalReportsWithBranch) {
+      report += `   • 理财报告+分行排名：${results.details.personalReportsWithBranch.success ? '✅ 成功' : '❌ 失败'} (已合并发送)\n`
+    } else {
+      if (results.details.branchLeaderboards) {
+        report += `   • 分行排行：${results.details.branchLeaderboards.success ? '✅ 成功' : '❌ 失败'}\n`
+      }
+      if (results.details.personalReports) {
+        report += `   • 个人排名：${results.details.personalReports.success ? '✅ 成功' : '❌ 失败'}\n`
+      }
     }
     report += '\n'
   }
