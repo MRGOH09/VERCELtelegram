@@ -2,6 +2,7 @@ import { todayYMD } from '../../lib/time.js'
 import supabase from '../../lib/supabase.js'
 import { zh } from '../../lib/i18n.js'
 import { formatTemplate } from '../../lib/helpers.js'
+import { triggerDailySummaryUpdate } from '../../lib/daily-summary.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -108,6 +109,9 @@ async function handleCreateRecord(req, res, userId, data) {
       })
     }
 
+    // 异步更新daily summary（不阻塞响应）
+    triggerDailySummaryUpdate(record.user_id, record.ymd)
+
     return res.status(200).json({ 
       ok: true, 
       record,
@@ -186,6 +190,9 @@ async function handleUpdateRecord(req, res, userId, recordId, data) {
       })
     }
 
+    // 异步更新daily summary（不阻塞响应）
+    triggerDailySummaryUpdate(record.user_id, record.ymd)
+
     return res.status(200).json({ 
       ok: true, 
       record,
@@ -248,6 +255,9 @@ async function handleDeleteRecord(req, res, userId, recordId) {
         error: 'Failed to delete record' 
       })
     }
+
+    // 异步更新daily summary（不阻塞响应）
+    triggerDailySummaryUpdate(userId, recordToDelete.ymd)
 
     return res.status(200).json({ 
       ok: true, 

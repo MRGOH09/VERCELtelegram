@@ -17,12 +17,11 @@ create table if not exists user_profile (
   phone_e164 text,
   email text,
   wa_opt_in boolean default false,
-  monthly_income numeric(12,2) default 0,
-  a_pct numeric(5,2) default 0,
+  monthly_income numeric(12,2) default 0 check (monthly_income >= 0),
+  a_pct numeric(5,2) default 0 check (a_pct >= 0 AND a_pct <= 100),
   b_pct numeric(5,2) default 0,
   travel_budget_annual numeric(12,2) default 0,
   prev_month_spend numeric(12,2) default 0,
-  epf_pct numeric(5,2) default 24,
   current_streak int default 0,
   max_streak int default 0,
   last_record date,
@@ -32,14 +31,14 @@ create table if not exists user_profile (
 create table if not exists user_month_budget (
   user_id uuid not null references users(id) on delete cascade,
   yyyymm char(7) not null,
-  income numeric(12,2) not null default 0,
-  a_pct numeric(5,2) not null default 0,
+  income numeric(12,2) not null default 0 check (income >= 0),
+  a_pct numeric(5,2) not null default 0 check (a_pct >= 0 AND a_pct <= 100),
   b_pct numeric(5,2) not null default 0,
   c_pct numeric generated always as (greatest(0, 100 - a_pct - b_pct)) stored,
   cap_a_amount numeric generated always as (income * a_pct / 100) stored,
   cap_b_amount numeric generated always as (income * b_pct / 100) stored,
   cap_c_amount numeric generated always as (income * (greatest(0, 100 - a_pct - b_pct)) / 100) stored,
-  epf_amount   numeric generated always as (income * 24 / 100) stored,
+  epf_amount numeric generated always as (income * 24 / 100) stored,
   primary key (user_id, yyyymm)
 );
 

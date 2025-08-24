@@ -2,6 +2,7 @@ import supabase from '../lib/supabase.js'
 import { messages } from '../lib/i18n.js'
 import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState, getStepDescription } from '../lib/state.js'
+import { triggerDailySummaryUpdate } from '../lib/daily-summary.js'
 
 const GROUP_CATEGORIES = {
   A: [
@@ -331,13 +332,8 @@ async function tryPostMonthlyAlloc(userId, group, category, amount) {
     const today = new Date()
     const ymd = `${today.toISOString().slice(0,7)}-01`
     
-    // 获取用户当月预算快照中的 epf_pct，fallback 到 profile
-    const [budgetResult, profileResult] = await Promise.all([
-      supabase.from('user_month_budget').select('epf_pct').eq('user_id', userId).eq('yyyymm', ymd).maybeSingle(),
-      supabase.from('user_profile').select('epf_pct').eq('user_id', userId).maybeSingle()
-    ])
-    
-    const epfPct = Number(budgetResult?.data?.epf_pct || profileResult?.data?.epf_pct || 24)
+    // EPF固定为24%
+    const epfPct = 24
     
     // 幂等：同月同类别存在则跳过（严格检查 ymd+category_code）
     const { data: exist } = await supabase
@@ -358,6 +354,9 @@ async function tryPostMonthlyAlloc(userId, group, category, amount) {
         note: 'Auto-post', 
         ymd 
       }])
+      
+      // 异步更新daily summary
+      triggerDailySummaryUpdate(userId, ymd)
     }
   } catch (error) {
     console.error('tryPostMonthlyAlloc error:', error)
@@ -809,7 +808,7 @@ export default async function handler(req, res) {
         yyyymm, 
         income, 
         a_pct: aPct, 
-        epf_pct: 24 // 默认 EPF 百分比
+        // epf_pct 已移除，使用固定24%
       })
       await sendTelegramMessage(chatId, messages.start_saved)
       return res.status(200).json({ ok: true })
@@ -1055,8 +1054,7 @@ export default async function handler(req, res) {
         if (income == null || income <= 0) { await sendTelegramMessage(chatId, messages.registration.income.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ monthly_income: income }).eq('user_id', userIdForState)
         // 当下立即补记当月EPF（幂等）
-        const { data: prof } = await supabase.from('user_profile').select('epf_pct').eq('user_id', userIdForState).maybeSingle()
-        const epfPct = Number(prof?.epf_pct || 24)
+        const epfPct = 24 // 固定24%
         const epfAmount = income * epfPct / 100
         await tryPostMonthlyAlloc(userIdForState, 'C', 'epf_auto', epfAmount)
         await showUpdatedSettingsSummary(chatId, userIdForState)
@@ -1817,6 +1815,15 @@ export async function handleCallback(update, req, res) {
           })
           throw error
         }
+
+        // 异步更新所有相关日期的daily summary
+        const uniqueDates = [...new Set(recordsToInsert.map(r => r.ymd))]
+        const uniqueUsers = [...new Set(recordsToInsert.map(r => r.user_id))]
+        for (const userId of uniqueUsers) {
+          for (const ymd of uniqueDates) {
+            triggerDailySummaryUpdate(userId, ymd)
+          }
+        }
         
         // 成功提示
         const totalAmount = records.reduce((sum, r) => sum + r.amount, 0)
@@ -1924,7 +1931,7 @@ export async function handleCallback(update, req, res) {
         prev_month_spend: payload.prev_month_spend || 0
       })
       const yyyymm = new Date().toISOString().slice(0,7)
-      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0, epf_pct: 24 })
+      await supabase.from('user_month_budget').upsert({ user_id: userId, yyyymm, income: payload.income || 0, a_pct: payload.a_pct || 0 })
       await clearState(userId)
       const cPct = Math.max(0, 100 - (payload.a_pct || 0))
       await sendTelegramMessage(chatId, formatTemplate(messages.registration.success, { budgetA: payload.a_pct||0, budgetC: cPct, branch: code }))

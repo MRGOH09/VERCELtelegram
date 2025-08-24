@@ -574,8 +574,8 @@ async function testMorningTasks(now, isFirstDayOfMonth) {
   
   // 测试个人排名推送
   try {
-          const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a) => 
-        formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a })
+          const personalResults = await personalMorningReports(now, (income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day) => 
+        formatTemplate(zh.cron.morning_rank, { income, a, b, c, ra, rb, rc, completion, progress, streak, budget_a, budget_status_a, total_records, record_days, avg_records_per_day })
       )
     results.personalReports = { success: true, result: personalResults }
   } catch (e) {
