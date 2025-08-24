@@ -725,6 +725,30 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
       
+      // 先显示当前用户的数据库状态用于调试
+      console.log(`[DEBUG] 用户 ${from.id} 请求testpush，开始调试分行问题...`)
+      
+      // 查询用户在users表的分行设置
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id,branch_code,telegram_id')
+        .eq('telegram_id', from.id)
+        .maybeSingle()
+      
+      console.log(`[DEBUG] users表查询结果:`, userData)
+      
+      // 查询用户在user_profile表的数据
+      if (userData) {
+        const { data: profileData } = await supabase
+          .from('user_profile')
+          .select('chat_id,user_id')
+          .eq('user_id', userData.id)
+          .maybeSingle()
+        
+        console.log(`[DEBUG] user_profile表查询结果:`, profileData)
+        console.log(`[DEBUG] 当前chat_id: ${chatId}, profile中的chat_id: ${profileData?.chat_id}`)
+      }
+      
       // 显示测试选项
       const testOptions = [
         [{ text: '🌅 早晨推送 (8:00 AM)', callback_data: 'admin:morning' }],
