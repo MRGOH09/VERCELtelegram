@@ -469,7 +469,9 @@ async function handleAdminTest(req, res, action, adminId) {
     results.totalFailed = calculateTotalFailed(results.details)
     
     // 发送测试结果到 Admin
+    console.log(`[admin-test] 准备发送测试报告给 ${adminId}...`)
     await sendAdminTestReport(results, now, adminId)
+    console.log(`[admin-test] 测试报告发送完成`)
     
     console.log(`[admin-test] 测试完成，结果：`, results)
     
@@ -758,9 +760,17 @@ function calculateTotalFailed(details) {
   return total
 }
 
-// 发送Admin测试报告
+// 发送Admin测试报告（防重复发送）
+let lastReportTime = 0
 async function sendAdminTestReport(results, now, adminId) {
   try {
+    const currentTime = Date.now()
+    if (currentTime - lastReportTime < 5000) {
+      console.log('[admin-test] 跳过重复发送（5秒内）')
+      return
+    }
+    lastReportTime = currentTime
+    
     const report = generateAdminTestReport(results, now)
     
     const adminMessage = {
@@ -768,6 +778,7 @@ async function sendAdminTestReport(results, now, adminId) {
       text: report
     }
     
+    console.log(`[admin-test] 发送报告给 ${adminId}，内容长度: ${report.length}`)
     const adminResults = await sendBatchMessages([adminMessage])
     console.log(`[admin-test] Admin测试报告发送完成，成功: ${adminResults.sent}, 失败: ${adminResults.failed}`)
     
