@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     
     // 生成晚间提醒消息
     const reminderMessages = usersWithoutRecord.map(chatId => {
-      let message = '🌙 晚间提醒\n\n你还没有记录任何开销哦，行动才会改变！\n\n💡 记录支出很简单：\n• 点击 /record 开始记录\n• 或直接告诉我你的开销\n\n🎯 坚持记录，管理财务！'
+      let message = '🌙 晚间提醒\n\n你还没有记录任何开销哦，行动才会改变！\n\n💡 记录支出很简单：\n• 点击 /record 开始记录\n• 选择类别，输入金额即可\n\n🎯 坚持记录，管理财务！'
       
       // 如果在9月挑战期间，添加挑战消息
       if (isInSeptemberChallenge(now)) {
