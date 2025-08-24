@@ -122,13 +122,31 @@ async function personalMorningReportsWithBranch(forDate) {
       console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 分行: ${userBranch}`)
     }
     
-    if (branchRanking) {
-      // 合并个人报告 + 分行排行榜
-      msg.text = msg.text + '\n\n' + branchRanking
-      console.log(`[personalMorningReportsWithBranch] 为用户 ${msg.chat_id} 添加了分行排行榜`)
-    } else if (userBranch) {
-      console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 分行 ${userBranch} 没有找到排行榜数据`)
+    // 无论如何都添加分行调试信息
+    let branchDebugInfo = '\n\n📊 分行排行榜调试信息:\n'
+    
+    if (userBranch) {
+      branchDebugInfo += `🏢 您的分行: ${userBranch}\n`
+      if (branchRanking) {
+        branchDebugInfo += `✅ 找到分行数据，正在显示排行榜\n`
+        branchDebugInfo += `\n${branchRanking}`
+        console.log(`[personalMorningReportsWithBranch] 为用户 ${msg.chat_id} 添加了分行排行榜`)
+      } else {
+        branchDebugInfo += `❌ 分行 ${userBranch} 没有排行榜数据\n`
+        branchDebugInfo += `📋 可能原因: 今日还没有分行统计数据\n`
+        branchDebugInfo += `🔄 系统会在首次记账后生成排行榜`
+        console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 分行 ${userBranch} 没有找到排行榜数据`)
+      }
+    } else {
+      branchDebugInfo += `❌ 您还没有设置分行代码\n`
+      branchDebugInfo += `💡 请联系管理员设置您的分行信息`
+      console.log(`[personalMorningReportsWithBranch] 用户 ${msg.chat_id} 没有设置分行代码`)
     }
+    
+    branchDebugInfo += `\n📈 总分行数据量: ${branchRankings.size}个分行`
+    
+    // 添加调试信息到消息
+    msg.text = msg.text + branchDebugInfo
     
     return msg
   }) || []
