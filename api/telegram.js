@@ -1943,6 +1943,14 @@ export async function handleCallback(update, req, res) {
       const code = data.split(':').pop().toUpperCase()
       console.log(`[设置分行] 用户 ${userId} 设置分行为: ${code}`)
       
+      // 先查看当前分行
+      const { data: beforeUser } = await supabase
+        .from('users')
+        .select('branch_code')
+        .eq('id', userId)
+        .single()
+      console.log(`[设置分行] 更新前分行: ${beforeUser?.branch_code}`)
+      
       // 直接更新分行信息
       const { error: updateError } = await supabase
         .from('users')
@@ -1955,7 +1963,15 @@ export async function handleCallback(update, req, res) {
         return res.status(200).json({ ok: true })
       }
       
-      console.log(`[设置分行] 更新成功，分行: ${code}`)
+      // 确认更新后的分行
+      const { data: afterUser } = await supabase
+        .from('users')
+        .select('branch_code')
+        .eq('id', userId)
+        .single()
+      console.log(`[设置分行] 更新后分行: ${afterUser?.branch_code}`)
+      
+      console.log(`[设置分行] 更新成功，分行从 ${beforeUser?.branch_code} 改为 ${afterUser?.branch_code}`)
       
       // 显示更新后的设置摘要
       await showUpdatedSettingsSummary(chatId, userId)
