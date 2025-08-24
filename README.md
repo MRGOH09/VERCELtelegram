@@ -190,6 +190,28 @@ ADMIN_TG_IDS=admin_chat_ids
 
 ## 🔄 版本历史
 
+### v2.1 (2025-08-24) - 分行排行榜系统完善
+**🎯 核心问题修复：** 使用Linux思维+KISS原则彻底修复分行功能
+- ✅ **分行设置问题修复**: 修复用户分行设置被意外重置的问题
+- ✅ **分行排行榜数据修复**: 修复`computeLeaderboards`查询错误导致排行榜无数据
+- ✅ **分行显示优化**: 从"您还没有设置分行代码"到正确显示分行排行榜
+- ✅ **数据库查询优化**: 修复`user_profile.branch_code`错误查询（字段实际在`users`表）
+- ✅ **morning push合并优化**: 实现理财报告+分行排行榜的合并推送
+- ✅ **evening reminder文案修正**: 移除误导性操作提示
+- ✅ **详细调试日志**: 添加完整的数据流追踪日志
+
+**🔧 技术修复详情：**
+- 修复`getOrCreateUserByTelegram`中的`upsert`操作重置分行问题
+- 修复`computeLeaderboards`函数JOIN查询语法错误
+- 修复`personalMorningReportsWithBranch`函数的数据映射逻辑
+- 统一所有`branch_code`字段查询到正确的`users`表
+
+**📊 用户体验改进：**
+- 分行设置现在能正确持久化保存
+- 排行榜显示完整的分行统计数据（完成率、人数、连续记录等）
+- 晚间提醒消息更准确，避免用户操作困惑
+- 调试信息更详细，便于问题定位
+
 ### v2.0 (2025-08-23) - Learner Club Challenge
 - ✅ 实现34天挑战消息系统
 - ✅ 融入Learner Club核心理念
