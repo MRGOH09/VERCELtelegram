@@ -1,6 +1,6 @@
 import supabase from '../lib/supabase.js'
 import { messages } from '../lib/i18n.js'
-import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
+import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, validateEmail, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState, getStepDescription } from '../lib/state.js'
 import { triggerDailySummaryUpdate } from '../lib/daily-summary.js'
 
@@ -445,6 +445,7 @@ export default async function handler(req, res) {
       const sumText = formatTemplate(messages.settings.summary, {
         nickname: prof?.display_name || '-',
         phone: prof?.phone_e164 || '-',
+        email: prof?.email || '-',
         income: (Number(prof?.monthly_income || 0)).toFixed(2),
         a_pct: Number(prof?.a_pct || 0).toFixed(2),
         travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
@@ -454,8 +455,8 @@ export default async function handler(req, res) {
       })
       const kb = { inline_keyboard: [
         [ { text: messages.settings.fields.nickname, callback_data: 'set:nickname' }, { text: messages.settings.fields.phone, callback_data: 'set:phone' } ],
-        [ { text: messages.settings.fields.income, callback_data: 'set:income' }, { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' } ],
-        [ { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
+        [ { text: messages.settings.fields.email, callback_data: 'set:email' }, { text: messages.settings.fields.income, callback_data: 'set:income' } ],
+        [ { text: messages.settings.fields.a_pct, callback_data: 'set:a_pct' }, { text: messages.settings.fields.travel, callback_data: 'set:travel' } ],
         [ { text: '年度医疗保险', callback_data: 'set:ins_med' }, { text: '年度车险', callback_data: 'set:ins_car' } ],
         [ { text: messages.settings.fields.branch, callback_data: 'set:branch' } ],
         [ { text: '✅ 完成设置并保存所有修改', callback_data: 'set:done' } ]
@@ -517,35 +518,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true })
     }
 
-    if (text.startsWith('/edit')) {
-      const parts = text.split(/\s+/)
-      // /edit id [amount] [note...]
-      const recordId = parts[1]
-      if (!recordId) { await sendTelegramMessage(chatId, '用法：/edit 记录ID 金额 备注'); return res.status(200).json({ ok: true }) }
-      const amount = parts[2] ? Number(parts[2]) : undefined
-      const note = parts.length > 3 ? parts.slice(3).join(' ') : undefined
-      const userId = await getOrCreateUserByTelegram(from, chatId)
-      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-      const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'update', userId, recordId, data: { amount, note } }) })
-      const payload = await resp.json().catch(() => ({}))
-      if (!resp.ok) { await sendTelegramMessage(chatId, `编辑失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
-      await sendTelegramMessage(chatId, '✅ 已更新')
-      return res.status(200).json({ ok: true })
-    }
-
-    if (text.startsWith('/delete')) {
-      const recordId = (text.split(/\s+/)[1] || '')
-      if (!recordId) { await sendTelegramMessage(chatId, '用法：/delete 记录ID'); return res.status(200).json({ ok: true }) }
-      const userId = await getOrCreateUserByTelegram(from, chatId)
-      const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-      const base = `${url.protocol}//${url.host}`
-      const resp = await fetch(`${base}/api/records/record-system`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'delete', userId, recordId }) })
-      const payload = await resp.json().catch(() => ({}))
-      if (!resp.ok) { await sendTelegramMessage(chatId, `删除失败：${payload.error || ''}`); return res.status(200).json({ ok: true }) }
-      await sendTelegramMessage(chatId, '✅ 已删除')
-      return res.status(200).json({ ok: true })
-    }
     if (text.startsWith('/record')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'record', 'choose_group', {})
@@ -1005,7 +977,14 @@ export default async function handler(req, res) {
       if (st.step === 'phone') {
         const phone = normalizePhoneE164(text)
         if (!phone) { await sendTelegramMessage(chatId, messages.registration.phone.validation) ; return res.status(200).json({ ok: true }) }
-        await setState(userIdForState, 'start', 'income', { ...st.payload, phone_e164: phone })
+        await setState(userIdForState, 'start', 'email', { ...st.payload, phone_e164: phone })
+        await sendTelegramMessage(chatId, messages.registration.email.prompt)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'email') {
+        const email = validateEmail(text)
+        if (!email) { await sendTelegramMessage(chatId, messages.registration.email.validation) ; return res.status(200).json({ ok: true }) }
+        await setState(userIdForState, 'start', 'income', { ...st.payload, email: email })
         await sendTelegramMessage(chatId, messages.registration.income.prompt)
         return res.status(200).json({ ok: true })
       }
@@ -1070,6 +1049,13 @@ export default async function handler(req, res) {
         const phone = normalizePhoneE164(text)
         if (!phone) { await sendTelegramMessage(chatId, messages.registration.phone.validation); return res.status(200).json({ ok: true }) }
         await supabase.from('user_profile').update({ phone_e164: phone }).eq('user_id', userIdForState)
+        await showUpdatedSettingsSummary(chatId, userIdForState)
+        return res.status(200).json({ ok: true })
+      }
+      if (st.step === 'edit_email') {
+        const email = validateEmail(text)
+        if (!email) { await sendTelegramMessage(chatId, messages.registration.email.validation); return res.status(200).json({ ok: true }) }
+        await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState)
         await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
@@ -1613,6 +1599,7 @@ export async function handleCallback(update, req, res) {
       // settings callback entries
       if (data === 'set:nickname') { await setState(userId, 'settings', 'edit_nickname', {}); await sendTelegramMessage(chatId, messages.registration.nickname.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:phone') { await setState(userId, 'settings', 'edit_phone', {}); await sendTelegramMessage(chatId, messages.registration.phone.prompt); return res.status(200).json({ ok: true }) }
+      if (data === 'set:email') { await setState(userId, 'settings', 'edit_email', {}); await sendTelegramMessage(chatId, messages.registration.email.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:income') { await setState(userId, 'settings', 'edit_income', {}); await sendTelegramMessage(chatId, messages.registration.income.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:a_pct') { await setState(userId, 'settings', 'edit_a_pct', {}); await sendTelegramMessage(chatId, messages.registration.budgetA.prompt); return res.status(200).json({ ok: true }) }
       if (data === 'set:travel') { await setState(userId, 'settings', 'edit_travel', {}); await sendTelegramMessage(chatId, messages.registration.travelBudget.prompt); return res.status(200).json({ ok: true }) }
@@ -1946,6 +1933,7 @@ export async function handleCallback(update, req, res) {
         display_name: payload.nickname || '用户', // 只使用用户输入或默认值，不用 Telegram 信息
         chat_id: chatId,
         phone_e164: payload.phone_e164 || null,
+        email: payload.email || null,
         monthly_income: payload.income || 0,
         a_pct: payload.a_pct || 0,
         // b_pct: payload.b_pct || 0,  // 已废弃，不再使用

@@ -141,7 +141,7 @@ function getTableConfig(tableName) {
       sheetName: '用户资料',
       syncStrategy: 'full_replace',
       timestampColumn: null,
-      columns: ['user_name', 'branch_code', 'display_name', 'language', 'monthly_income', 'a_pct', 'b_pct', 'current_streak', 'max_streak', 'total_records'],
+      columns: ['user_name', 'branch_code', 'display_name', 'phone_e164', 'email', 'language', 'monthly_income', 'a_pct', 'b_pct', 'current_streak', 'max_streak', 'total_records'],
       joinWith: 'users',
       sensitiveLevel: 'medium'
     },

@@ -153,7 +153,7 @@ async function generateReminderQueue(now) {
     }
     
     // 生成个性化消息
-    const message = `Hi ${user.name}! 今天是建立记录开销的第${daysSinceStart}天，你已${daysSinceLast}天没有记录开销了。加油建立起习惯，改变从今天开始！💪`
+    const message = generatePersonalizedMessage(user.name, daysSinceStart, daysSinceLast)
     
     // 插入提醒队列
     const { error: insertError } = await supabase
@@ -174,6 +174,56 @@ async function generateReminderQueue(now) {
   
   console.log(`[reminderQueue] 提醒队列生成完成，插入 ${insertedCount} 条记录`)
   return { insertedCount, totalFound: inactiveUsers?.length || 0 }
+}
+
+// 生成个性化WhatsApp提醒消息
+function generatePersonalizedMessage(userName, daysSinceStart, daysSinceLast) {
+  // 基于天数选择不同的消息风格
+  if (daysSinceLast === 1) {
+    // 昨天忘记记录
+    return `🌟 ${userName}，昨天忘记记账了吗？
+
+📱 今天是你理财成长的第${daysSinceStart}天
+💎 "你不理财，财不理你" - 每一天都很珍贵
+🎯 立即记录昨天的支出，保持习惯不中断
+
+⚡ 财商比智商情商逆商更重要！
+🔥 点击链接继续挑战：t.me/your_bot_link`
+
+  } else if (daysSinceLast <= 3) {
+    // 2-3天未记录
+    return `🚨 ${userName}，习惯养成关键期！
+
+⏰ 已经${daysSinceLast}天没有记账了
+📈 第${daysSinceStart}天的挑战不能放弃
+💪 "行动力 = 被动学习知识转换成主动学习"
+
+🎯 立即行动，重新拾起记账习惯
+✨ 改变从现在开始！`
+
+  } else if (daysSinceLast <= 7) {
+    // 4-7天未记录  
+    return `💔 ${userName}，我们想念你的记录！
+
+📊 距离上次记账已经${daysSinceLast}天
+🏆 但你的${daysSinceStart}天理财之旅还在继续
+💎 记住："对的比例让你富，错的比例让你穷"
+
+🔄 重启记账，复利的力量在等你！
+🚀 每一次重新开始都是成长！`
+
+  } else {
+    // 超过7天未记录
+    return `🌟 ${userName}，理财高手在召唤！
+
+⚡ 已经${daysSinceLast}天没见到你了
+🎓 第${daysSinceStart}天，Learner Club在等你回来
+📚 "18岁后最需要搞定的是财商！"
+
+💪 重新开始，永远不晚
+🏆 300位伙伴期待你的归来！
+✨ 今天就是最好的重启日！`
+  }
 }
 
 // 发送管理员报告
