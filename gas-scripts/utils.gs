@@ -59,25 +59,31 @@ function getUserMap() {
 /**
  * 获取增量同步的时间过滤器
  * @param {string} tableName - 表名
+ * @param {string} timestampColumn - 时间戳列名，如果为null则不使用时间过滤
  * @returns {string} 时间过滤参数
  */
-function getIncrementalTimeFilter(tableName) {
+function getIncrementalTimeFilter(tableName, timestampColumn) {
+  // 如果表没有时间戳列，返回空过滤器
+  if (!timestampColumn) {
+    return `?limit=${SYNC_CONFIG.maxRecords}`;
+  }
+  
   if (!SYNC_CONFIG.incrementalSync) {
     // 如果不启用增量同步，返回最近24小时的数据
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    return `?created_at=gte.${yesterday.toISOString()}`;
+    return `?${timestampColumn}=gte.${yesterday.toISOString()}`;
   }
   
   // 获取上次同步时间
   const lastSyncTime = getLastSyncTime(tableName);
   if (lastSyncTime) {
-    return `?created_at=gte.${lastSyncTime}&order=created_at.desc&limit=${SYNC_CONFIG.maxRecords}`;
+    return `?${timestampColumn}=gte.${lastSyncTime}&order=${timestampColumn}.desc&limit=${SYNC_CONFIG.maxRecords}`;
   } else {
     // 首次同步，获取最近7天的数据
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return `?created_at=gte.${sevenDaysAgo.toISOString()}&order=created_at.desc&limit=${SYNC_CONFIG.maxRecords}`;
+    return `?${timestampColumn}=gte.${sevenDaysAgo.toISOString()}&order=${timestampColumn}.desc&limit=${SYNC_CONFIG.maxRecords}`;
   }
 }
 

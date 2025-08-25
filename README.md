@@ -225,6 +225,73 @@ ADMIN_TG_IDS=admin_chat_ids
 - ✅ 用户管理系统
 - ✅ 定时任务框架
 
+## 📈 Google Sheets数据同步系统
+
+### 🎯 增强版全量同步
+为了便于数据分析和管理，项目提供了**增强版Google Sheets同步系统**：
+
+- **📊 全数据库同步**: 10个数据表完整同步到Google Sheets
+- **🛡️ 智能脱敏**: 敏感数据自动脱敏保护（telegram_id→tg_****6789）
+- **⚡ 分级同步**: 核心数据每小时，管理数据每4小时，敏感数据每24小时
+- **🔄 自动化部署**: 使用clasp一键部署到Google Apps Script
+
+### 📋 同步数据表览
+
+| 数据表 | Google Sheet工作表 | 同步频率 | 用途 |
+|--------|-------------------|----------|------|
+| `records` | 支出记录 | 每小时 | 用户详细支出数据 |
+| `user_profile` | 用户资料 | 每小时 | 用户基本信息和统计 |
+| `daily_summary` | 每日汇总 | 每小时 | 按日期汇总数据 |
+| `users` | 用户基础信息 | 每4小时 | 用户账户信息 |
+| `user_month_budget` | 月度预算 | 每4小时 | 预算设置快照 |
+| `branch_daily` | 分支统计 | 每4小时 | 分支完成率数据 |
+| `user_state` | 用户状态 | 每12小时 | 系统状态记录 |
+| `leaderboard_daily` | 排行榜数据 | 每12小时 | 每日排行榜快照 |
+| `event_audit` | 操作日志 | 每24小时 | 系统操作记录（脱敏） |
+| `branch_leads` | 分支管理 | 每24小时 | 分支负责人信息（脱敏） |
+
+### 🚀 快速部署Google Sheets同步
+
+#### 1. 使用clasp自动部署
+```bash
+# 进入gas-scripts目录
+cd gas-scripts
+
+# 首次部署（创建新的GAS项目）
+./deploy.sh
+
+# 日常更新（推送代码变更）
+./quick-update.sh
+```
+
+#### 2. 配置增强版同步
+在Google Apps Script编辑器中：
+```javascript
+// 配置API密钥和Sheets ID
+setupSensitiveConfig({
+  supabaseUrl: 'https://your-project.supabase.co',
+  supabaseServiceKey: 'your-service-role-key',
+  recordsSheetId: 'your-google-sheet-id'
+});
+
+// 设置增强版触发器
+setupEnhancedTriggers();
+
+// 测试系统
+testEnhancedSync();
+```
+
+#### 3. 享受完整数据视图
+- 📊 在Google Sheets中查看10个工作表
+- 🔍 使用透视表分析数据趋势
+- 📈 创建可视化图表和报告
+- 🎯 全面掌握系统运行状况
+
+### 📚 相关文档
+- 📋 [增强版设置指南](gas-scripts/ENHANCED_SETUP_GUIDE.md) - 详细部署步骤
+- 🔧 [Clasp部署指南](gas-scripts/clasp-guide.md) - 自动化部署工具
+- 📊 [基础同步指南](gas-scripts/SETUP_GUIDE.md) - 原版同步配置
+
 ## 🤝 贡献指南
 
 ### 开发规范

@@ -12,7 +12,8 @@ export default async function handler(req, res) {
       timestamp: now.toISOString(),
       hour: now.getHours(),
       breakStreaks: null,
-      monthlyAutoPost: null
+      monthlyAutoPost: null,
+      reminderQueue: null
     }
     
     // 1. 断签清零
@@ -25,6 +26,10 @@ export default async function handler(req, res) {
       console.log('[daily-settlement] 执行月度自动入账...')
       results.monthlyAutoPost = await handleMonthlyAutoPost(now)
     }
+    
+    // 3. 生成WhatsApp提醒队列
+    console.log('[daily-settlement] 生成WhatsApp提醒队列...')
+    results.reminderQueue = await generateReminderQueue(now)
     
     // 发送管理员报告
     await sendAdminReport(results, now)
@@ -86,6 +91,91 @@ async function handleMonthlyAutoPost(now) {
   return { insertedCount }
 }
 
+// 生成WhatsApp提醒队列
+async function generateReminderQueue(now) {
+  console.log('[reminderQueue] 开始生成WhatsApp提醒队列...')
+  
+  // 1. 清空旧的提醒队列
+  const { error: deleteError } = await supabase
+    .from('daily_reminder_queue')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000') // 删除所有记录
+  
+  if (deleteError) {
+    console.error('[reminderQueue] 清空队列失败:', deleteError)
+    return { error: deleteError.message }
+  }
+  
+  // 2. 获取昨天日期
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayYmd = yesterday.toISOString().split('T')[0]
+  
+  console.log(`[reminderQueue] 查找 ${yesterdayYmd} 未记录的用户...`)
+  
+  // 3. 找出昨天没有记录的活跃用户（有电话号码）
+  const { data: inactiveUsers, error: queryError } = await supabase
+    .from('users')
+    .select(`
+      id, name, created_at,
+      user_profile!inner(phone_e164, last_record)
+    `)
+    .eq('status', 'active')
+    .not('user_profile.phone_e164', 'is', null)
+    .not('id', 'in', 
+      supabase.from('records')
+        .select('user_id')
+        .eq('ymd', yesterdayYmd)
+        .eq('is_voided', false)
+    )
+  
+  if (queryError) {
+    console.error('[reminderQueue] 查询用户失败:', queryError)
+    return { error: queryError.message }
+  }
+  
+  console.log(`[reminderQueue] 找到 ${inactiveUsers?.length || 0} 个需要提醒的用户`)
+  
+  // 4. 为每个用户生成个性化消息并插入队列
+  let insertedCount = 0
+  const todayYmd = now.toISOString().split('T')[0]
+  
+  for (const user of inactiveUsers || []) {
+    // 计算总天数（从注册到今天）
+    const createdAt = new Date(user.created_at)
+    const daysSinceStart = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24))
+    
+    // 计算距离最后记录天数
+    let daysSinceLast = 1 // 默认1天（昨天没记录）
+    if (user.user_profile.last_record) {
+      const lastRecord = new Date(user.user_profile.last_record)
+      daysSinceLast = Math.ceil((now - lastRecord) / (1000 * 60 * 60 * 24))
+    }
+    
+    // 生成个性化消息
+    const message = `Hi ${user.name}! 今天是建立记录开销的第${daysSinceStart}天，你已${daysSinceLast}天没有记录开销了。加油建立起习惯，改变从今天开始！💪`
+    
+    // 插入提醒队列
+    const { error: insertError } = await supabase
+      .from('daily_reminder_queue')
+      .insert({
+        user_id: user.id,
+        phone_e164: user.user_profile.phone_e164,
+        message: message,
+        ymd: todayYmd
+      })
+    
+    if (insertError) {
+      console.error(`[reminderQueue] 插入用户 ${user.name} 失败:`, insertError)
+    } else {
+      insertedCount++
+    }
+  }
+  
+  console.log(`[reminderQueue] 提醒队列生成完成，插入 ${insertedCount} 条记录`)
+  return { insertedCount, totalFound: inactiveUsers?.length || 0 }
+}
+
 // 发送管理员报告
 async function sendAdminReport(results, now) {
   try {
@@ -109,6 +199,14 @@ async function sendAdminReport(results, now) {
       report += `💰 月度入账：新增 ${results.monthlyAutoPost.insertedCount} 条记录\n`
     } else {
       report += `💰 月度入账：跳过（非月初）\n`
+    }
+    
+    if (results.reminderQueue) {
+      if (results.reminderQueue.error) {
+        report += `📱 提醒队列：生成失败 - ${results.reminderQueue.error}\n`
+      } else {
+        report += `📱 提醒队列：生成 ${results.reminderQueue.insertedCount} 条提醒 (共找到 ${results.reminderQueue.totalFound} 个未记录用户)\n`
+      }
     }
     
     report += `\n✅ 每日结算完成！`

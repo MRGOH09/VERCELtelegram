@@ -72,12 +72,31 @@ const API_ENDPOINTS = {
   userProfile: '/rest/v1/user_profile',
   dailySummary: '/rest/v1/daily_summary',
   branchDaily: '/rest/v1/branch_daily',
-  userMonthBudget: '/rest/v1/user_month_budget'
+  userMonthBudget: '/rest/v1/user_month_budget',
+  userState: '/rest/v1/user_state',
+  leaderboardDaily: '/rest/v1/leaderboard_daily',
+  eventAudit: '/rest/v1/event_audit',
+  branchLeads: '/rest/v1/branch_leads',
+  dailyReminderQueue: '/rest/v1/daily_reminder_queue'
 };
 
 // 获取完整的API URL
 function getApiUrl(endpoint, params = '') {
-  return `${SUPABASE_CONFIG.url}${API_ENDPOINTS[endpoint]}${params}`;
+  const supabaseConfig = getSUPABASE_CONFIG();
+  
+  if (!API_ENDPOINTS[endpoint]) {
+    console.error(`❌ API端点不存在: ${endpoint}`);
+    throw new Error(`API端点不存在: ${endpoint}`);
+  }
+  
+  if (!supabaseConfig.url || supabaseConfig.url.includes('your-')) {
+    console.error(`❌ Supabase URL未配置或无效: ${supabaseConfig.url}`);
+    throw new Error('Supabase URL未配置');
+  }
+  
+  const fullUrl = `${supabaseConfig.url}${API_ENDPOINTS[endpoint]}${params}`;
+  console.log(`🌐 构建API URL [${endpoint}]: ${fullUrl}`);
+  return fullUrl;
 }
 
 
