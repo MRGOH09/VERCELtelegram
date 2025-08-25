@@ -1060,7 +1060,7 @@ export default async function handler(req, res) {
         // 先检查用户记录是否存在
         const { data: existingProfile, error: checkError } = await supabase
           .from('user_profile')
-          .select('id,email')
+          .select('user_id,email')
           .eq('user_id', userIdForState)
           .maybeSingle()
         
@@ -1078,7 +1078,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true })
         }
         
-        const { data, error, count } = await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState).select('id,email')
+        const { data, error, count } = await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState).select('user_id,email')
         console.log(`[edit_email] 数据库操作结果: data=${JSON.stringify(data)}, error=${JSON.stringify(error)}, count=${count}`)
         if (error) {
           console.error(`[edit_email] 更新失败:`, error)
