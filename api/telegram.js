@@ -434,7 +434,7 @@ export default async function handler(req, res) {
       await setState(userId, 'settings', 'choose', {})
   const { data: prof } = await supabase
         .from('user_profile')
-        .select('display_name,phone_e164,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
+        .select('display_name,phone_e164,email,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
         .eq('user_id', userId)
         .maybeSingle()
       const { data: urow } = await supabase
@@ -2141,12 +2141,6 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       .maybeSingle()
     
     // 显示更新后的摘要
-    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - prof?.email:`, prof?.email)
-    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - typeof:`, typeof prof?.email)
-    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - Boolean:`, Boolean(prof?.email))
-    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - === null:`, prof?.email === null)
-    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - === undefined:`, prof?.email === undefined)
-    
     const templateParams = {
       nickname: prof?.display_name || '-',
       phone: prof?.phone_e164 || '-',
@@ -2158,17 +2152,8 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
       branch: (urow?.branch_code || '未设置')
     }
-    console.log(`[showUpdatedSettingsSummary] 模板参数:`, templateParams)
-    console.log(`[showUpdatedSettingsSummary] 原始email值:`, prof?.email)
-    console.log(`[showUpdatedSettingsSummary] email参数值:`, templateParams.email)
     
-    // 添加formatTemplate过程调试
     const sumText = formatTemplate(messages.settings.summary, templateParams)
-    console.log(`[showUpdatedSettingsSummary] formatTemplate输入:`, {
-      template: messages.settings.summary.substring(0, 100) + '...',
-      params: templateParams
-    })
-    console.log(`[showUpdatedSettingsSummary] formatTemplate输出:`, sumText.substring(0, 200) + '...')
     
     // 提供继续修改的选项
     const kb = { inline_keyboard: [
