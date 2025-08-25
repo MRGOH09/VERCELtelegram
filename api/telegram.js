@@ -1056,16 +1056,39 @@ export default async function handler(req, res) {
         const email = validateEmail(text)
         if (!email) { await sendTelegramMessage(chatId, messages.registration.email.validation); return res.status(200).json({ ok: true }) }
         console.log(`[edit_email] 尝试更新用户 ${userIdForState} 的email为: ${email}`)
-        const { data, error } = await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState)
+        
+        // 先检查用户记录是否存在
+        const { data: existingProfile, error: checkError } = await supabase
+          .from('user_profile')
+          .select('id,email')
+          .eq('user_id', userIdForState)
+          .maybeSingle()
+        
+        console.log(`[edit_email] 用户记录检查: existing=${JSON.stringify(existingProfile)}, checkError=${JSON.stringify(checkError)}`)
+        
+        if (checkError) {
+          console.error(`[edit_email] 检查用户记录失败:`, checkError)
+          await sendTelegramMessage(chatId, '❌ 查询失败，请重试')
+          return res.status(200).json({ ok: true })
+        }
+        
+        if (!existingProfile) {
+          console.error(`[edit_email] 用户记录不存在: userIdForState=${userIdForState}`)
+          await sendTelegramMessage(chatId, '❌ 用户记录不存在，请重新注册')
+          return res.status(200).json({ ok: true })
+        }
+        
+        const { data, error, count } = await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState).select('id,email')
+        console.log(`[edit_email] 数据库操作结果: data=${JSON.stringify(data)}, error=${JSON.stringify(error)}, count=${count}`)
         if (error) {
           console.error(`[edit_email] 更新失败:`, error)
           await sendTelegramMessage(chatId, '❌ 保存失败，请重试')
           return res.status(200).json({ ok: true })
         }
         console.log(`[edit_email] 更新成功:`, data)
-        await clearState(userIdForState)
         await sendTelegramMessage(chatId, '✅ 邮箱已更新')
         await showUpdatedSettingsSummary(chatId, userIdForState)
+        await clearState(userIdForState)
         return res.status(200).json({ ok: true })
       }
       if (st.step === 'edit_income') {
@@ -2091,12 +2114,25 @@ export async function handleCallback(update, req, res) {
 // 显示更新后的设置摘要和继续修改选项
 async function showUpdatedSettingsSummary(chatId, userId) {
   try {
+    console.log(`[showUpdatedSettingsSummary] 开始获取用户 ${userId} 的最新资料`)
     // 获取最新的用户资料
-    const { data: prof } = await supabase
+    const { data: prof, error: profError } = await supabase
       .from('user_profile')
       .select('display_name,phone_e164,email,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
       .eq('user_id', userId)
       .maybeSingle()
+    
+    if (profError) {
+      console.error(`[showUpdatedSettingsSummary] 查询user_profile失败:`, profError)
+      return
+    }
+    console.log(`[showUpdatedSettingsSummary] 用户资料:`, {
+      userId,
+      display_name: prof?.display_name,
+      phone_e164: prof?.phone_e164,
+      email: prof?.email,
+      monthly_income: prof?.monthly_income
+    })
     
     const { data: urow } = await supabase
       .from('users')
