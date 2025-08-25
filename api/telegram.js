@@ -2141,7 +2141,7 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       .maybeSingle()
     
     // 显示更新后的摘要
-    const sumText = formatTemplate(messages.settings.summary, {
+    const templateParams = {
       nickname: prof?.display_name || '-',
       phone: prof?.phone_e164 || '-',
       email: prof?.email || '-',
@@ -2151,7 +2151,12 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
       ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
       branch: (urow?.branch_code || '未设置')
-    })
+    }
+    console.log(`[showUpdatedSettingsSummary] 模板参数:`, templateParams)
+    console.log(`[showUpdatedSettingsSummary] 原始email值:`, prof?.email)
+    console.log(`[showUpdatedSettingsSummary] email参数值:`, templateParams.email)
+    
+    const sumText = formatTemplate(messages.settings.summary, templateParams)
     
     // 提供继续修改的选项
     const kb = { inline_keyboard: [
