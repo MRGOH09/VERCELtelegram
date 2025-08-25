@@ -2085,7 +2085,7 @@ async function showUpdatedSettingsSummary(chatId, userId) {
     // 获取最新的用户资料
     const { data: prof } = await supabase
       .from('user_profile')
-      .select('display_name,phone_e164,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
+      .select('display_name,phone_e164,email,monthly_income,a_pct,travel_budget_annual,annual_medical_insurance,annual_car_insurance')
       .eq('user_id', userId)
       .maybeSingle()
     
@@ -2099,9 +2099,9 @@ async function showUpdatedSettingsSummary(chatId, userId) {
     const sumText = formatTemplate(messages.settings.summary, {
       nickname: prof?.display_name || '-',
       phone: prof?.phone_e164 || '-',
+      email: prof?.email || '-',
       income: (Number(prof?.monthly_income || 0)).toFixed(2),
       a_pct: Number(prof?.a_pct || 0).toFixed(2),
-      b_pct: Number(prof?.b_pct || 0).toFixed(2),
       travel: (Number(prof?.travel_budget_annual || 0)).toFixed(2),
       ins_med: (Number(prof?.annual_medical_insurance || 0)).toFixed(2),
       ins_car: (Number(prof?.annual_car_insurance || 0)).toFixed(2),
