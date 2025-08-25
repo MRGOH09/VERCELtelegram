@@ -2141,6 +2141,12 @@ async function showUpdatedSettingsSummary(chatId, userId) {
       .maybeSingle()
     
     // 显示更新后的摘要
+    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - prof?.email:`, prof?.email)
+    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - typeof:`, typeof prof?.email)
+    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - Boolean:`, Boolean(prof?.email))
+    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - === null:`, prof?.email === null)
+    console.log(`[showUpdatedSettingsSummary] email逻辑检查 - === undefined:`, prof?.email === undefined)
+    
     const templateParams = {
       nickname: prof?.display_name || '-',
       phone: prof?.phone_e164 || '-',
@@ -2156,7 +2162,13 @@ async function showUpdatedSettingsSummary(chatId, userId) {
     console.log(`[showUpdatedSettingsSummary] 原始email值:`, prof?.email)
     console.log(`[showUpdatedSettingsSummary] email参数值:`, templateParams.email)
     
+    // 添加formatTemplate过程调试
     const sumText = formatTemplate(messages.settings.summary, templateParams)
+    console.log(`[showUpdatedSettingsSummary] formatTemplate输入:`, {
+      template: messages.settings.summary.substring(0, 100) + '...',
+      params: templateParams
+    })
+    console.log(`[showUpdatedSettingsSummary] formatTemplate输出:`, sumText.substring(0, 200) + '...')
     
     // 提供继续修改的选项
     const kb = { inline_keyboard: [
