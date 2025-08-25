@@ -1055,7 +1055,16 @@ export default async function handler(req, res) {
       if (st.step === 'edit_email') {
         const email = validateEmail(text)
         if (!email) { await sendTelegramMessage(chatId, messages.registration.email.validation); return res.status(200).json({ ok: true }) }
-        await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState)
+        console.log(`[edit_email] 尝试更新用户 ${userIdForState} 的email为: ${email}`)
+        const { data, error } = await supabase.from('user_profile').update({ email: email }).eq('user_id', userIdForState)
+        if (error) {
+          console.error(`[edit_email] 更新失败:`, error)
+          await sendTelegramMessage(chatId, '❌ 保存失败，请重试')
+          return res.status(200).json({ ok: true })
+        }
+        console.log(`[edit_email] 更新成功:`, data)
+        await clearState(userIdForState)
+        await sendTelegramMessage(chatId, '✅ 邮箱已更新')
         await showUpdatedSettingsSummary(chatId, userIdForState)
         return res.status(200).json({ ok: true })
       }
