@@ -7,6 +7,8 @@ import WebAppWrapper from '../components/WebAppWrapper'
 import TelegramJumpOut, { TelegramJumpBanner } from '../components/TelegramJumpOut'
 import QuickActions from '../components/QuickActions'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
+import { BarChart, DonutChart, CategoryBredown } from '../components/Charts'
+import SpendingInsights, { BudgetControl, RecordStatistics } from '../components/SpendingInsights'
 
 export default function ModernDashboard() {
   const router = useRouter()
@@ -148,11 +150,34 @@ export default function ModernDashboard() {
             <BalanceOverview data={data?.monthly} />
           </div>
           
+          {/* 目标控制 */}
+          <BudgetControl data={data} />
+          
+          {/* 支出占比图表 */}
+          <ExpenseDonutChart data={data} />
+          
           {/* 快速数据卡片组 */}
           <QuickStats data={data?.monthly} stats={data?.stats} />
           
+          {/* 记录统计 */}
+          <RecordStatistics data={data} />
+          
           {/* 支出分析 */}
           <SpendingAnalysis data={data?.monthly} />
+          
+          {/* 详细分类明细 */}
+          <CategoryBredown 
+            title="📋 分类明细"
+            categoryDetails={data?.categoryDetails} 
+            groupConfig={{
+              A: { name: '开销', icon: '🛒', color: '#3B82F6' },
+              B: { name: '学习', icon: '📚', color: '#10B981' },
+              C: { name: '储蓄', icon: '💎', color: '#F59E0B' }
+            }}
+          />
+          
+          {/* 智能建议 */}
+          <SpendingInsights data={data} categoryDetails={data?.categoryDetails} />
           
           {/* 最近活动 */}
           <RecentActivity records={data?.recent} />
@@ -420,5 +445,55 @@ function ModernActivityItem({ record }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// 支出占比圆环图
+function ExpenseDonutChart({ data }) {
+  if (!data) return null
+  
+  const { monthly } = data
+  const total = monthly.total_expenses
+  
+  if (total === 0) {
+    return (
+      <ModernCard className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 现时支出与占比</h3>
+        <div className="text-center py-8">
+          <div className="text-4xl mb-3">📊</div>
+          <p className="text-gray-500">本月暂无支出记录</p>
+        </div>
+      </ModernCard>
+    )
+  }
+  
+  const chartData = [
+    {
+      name: '开销',
+      value: monthly.spent_a,
+      color: '#3B82F6',
+      icon: '🛒'
+    },
+    {
+      name: '学习',
+      value: monthly.spent_b,
+      color: '#10B981', 
+      icon: '📚'
+    },
+    {
+      name: '储蓄',
+      value: monthly.spent_c,
+      color: '#F59E0B',
+      icon: '💎'
+    }
+  ].filter(item => item.value > 0)
+  
+  return (
+    <DonutChart 
+      title="💰 现时支出与占比"
+      data={chartData}
+      total={total}
+      centerText="总支出"
+    />
   )
 }

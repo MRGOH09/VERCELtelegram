@@ -100,13 +100,13 @@ async function getDashboardData(userId, res) {
       
     console.log(`[getDashboardData] 当月预算:`, budget)
       
-    // 获取当月支出统计
+    // 获取当月支出统计（包含详细分类）
     const startOfMonth = `${yyyymm}-01`
     const endOfMonth = getEndOfMonth(yyyymm)
     
     const { data: records } = await supabase
       .from('records')
-      .select('category_group, amount')
+      .select('category_group, category_code, amount, ymd')
       .eq('user_id', userId)
       .gte('ymd', startOfMonth)
       .lte('ymd', endOfMonth)
@@ -114,11 +114,28 @@ async function getDashboardData(userId, res) {
       
     console.log(`[getDashboardData] 当月记录数: ${records?.length || 0}`)
       
-    // 计算支出汇总
-    const expenses = records?.reduce((acc, record) => {
-      acc[record.category_group] = (acc[record.category_group] || 0) + Math.abs(record.amount)
-      return acc
-    }, { A: 0, B: 0, C: 0 }) || { A: 0, B: 0, C: 0 }
+    // 计算支出汇总和详细分类
+    const expenses = { A: 0, B: 0, C: 0 }
+    const categoryDetails = {}
+    const recordDays = new Set()
+    
+    records?.forEach(record => {
+      const amount = Math.abs(record.amount)
+      const group = record.category_group
+      const code = record.category_code
+      
+      // 汇总分组支出
+      expenses[group] = (expenses[group] || 0) + amount
+      
+      // 详细分类统计
+      if (!categoryDetails[group]) {
+        categoryDetails[group] = {}
+      }
+      categoryDetails[group][code] = (categoryDetails[group][code] || 0) + amount
+      
+      // 记录天数统计
+      recordDays.add(record.ymd)
+    })
     
     // 计算占比
     const totalExpenses = expenses.A + expenses.B + expenses.C
@@ -127,6 +144,13 @@ async function getDashboardData(userId, res) {
       A: income > 0 ? Math.round((expenses.A / income) * 100) : 0,
       B: income > 0 ? Math.round((expenses.B / income) * 100) : 0,
       C: income > 0 ? Math.round((expenses.C / income) * 100) : 0
+    }
+    
+    // 记录统计
+    const recordStats = {
+      total_records: records?.length || 0,
+      record_days: recordDays.size,
+      avg_per_day: recordDays.size > 0 ? Math.round((records?.length || 0) / recordDays.size * 10) / 10 : 0
     }
     
     // 获取最近记录
@@ -161,11 +185,22 @@ async function getDashboardData(userId, res) {
         days_left: daysLeft,
         budget_a: budget?.cap_a_amount || 0,
         budget_b: budget?.cap_b_amount || 0,
-        budget_c: budget?.cap_c_amount || 0
+        budget_c: budget?.cap_c_amount || 0,
+        remaining_a: Math.max(0, (budget?.cap_a_amount || 0) - expenses.A),
+        total_expenses: totalExpenses
       },
       stats: {
         current_streak: profile?.current_streak || 0,
-        total_records: profile?.total_records || 0
+        total_records: profile?.total_records || 0,
+        monthly_records: recordStats.total_records,
+        record_days: recordStats.record_days,
+        avg_per_day: recordStats.avg_per_day
+      },
+      categoryDetails: categoryDetails,
+      budget_details: {
+        epf: budget?.epf_amount || (income * 0.24),
+        travel_annual: profile?.travel_budget_annual || 0,
+        travel_monthly: (profile?.travel_budget_annual || 0) / 12
       },
       recent: recentRecords?.map(record => ({
         id: record.id,
