@@ -383,8 +383,11 @@ export default async function handler(req, res) {
     const from = msg.from
     const text = (msg.text || '').trim()
 
+    console.log(`[DEBUG] 收到消息: "${text}", 来自用户: ${from.id}, 聊天ID: ${chatId}`)
+
     // 专门的PWA登录命令
     if (text === '/webapp') {
+      console.log('[DEBUG] 匹配到/webapp命令，开始处理')
       console.log('📱 收到PWA登录命令，用户ID:', from.id)
       const userId = await getOrCreateUserByTelegram(from, chatId)
       
@@ -1255,6 +1258,7 @@ export default async function handler(req, res) {
     }
 
     // fallback
+    console.log(`[DEBUG] 走到fallback，text="${text}"，发送help消息`)
     await sendTelegramMessage(chatId, messages.help)
     return res.status(200).json({ ok: true })
   } catch (e) {
