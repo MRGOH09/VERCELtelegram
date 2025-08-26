@@ -210,10 +210,10 @@ async function getDashboardData(userId, res) {
         percentage_b: percentages.B,
         percentage_c: percentages.C,
         days_left: daysLeft,
-        budget_a: budget?.cap_a_amount || 0,
-        budget_b: budget?.cap_b_amount || 0,
-        budget_c: budget?.cap_c_amount || 0,
-        remaining_a: Math.max(0, (budget?.cap_a_amount || 0) - expenses.A),
+        budget_a: budget?.cap_a_amount || ((profile?.monthly_income || 0) * (profile?.a_pct || 0) / 100),
+        budget_b: budget?.cap_b_amount || ((profile?.monthly_income || 0) * (profile?.b_pct || 0) / 100),
+        budget_c: budget?.cap_c_amount || ((profile?.monthly_income || 0) * (profile?.c_pct || 0) / 100),
+        remaining_a: Math.max(0, (budget?.cap_a_amount || ((profile?.monthly_income || 0) * (profile?.a_pct || 0) / 100)) - expenses.A),
         total_expenses: totalExpenses
       },
       stats: {
