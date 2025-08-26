@@ -108,6 +108,21 @@ class PWAClient {
       return { authenticated: false }
     }
   }
+
+  // 获取历史记录 (1分钟缓存)
+  async getHistory(params = {}) {
+    return this.cachedCall('data', 'history', params, 1 * 60 * 1000)
+  }
+
+  // 添加记录
+  async addRecord(recordData) {
+    return this.call('data', 'add-record', recordData, { useCache: false })
+  }
+
+  // 删除记录
+  async deleteRecord(recordId) {
+    return this.call('data', 'delete-record', { recordId }, { useCache: false })
+  }
 }
 
 export default new PWAClient()

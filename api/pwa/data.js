@@ -18,6 +18,15 @@ export default async function handler(req, res) {
       case 'test-push-notification':
         return await handleTestPushNotification(req, res)
       
+      case 'history':
+        return await handleGetHistory(req, res)
+        
+      case 'add-record':
+        return await handleAddRecord(req, res)
+        
+      case 'delete-record':
+        return await handleDeleteRecord(req, res)
+      
       default:
         return res.status(400).json({ error: 'Unknown action' })
     }
@@ -221,6 +230,172 @@ async function handleTestPushNotification(req, res) {
 
   } catch (error) {
     console.error('[PWA] 发送测试推送失败:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 获取用户ID的辅助函数
+async function getUserIdFromCookies(req) {
+  const cookies = req.headers.cookie
+  let userId = null
+  
+  if (cookies) {
+    const cookieObj = {}
+    cookies.split(';').forEach(cookie => {
+      const [key, value] = cookie.trim().split('=')
+      cookieObj[key] = value
+    })
+    
+    if (cookieObj.user_name) {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('name', decodeURIComponent(cookieObj.user_name))
+        .single()
+      
+      if (!userError && user) {
+        userId = user.id
+      }
+    }
+  }
+  
+  return userId
+}
+
+// 处理获取历史记录
+async function handleGetHistory(req, res) {
+  try {
+    const userId = await getUserIdFromCookies(req)
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' })
+    }
+
+    const { month, limit = 20, offset = 0 } = req.body
+
+    // 构建查询
+    let query = supabase
+      .from('records')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_voided', false)
+      .order('ymd', { ascending: false })
+      .range(offset, offset + limit - 1)
+
+    // 如果指定了月份，添加月份过滤
+    if (month) {
+      const startDate = `${month}-01`
+      const endDate = `${month}-31` // 简化处理，对于所有月份都用31号
+      query = query.gte('ymd', startDate).lte('ymd', endDate)
+    }
+
+    const { data: records, error } = await query
+
+    if (error) {
+      console.error('[PWA] 查询历史记录失败:', error)
+      return res.status(500).json({ error: 'Failed to fetch history' })
+    }
+
+    // 计算统计数据
+    const stats = {
+      totalRecords: records.length,
+      totalSpent: records.reduce((sum, record) => sum + Math.abs(record.amount), 0)
+    }
+
+    console.log(`✅ [PWA] 获取历史记录成功: ${records.length} 条记录`)
+    return res.status(200).json({ 
+      records: records || [],
+      stats
+    })
+
+  } catch (error) {
+    console.error('[PWA] 获取历史记录失败:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 处理添加记录
+async function handleAddRecord(req, res) {
+  try {
+    const userId = await getUserIdFromCookies(req)
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' })
+    }
+
+    const { group, category, amount, note, date } = req.body
+
+    if (!group || !category || !amount) {
+      return res.status(400).json({ error: 'Missing required fields' })
+    }
+
+    // 插入记录
+    const { data, error } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: group,
+        category_code: category,
+        amount: -Math.abs(amount), // 支出为负数
+        note: note || null,
+        ymd: date || new Date().toISOString().split('T')[0],
+        created_at: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) {
+      console.error('[PWA] 添加记录失败:', error)
+      return res.status(500).json({ error: 'Failed to add record' })
+    }
+
+    console.log('✅ [PWA] 记录添加成功')
+    return res.status(200).json({ 
+      success: true, 
+      message: '记录添加成功',
+      record: data?.[0]
+    })
+
+  } catch (error) {
+    console.error('[PWA] 添加记录失败:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 处理删除记录
+async function handleDeleteRecord(req, res) {
+  try {
+    const userId = await getUserIdFromCookies(req)
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' })
+    }
+
+    const { recordId } = req.body
+
+    if (!recordId) {
+      return res.status(400).json({ error: 'Missing record ID' })
+    }
+
+    // 软删除记录（设置is_voided为true）
+    const { error } = await supabase
+      .from('records')
+      .update({ is_voided: true })
+      .eq('id', recordId)
+      .eq('user_id', userId) // 确保只能删除自己的记录
+
+    if (error) {
+      console.error('[PWA] 删除记录失败:', error)
+      return res.status(500).json({ error: 'Failed to delete record' })
+    }
+
+    console.log('✅ [PWA] 记录删除成功')
+    return res.status(200).json({ 
+      success: true, 
+      message: '记录删除成功'
+    })
+
+  } catch (error) {
+    console.error('[PWA] 删除记录失败:', error)
     return res.status(500).json({ error: error.message })
   }
 }
