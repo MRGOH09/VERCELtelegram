@@ -165,7 +165,7 @@ export default function TelegramJumpOut({ onDismiss }) {
 /**
  * 轻量级Telegram跳转横幅
  */
-export function TelegramJumpBanner({ onShow, onDismiss }) {
+export function TelegramJumpBanner({ onShow, onDismiss, forceShow = false }) {
   const [browserInfo, setBrowserInfo] = useState(null)
   const [dismissed, setDismissed] = useState(false)
   
@@ -173,9 +173,18 @@ export function TelegramJumpBanner({ onShow, onDismiss }) {
     const info = getBrowserInfo()
     setBrowserInfo(info)
     
+    // Debug日志
+    console.log('🔍 TelegramJumpBanner 浏览器检测:', {
+      device: info.device,
+      browser: info.browser,
+      userAgent: navigator.userAgent
+    })
+    
     // 检查是否已经忽略
-    if (localStorage.getItem('telegram-jump-dismissed')) {
+    const wasDismissed = localStorage.getItem('telegram-jump-dismissed')
+    if (wasDismissed) {
       setDismissed(true)
+      console.log('⚠️ TelegramJumpBanner 已被用户忽略')
     }
   }, [])
   
@@ -185,9 +194,21 @@ export function TelegramJumpBanner({ onShow, onDismiss }) {
     onDismiss?.()
   }
   
-  if (dismissed || !browserInfo?.device === 'android' || !browserInfo?.browser === 'telegram') {
+  // 强制显示模式（用于测试）
+  if (forceShow && !dismissed) {
+    console.log('🚀 TelegramJumpBanner 强制显示模式')
+  } else if (dismissed || browserInfo?.device !== 'android' || browserInfo?.browser !== 'telegram') {
+    console.log('❌ TelegramJumpBanner 隐藏原因:', {
+      dismissed,
+      device: browserInfo?.device,
+      browser: browserInfo?.browser,
+      forceShow,
+      shouldShow: browserInfo?.device === 'android' && browserInfo?.browser === 'telegram'
+    })
     return null
   }
+  
+  console.log('✅ TelegramJumpBanner 显示条件满足')
   
   return (
     <div className="bg-orange-500 text-white px-4 py-3 text-sm">

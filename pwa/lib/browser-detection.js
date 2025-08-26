@@ -45,13 +45,24 @@ export function getBrowserInfo() {
     result.installMethod = 'huawei_browser'
     result.pushService = 'hms'
     result.needsGuidance = true
-  } else if (/Telegram/.test(ua) || ua.includes('TelegramBot-like') || window.TelegramWebviewProxy) {
+  } else if (
+    /Telegram/.test(ua) || 
+    ua.includes('TelegramBot-like') || 
+    ua.includes('telegram') ||
+    (typeof window !== 'undefined' && window.TelegramWebviewProxy) ||
+    ua.includes('TelegramAndroid')
+  ) {
     result.browser = 'telegram'
     result.needsGuidance = true  // Telegram用户需要跳转引导
     result.supportsPWA = false
     result.supportsPush = false
-    result.needsGuidance = true
     result.installMethod = 'redirect_to_browser'
+    
+    // Debug日志
+    console.log('🔍 Telegram环境检测成功:', {
+      userAgent: ua,
+      hasTelegramWebviewProxy: typeof window !== 'undefined' && !!window.TelegramWebviewProxy
+    })
   } else if (/Edg/.test(ua)) {
     result.browser = 'edge'
     result.supportsPWA = true
