@@ -5,6 +5,8 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   sw: 'sw.js',
   buildExcludes: [/middleware-manifest.json$/],
+  // 自定义 Service Worker 模板，包含推送功能
+  swSrc: 'public/sw-custom.js',
   // 添加推送处理
   additionalManifestEntries: [
     {

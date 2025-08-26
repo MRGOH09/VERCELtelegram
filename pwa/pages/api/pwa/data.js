@@ -47,6 +47,15 @@ export default async function handler(req, res) {
       case 'check-auth':
         return res.json({ authenticated: true, user: { id: user.id, name: user.name, branch: user.branch_code } })
         
+      case 'subscribe-push':
+        return await subscribePushNotification(user.id, params, res)
+        
+      case 'unsubscribe-push':
+        return await unsubscribePushNotification(user.id, res)
+        
+      case 'test-push-notification':
+        return await sendTestPushNotification(user.id, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -302,5 +311,182 @@ async function getProfileData(userId, res) {
   } catch (error) {
     console.error('[getProfileData] 错误:', error)
     return res.status(500).json({ error: 'Failed to get profile data' })
+  }
+}
+
+// 订阅推送通知
+async function subscribePushNotification(userId, params, res) {
+  try {
+    const { subscription, deviceInfo } = params
+    console.log(`[subscribePushNotification] 用户 ${userId} 订阅推送`)
+    
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      return res.status(400).json({ error: 'Invalid subscription data' })
+    }
+
+    // 保存推送订阅到数据库
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .upsert({
+        user_id: userId,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        user_agent: deviceInfo?.userAgent || '',
+        device_info: deviceInfo || {},
+        last_used: new Date().toISOString()
+      }, {
+        onConflict: 'user_id,endpoint',
+        ignoreDuplicates: false
+      })
+
+    if (error) {
+      console.error('[subscribePushNotification] 数据库错误:', error)
+      return res.status(500).json({ error: 'Failed to save subscription' })
+    }
+
+    console.log(`[subscribePushNotification] 订阅保存成功`)
+    return res.json({ success: true, message: '推送订阅成功' })
+
+  } catch (error) {
+    console.error('[subscribePushNotification] 错误:', error)
+    return res.status(500).json({ error: 'Failed to subscribe push notifications' })
+  }
+}
+
+// 取消推送订阅
+async function unsubscribePushNotification(userId, res) {
+  try {
+    console.log(`[unsubscribePushNotification] 用户 ${userId} 取消订阅`)
+
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[unsubscribePushNotification] 数据库错误:', error)
+      return res.status(500).json({ error: 'Failed to unsubscribe' })
+    }
+
+    console.log(`[unsubscribePushNotification] 取消订阅成功`)
+    return res.json({ success: true, message: '取消推送订阅成功' })
+
+  } catch (error) {
+    console.error('[unsubscribePushNotification] 错误:', error)
+    return res.status(500).json({ error: 'Failed to unsubscribe push notifications' })
+  }
+}
+
+// 发送测试推送通知
+async function sendTestPushNotification(userId, res) {
+  try {
+    console.log(`[sendTestPushNotification] 向用户 ${userId} 发送测试推送`)
+
+    // 获取用户的推送订阅
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[sendTestPushNotification] 查询订阅失败:', error)
+      return res.status(500).json({ error: 'Failed to get subscriptions' })
+    }
+
+    if (!subscriptions || subscriptions.length === 0) {
+      return res.status(404).json({ error: '没有找到推送订阅，请先订阅推送通知' })
+    }
+
+    // 动态导入 web-push
+    const webpush = require('web-push')
+    
+    // 设置 VAPID 密钥
+    webpush.setVapidDetails(
+      'mailto:support@learnerclub.app',
+      process.env.NEXT_PUBLIC_FCM_VAPID_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    )
+
+    const pushPayload = {
+      title: '🧪 测试推送通知',
+      body: '这是一个测试推送通知，点击查看更多信息',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-72.png',
+      data: {
+        type: 'test',
+        url: '/settings',
+        timestamp: Date.now()
+      },
+      actions: [
+        {
+          action: 'view',
+          title: '查看',
+          icon: '/icons/icon-72.png'
+        },
+        {
+          action: 'close',
+          title: '关闭'
+        }
+      ]
+    }
+
+    // 向所有订阅发送推送
+    const pushPromises = subscriptions.map(async (subscription) => {
+      try {
+        const pushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.p256dh,
+            auth: subscription.auth
+          }
+        }
+
+        await webpush.sendNotification(
+          pushSubscription,
+          JSON.stringify(pushPayload)
+        )
+
+        console.log(`[sendTestPushNotification] 推送发送成功: ${subscription.endpoint.slice(-20)}`)
+        return { success: true, endpoint: subscription.endpoint }
+      } catch (error) {
+        console.error(`[sendTestPushNotification] 推送发送失败:`, error)
+        return { success: false, endpoint: subscription.endpoint, error: error.message }
+      }
+    })
+
+    const results = await Promise.all(pushPromises)
+    const successCount = results.filter(r => r.success).length
+
+    console.log(`[sendTestPushNotification] 测试推送完成: ${successCount}/${results.length} 成功`)
+
+    // 记录推送日志
+    await supabase
+      .from('push_logs')
+      .insert({
+        user_id: userId,
+        push_type: 'test',
+        title: pushPayload.title,
+        body: pushPayload.body,
+        success: successCount > 0,
+        error_message: successCount === 0 ? '所有推送都失败了' : null
+      })
+
+    if (successCount > 0) {
+      return res.json({ 
+        success: true, 
+        message: `测试推送发送成功 (${successCount}/${results.length})`,
+        results 
+      })
+    } else {
+      return res.status(500).json({ 
+        error: '测试推送发送失败', 
+        results 
+      })
+    }
+
+  } catch (error) {
+    console.error('[sendTestPushNotification] 错误:', error)
+    return res.status(500).json({ error: 'Failed to send test push notification' })
   }
 }
