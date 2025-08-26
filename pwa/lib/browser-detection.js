@@ -45,8 +45,9 @@ export function getBrowserInfo() {
     result.installMethod = 'huawei_browser'
     result.pushService = 'hms'
     result.needsGuidance = true
-  } else if (/Telegram/.test(ua)) {
+  } else if (/Telegram/.test(ua) || ua.includes('TelegramBot-like') || window.TelegramWebviewProxy) {
     result.browser = 'telegram'
+    result.needsGuidance = true  // Telegram用户需要跳转引导
     result.supportsPWA = false
     result.supportsPush = false
     result.needsGuidance = true

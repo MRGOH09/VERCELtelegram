@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import ModernCard from '../components/ModernCard'
 import WebAppWrapper from '../components/WebAppWrapper'
+import TelegramJumpOut, { TelegramJumpBanner } from '../components/TelegramJumpOut'
 import { getBrowserInfo } from '../lib/browser-detection'
 import PWAClient from '../lib/api'
 
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true)
   const [browserInfo, setBrowserInfo] = useState(null)
   const [fromTelegram, setFromTelegram] = useState(false)
+  const [showTelegramJump, setShowTelegramJump] = useState(false)
   
   useEffect(() => {
     // 检查浏览器信息和来源
@@ -90,6 +92,12 @@ export default function LoginPage() {
   return (
     <WebAppWrapper>
       <Layout title="登录 - Learner Club">
+        {/* Telegram跳转横幅 */}
+        <TelegramJumpBanner 
+          onShow={() => setShowTelegramJump(true)}
+          onDismiss={() => {}} 
+        />
+        
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           {/* Logo和标题 */}
@@ -208,6 +216,12 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      
+      {/* Telegram跳转引导弹窗 */}
+      {showTelegramJump && (
+        <TelegramJumpOut onDismiss={() => setShowTelegramJump(false)} />
+      )}
+      
       </Layout>
     </WebAppWrapper>
   )
