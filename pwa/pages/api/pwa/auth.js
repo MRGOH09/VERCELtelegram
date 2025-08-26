@@ -11,13 +11,17 @@ export default async function handler(req, res) {
     
     console.log(`[PWA Auth] 收到认证请求: telegram_id=${id}, name=${first_name}`)
     
-    // 验证Telegram认证数据
-    if (!verifyTelegramAuth(req.query, process.env.TELEGRAM_BOT_TOKEN)) {
-      console.error(`[PWA Auth] Telegram认证验证失败`)
-      return res.status(401).json({ error: 'Invalid Telegram authentication' })
+    // 如果没有hash，说明是从Bot直接跳转的，跳过hash验证
+    if (hash) {
+      // 验证Telegram认证数据
+      if (!verifyTelegramAuth(req.query, process.env.TELEGRAM_BOT_TOKEN)) {
+        console.error(`[PWA Auth] Telegram认证验证失败`)
+        return res.status(401).json({ error: 'Invalid Telegram authentication' })
+      }
+      console.log(`[PWA Auth] Telegram认证验证成功`)
+    } else {
+      console.log(`[PWA Auth] Bot直接跳转，跳过hash验证`)
     }
-    
-    console.log(`[PWA Auth] Telegram认证验证成功`)
     
     // 获取或创建用户
     const user = await getOrCreateUserByTelegram({

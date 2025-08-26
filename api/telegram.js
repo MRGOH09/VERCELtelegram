@@ -386,6 +386,49 @@ export default async function handler(req, res) {
     if (text.startsWith('/start')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       
+      // 检查是否是PWA登录请求
+      if (text.includes('webapp_login')) {
+        console.log('📱 收到PWA登录请求，用户ID:', userId)
+        
+        // 检查用户是否已注册
+        const { data: prof } = await supabase
+          .from('user_profile')
+          .select('display_name,monthly_income,a_pct')
+          .eq('user_id', userId)
+          .maybeSingle()
+        
+        const isFullyRegistered = prof && 
+          prof.display_name && 
+          prof.display_name.trim() && 
+          prof.monthly_income && 
+          prof.monthly_income > 0 && 
+          prof.a_pct && 
+          prof.a_pct > 0
+        
+        if (!isFullyRegistered) {
+          await sendTelegramMessage(chatId, 
+            '⚠️ 请先完成Bot注册设置\n\n发送 /start 开始注册流程，完成后即可使用PWA')
+          return res.status(200).json({ ok: true })
+        }
+        
+        // 生成PWA登录链接 - 需要在环境变量中设置PWA_DOMAIN
+        const pwaDomain = process.env.PWA_DOMAIN || 'https://verce-ltelegram.vercel.app'
+        const loginUrl = `${pwaDomain}/api/pwa/auth?id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+        
+        console.log('📱 生成PWA登录链接:', loginUrl)
+        
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '🌐 打开PWA登录', url: loginUrl }]
+          ]
+        }
+        
+        await sendTelegramMessage(chatId, 
+          '📱 PWA登录链接已生成\n\n点击下方按钮完成登录：', 
+          { reply_markup: keyboard })
+        return res.status(200).json({ ok: true })
+      }
+      
       // 检查是否有未完成的注册流程
       const existingState = await getState(userId)
       
