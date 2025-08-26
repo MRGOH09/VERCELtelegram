@@ -250,17 +250,31 @@ export function CategoryBredown({ title, categoryDetails, groupConfig }) {
               </div>
               
               <div className="space-y-3 ml-8">
-                {Object.entries(categories)
-                  .sort(([,a], [,b]) => b - a)
-                  .map(([code, amount]) => (
-                    <div key={code} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-base">{CATEGORY_ICONS[code] || '📦'}</span>
-                        <span className="text-gray-700">{CATEGORY_NAMES[code] || code}</span>
-                      </div>
-                      <span className="font-medium text-gray-900">RM {amount.toLocaleString()}</span>
-                    </div>
-                  ))}
+                {(() => {
+                  // 合并同类项目（英文代码和中文标签指向同一项目）- 与Telegram /my命令逻辑一致
+                  const mergedCategories = {}
+                  for (const [category, amount] of Object.entries(categories)) {
+                    const displayName = CATEGORY_NAMES[category] || category
+                    mergedCategories[displayName] = (mergedCategories[displayName] || 0) + Number(amount)
+                  }
+                  
+                  return Object.entries(mergedCategories)
+                    .sort(([,a], [,b]) => b - a)
+                    .map(([displayName, amount]) => {
+                      // 找到对应的图标（优先使用英文代码的图标）
+                      const iconKey = Object.keys(CATEGORY_NAMES).find(key => CATEGORY_NAMES[key] === displayName) || displayName
+                      
+                      return (
+                        <div key={displayName} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-base">{CATEGORY_ICONS[iconKey] || '📦'}</span>
+                            <span className="text-gray-700">{displayName}</span>
+                          </div>
+                          <span className="font-medium text-gray-900">RM {amount.toLocaleString()}</span>
+                        </div>
+                      )
+                    })
+                })()}
               </div>
             </div>
           )
