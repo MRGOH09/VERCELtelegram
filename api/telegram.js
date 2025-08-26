@@ -927,8 +927,8 @@ export default async function handler(req, res) {
     const st = await getState(userIdForState)
     
     if (st?.flow === 'start') {
-      // 如果用户发送其他命令，提示完成注册
-      if (text.startsWith('/') && text !== '/start') {
+      // 如果用户发送其他命令，提示完成注册（除了/webapp等特殊命令）
+      if (text.startsWith('/') && text !== '/start' && text !== '/webapp') {
         const stepDesc = getStepDescription(st.step)
         await sendTelegramMessage(chatId, 
           `⚠️ 您正在注册流程中\n\n当前进度：${stepDesc}\n\n请先完成注册，或发送 /start 重新开始`)
