@@ -43,13 +43,16 @@ export default function Layout({ children, title = 'Learner Club' }) {
       <Head>
         <title>{title}</title>
         <meta name="description" content="Learner Club - 财务管理习惯养成" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no" />
         <meta name="theme-color" content="#1677ff" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="msapplication-TileColor" content="#1677ff" />
         <meta name="apple-mobile-web-app-title" content="Learner Club" />
       </Head>
       

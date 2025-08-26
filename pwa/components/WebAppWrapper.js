@@ -37,13 +37,32 @@ export default function WebAppWrapper({ children }) {
           lastTouchEnd = now
         }, { passive: false })
         
-        // 4. 统一处理状态栏
+        // 4. 统一处理状态栏 - 强化WebApp模式
         const viewport = document.querySelector('meta[name="viewport"]')
         if (viewport) {
           viewport.setAttribute('content', 
-            'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+            'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no'
           )
         }
+        
+        // 添加专用meta标签确保webapp模式
+        const addMetaTag = (name, content) => {
+          let meta = document.querySelector(`meta[name="${name}"]`)
+          if (!meta) {
+            meta = document.createElement('meta')
+            meta.setAttribute('name', name)
+            document.head.appendChild(meta)
+          }
+          meta.setAttribute('content', content)
+        }
+        
+        // 强化PWA标签
+        addMetaTag('mobile-web-app-capable', 'yes')
+        addMetaTag('apple-mobile-web-app-capable', 'yes')
+        addMetaTag('apple-mobile-web-app-status-bar-style', 'black-translucent')
+        addMetaTag('format-detection', 'telephone=no')
+        addMetaTag('msapplication-TileColor', '#1677ff')
+        addMetaTag('theme-color', '#1677ff')
         
         // 5. 添加webapp状态检测
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -56,20 +75,69 @@ export default function WebAppWrapper({ children }) {
           document.documentElement.classList.add('pwa-browser')
         }
         
-        // 6. iOS Safari专用处理
+        // 6. 设备特定处理
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+        const isAndroid = /Android/.test(navigator.userAgent)
         
+        // iOS Safari专用处理
         if (isIOS && isSafari) {
           document.documentElement.classList.add('ios-safari')
           
-          // 强制隐藏Safari UI元素
-          setTimeout(() => {
+          // 强制全屏模式，彻底隐藏Safari UI
+          const forceFullscreen = () => {
+            // 滚动技巧隐藏地址栏
             window.scrollTo(0, 1)
-            setTimeout(() => {
-              window.scrollTo(0, 0)
-            }, 100)
-          }, 100)
+            setTimeout(() => window.scrollTo(0, 0), 0)
+            
+            // 设置body高度为设备高度
+            document.body.style.height = window.innerHeight + 'px'
+            document.documentElement.style.height = window.innerHeight + 'px'
+          }
+          
+          // 立即执行和延迟执行
+          forceFullscreen()
+          setTimeout(forceFullscreen, 100)
+          setTimeout(forceFullscreen, 300)
+          setTimeout(forceFullscreen, 500)
+          
+          // 监听窗口变化
+          window.addEventListener('resize', forceFullscreen)
+          window.addEventListener('orientationchange', () => {
+            setTimeout(forceFullscreen, 100)
+          })
+        }
+        
+        // Android设备专用处理
+        if (isAndroid) {
+          document.documentElement.classList.add('android-device')
+          
+          // Android响应式优化
+          const optimizeAndroid = () => {
+            const screenWidth = window.screen.width
+            const viewportWidth = window.innerWidth
+            const devicePixelRatio = window.devicePixelRatio || 1
+            
+            // 动态调整基础字体大小
+            const baseSize = Math.max(14, Math.min(18, screenWidth / 25))
+            document.documentElement.style.fontSize = baseSize + 'px'
+            
+            // 设置最小高度
+            document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px')
+            
+            console.log('📱 Android优化完成', {
+              screenWidth,
+              viewportWidth,
+              devicePixelRatio,
+              baseSize: baseSize + 'px'
+            })
+          }
+          
+          optimizeAndroid()
+          window.addEventListener('resize', optimizeAndroid)
+          window.addEventListener('orientationchange', () => {
+            setTimeout(optimizeAndroid, 200)
+          })
         }
         
         console.log('🚀 WebApp模式初始化完成', {

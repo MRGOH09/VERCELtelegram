@@ -4,13 +4,18 @@
   "description": "34天财务管理挑战，养成理财好习惯",
   "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
   "theme_color": "#1677ff",
   "background_color": "#ffffff",
   "categories": ["finance", "lifestyle", "productivity"],
   "lang": "zh-CN",
   "dir": "ltr",
   "scope": "/",
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
   "icons": [
     {
       "src": "/icons/icon-72.png",
