@@ -12,7 +12,7 @@ module.exports = {
         success: '#52c41a',
         warning: '#faad14',
         danger: '#f5222d',
-        gray: '#8c8c8c',
+        // 移除gray覆盖，保持Tailwind默认灰色调色板
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
