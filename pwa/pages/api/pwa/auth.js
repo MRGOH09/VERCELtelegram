@@ -42,10 +42,17 @@ export default async function handler(req, res) {
     console.log(`[PWA Auth] JWT Token生成成功`)
     
     // 设置HttpOnly Cookie
+    const isProduction = process.env.NODE_ENV === 'production'
+    const cookieOptions = isProduction 
+      ? 'Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000'
+      : 'Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000'
+      
     res.setHeader('Set-Cookie', [
-      `auth_token=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=2592000`, // 30天
-      `user_name=${encodeURIComponent(user.name)}; Path=/; SameSite=Strict; Max-Age=2592000`
+      `auth_token=${token}; ${cookieOptions}`,
+      `user_name=${encodeURIComponent(user.name)}; Path=/; SameSite=Lax; Max-Age=2592000`
     ])
+    
+    console.log(`[PWA Auth] Cookie options: ${cookieOptions}`)
     
     console.log(`[PWA Auth] Cookie设置成功，重定向到首页`)
     
