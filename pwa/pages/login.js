@@ -74,11 +74,16 @@ export default function LoginPage() {
   
   if (checking) {
     return (
-      <Layout title="登录 - Learner Club">
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner size="large" />
-        </div>
-      </Layout>
+      <WebAppWrapper>
+        <Layout title="登录 - Learner Club">
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">正在检查登录状态...</p>
+            </div>
+          </div>
+        </Layout>
+      </WebAppWrapper>
     )
   }
   
@@ -117,7 +122,7 @@ export default function LoginPage() {
           </div>
           
           {/* 登录卡片 */}
-          <Card>
+          <ModernCard>
             <div className="text-center">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 使用Telegram账号登录
@@ -184,7 +189,7 @@ export default function LoginPage() {
                 </p>
               </div>
             </div>
-          </Card>
+          </ModernCard>
           
           {/* 功能介绍 */}
           <div className="mt-8 space-y-3">
