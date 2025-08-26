@@ -741,7 +741,7 @@ function EnhancedExpenseChart({ data }) {
 
 // 百分比专用圆环图组件
 function PercentageDonutChart({ data, dominantCategory, maxPercentage }) {
-  const [hoveredIndex, setHoveredIndex] = React.useState(null)
+  const [hoveredIndex, setHoveredIndex] = useState(null)
   
   const radius = 80
   const strokeWidth = 20
