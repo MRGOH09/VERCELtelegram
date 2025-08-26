@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } from '../components/ModernCard'
-import { LoadingPage } from '../components/LoadingSpinner'
+import { SmoothTransition, useSmartPreload, PageSkeleton } from '../components/SmoothTransition'
 import InstallGuide, { InstallBanner } from '../components/InstallGuide'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 
@@ -13,9 +13,17 @@ export default function ModernDashboard() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [showInstallGuide, setShowInstallGuide] = useState(false)
+  const [showSkeleton, setShowSkeleton] = useState(false)
+  const { preloadPage } = useSmartPreload()
   
   useEffect(() => {
     checkAuthAndLoadDashboard()
+    
+    // 预加载相关页面数据
+    setTimeout(() => {
+      preloadPage('profile')
+      preloadPage('history')
+    }, 2000)
   }, [])
   
   const checkAuthAndLoadDashboard = async () => {
@@ -36,12 +44,18 @@ export default function ModernDashboard() {
     try {
       if (isRefresh) {
         setRefreshing(true)
+        // 刷新时显示骨架屏而不是loading页面
+        setShowSkeleton(true)
+        // 强制获取最新数据
+        const result = await PWAClient.getFreshDashboard()
+        setData(result)
       } else {
         setLoading(true)
+        // 首次加载时使用缓存数据
+        const result = await PWAClient.getDashboard()
+        setData(result)
       }
       
-      const result = await PWAClient.getDashboard()
-      setData(result)
       setError('')
       
     } catch (error) {
@@ -56,6 +70,7 @@ export default function ModernDashboard() {
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setShowSkeleton(false)
     }
   }
   
@@ -63,8 +78,22 @@ export default function ModernDashboard() {
     loadDashboard(true)
   }
   
-  if (loading) {
-    return <LoadingPage message="正在加载您的财务数据..." />
+  // 使用骨架屏替代传统loading页面
+  if (loading && !data) {
+    return (
+      <Layout title="首页 - Learner Club">
+        <PageSkeleton type="dashboard" />
+      </Layout>
+    )
+  }
+  
+  // 刷新时显示骨架屏覆盖
+  if (showSkeleton) {
+    return (
+      <Layout title="首页 - Learner Club">
+        <PageSkeleton type="dashboard" />
+      </Layout>
+    )
   }
   
   if (error && !data) {
@@ -91,7 +120,8 @@ export default function ModernDashboard() {
   
   return (
     <Layout title="首页 - Learner Club">
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <SmoothTransition>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         
         {/* 安装引导横幅 */}
         <InstallBanner 
@@ -130,7 +160,8 @@ export default function ModernDashboard() {
           <InstallGuide onClose={() => setShowInstallGuide(false)} />
         )}
         
-      </div>
+        </div>
+      </SmoothTransition>
     </Layout>
   )
 }

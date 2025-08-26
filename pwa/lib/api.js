@@ -1,4 +1,6 @@
-// PWA API客户端
+import { smartCache } from './cache.js'
+
+// PWA API客户端 - 带智能缓存
 class PWAClient {
   getBaseURL() {
     if (process.env.NODE_ENV === 'development') {
@@ -8,6 +10,16 @@ class PWAClient {
   }
   
   async call(endpoint, action, params = {}, options = {}) {
+    const { useCache = true, cacheTTL, forceRefresh = false } = options
+    
+    // 检查缓存（除非强制刷新）
+    if (useCache && !forceRefresh) {
+      const cachedData = smartCache.get(endpoint, action, params, cacheTTL)
+      if (cachedData) {
+        return cachedData
+      }
+    }
+    
     try {
       const response = await fetch(`${this.getBaseURL()}/api/pwa/${endpoint}`, {
         method: 'POST',
@@ -41,27 +53,57 @@ class PWAClient {
         throw new Error(data.error)
       }
       
+      // 缓存成功响应
+      if (useCache && data) {
+        smartCache.set(endpoint, action, params, data)
+      }
+      
       return data
     } catch (error) {
       console.error(`API call failed: ${endpoint}/${action}`, error)
       throw error
     }
   }
+
+  // 带缓存的快速调用
+  async cachedCall(endpoint, action, params = {}, cacheTTL = 60000) {
+    return this.call(endpoint, action, params, { 
+      useCache: true, 
+      cacheTTL 
+    })
+  }
+
+  // 强制刷新调用
+  async freshCall(endpoint, action, params = {}) {
+    return this.call(endpoint, action, params, { 
+      forceRefresh: true 
+    })
+  }
   
-  // 获取仪表板数据
+  // 获取仪表板数据 (5分钟缓存)
   async getDashboard() {
-    return this.call('data', 'dashboard')
+    return this.cachedCall('data', 'dashboard', {}, 5 * 60 * 1000)
+  }
+
+  // 获取最新仪表板数据 (强制刷新)
+  async getFreshDashboard() {
+    return this.freshCall('data', 'dashboard')
   }
   
-  // 获取个人资料
+  // 获取个人资料 (10分钟缓存)
   async getProfile() {
-    return this.call('data', 'profile')
+    return this.cachedCall('data', 'profile', {}, 10 * 60 * 1000)
+  }
+
+  // 获取最近记录 (2分钟缓存)
+  async getRecentRecords() {
+    return this.cachedCall('data', 'recent', {}, 2 * 60 * 1000)
   }
   
-  // 检查认证状态 - 不自动跳转
+  // 检查认证状态 (30秒缓存)
   async checkAuth() {
     try {
-      return await this.call('data', 'check-auth', {}, { skipRedirect: true })
+      return await this.cachedCall('data', 'check-auth', {}, 30 * 1000, { skipRedirect: true })
     } catch (error) {
       return { authenticated: false }
     }
