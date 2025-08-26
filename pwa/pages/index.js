@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import Card, { StatCard, ProgressCard } from '../components/Card'
 import { LoadingPage, LoadingCard } from '../components/LoadingSpinner'
+import InstallGuide, { InstallBanner } from '../components/InstallGuide'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 
 export default function DashboardPage() {
@@ -11,6 +12,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [showInstallGuide, setShowInstallGuide] = useState(false)
   
   useEffect(() => {
     checkAuthAndLoadDashboard()
@@ -93,6 +95,12 @@ export default function DashboardPage() {
   
   return (
     <Layout title="首页 - Learner Club">
+      {/* 安装引导横幅 */}
+      <InstallBanner 
+        onShow={() => setShowInstallGuide(true)}
+        onDismiss={() => {}} 
+      />
+      
       {/* 用户信息头部 */}
       <UserHeader 
         user={data?.user} 
@@ -114,6 +122,11 @@ export default function DashboardPage() {
       <div className="px-4 mt-6 mb-8">
         <RecentRecords records={data?.recent} />
       </div>
+      
+      {/* 安装引导弹窗 */}
+      {showInstallGuide && (
+        <InstallGuide onClose={() => setShowInstallGuide(false)} />
+      )}
     </Layout>
   )
 }
