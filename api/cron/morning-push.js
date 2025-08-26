@@ -14,7 +14,7 @@ import { addChallengeMessageToMorningRank, isInSeptemberChallenge } from '../../
 export default async function handler(req, res) {
   try {
     const now = new Date()
-    console.info(`[morning-push] 早上8点：执行晨间推送，时间：${now.toISOString()}`)
+    console.info(`[morning-push] 早上10点：执行晨间推送，时间：${now.toISOString()}`)
     
     const results = {
       action: 'morning-push',
@@ -68,7 +68,7 @@ async function sendAdminReport(results, now) {
     const date = now.toISOString().slice(0, 10)
     const time = now.toISOString().slice(11, 16)
     
-    let report = `🌅 晨间推送报告 (8:00 AM)\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
+    let report = `🌅 晨间推送报告 (10:00 AM)\n\n📅 日期：${date}\n⏰ 时间：${time}\n\n`
     report += `📊 个人报告：成功 ${results.personal?.sent || 0}，失败 ${results.personal?.failed || 0}\n`
     report += `🏢 分行排名：成功 ${results.branch?.sent || 0}，失败 ${results.branch?.failed || 0}\n`
     report += `📱 Web推送：成功 ${results.webPush?.sent || 0}，失败 ${results.webPush?.failed || 0}\n`
