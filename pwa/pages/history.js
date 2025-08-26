@@ -280,7 +280,7 @@ function MonthlyStats({ stats }) {
 function RecordsList({ records, onDeleteRecord }) {
   // 按日期分组记录
   const groupedRecords = records.reduce((groups, record) => {
-    const date = formatDate(record.date)
+    const date = formatDate(record.ymd || record.date)
     if (!groups[date]) {
       groups[date] = []
     }
@@ -322,7 +322,7 @@ function RecordsList({ records, onDeleteRecord }) {
 
 // 单个记录项组件
 function RecordItem({ record, onDelete }) {
-  const categoryInfo = getCategoryInfo(record.category, record.group)
+  const categoryInfo = getCategoryInfo(record.category_code, record.category_group)
   const isExpense = record.amount < 0
 
   return (
@@ -339,7 +339,7 @@ function RecordItem({ record, onDelete }) {
         </p>
         <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
           <span className="bg-gray-200 px-2 py-0.5 rounded text-xs font-medium">
-            {record.group}类
+            {record.category_group}类
           </span>
           {record.note && (
             <>
