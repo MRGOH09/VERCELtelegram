@@ -97,13 +97,17 @@ class PWAClient {
 
   // 获取最近记录 (2分钟缓存)
   async getRecentRecords() {
-    return this.cachedCall('data', 'recent', {}, 2 * 60 * 1000)
+    return this.cachedCall('data', 'history', { limit: 10, offset: 0 }, 2 * 60 * 1000)
   }
   
   // 检查认证状态 (30秒缓存)
   async checkAuth() {
     try {
-      return await this.cachedCall('data', 'check-auth', {}, 30 * 1000, { skipRedirect: true })
+      return await this.call('data', 'check-auth', {}, { 
+        useCache: true, 
+        cacheTTL: 30 * 1000,
+        skipRedirect: true 
+      })
     } catch (error) {
       return { authenticated: false }
     }
