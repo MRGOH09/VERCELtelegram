@@ -419,10 +419,11 @@ export default async function handler(req, res) {
       
       console.log('📱 生成PWA登录链接:', loginUrl)
       
-      // 单一按钮方式，引导用户长按
+      // 提供URL按钮和提示按钮
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🌐 长按在Safari中打开', url: loginUrl }]
+          [{ text: '🌐 长按在Safari中打开', url: loginUrl }],
+          [{ text: '❓ 没有弹出菜单？点这里', callback_data: `pwa_help:${from.id}` }]
         ]
       }
       
@@ -473,10 +474,11 @@ export default async function handler(req, res) {
         
         console.log('📱 生成PWA登录链接:', loginUrl)
         
-        // 单一按钮方式，引导用户长按
+        // 提供URL按钮和提示按钮
         const keyboard = {
           inline_keyboard: [
-            [{ text: '🌐 长按在Safari中打开', url: loginUrl }]
+            [{ text: '🌐 长按在Safari中打开', url: loginUrl }],
+            [{ text: '❓ 没有弹出菜单？点这里', callback_data: `pwa_help:${from.id}` }]
           ]
         }
         
@@ -1268,6 +1270,36 @@ export async function handleCallback(update, req, res) {
     const data = cq.data || ''
     // 先应答，避免按钮卡转圈
     try { await answerCallbackQuery(cq.id) } catch {}
+    
+    // 处理PWA长按提示
+    if (data.startsWith('pwa_help:')) {
+      const userId = data.replace('pwa_help:', '')
+      
+      // 重新生成登录URL以防过期
+      const pwaDomain = process.env.PWA_DOMAIN || 'https://verce-ltelegram.vercel.app'
+      const authParams = `id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+      const loginUrl = `${pwaDomain}/api/pwa/auth?${authParams}`
+      
+      const helpMessage = `📱 如何正确打开PWA？
+
+🎯 必须长按按钮才能在Safari中打开：
+
+1️⃣ **长按**"长按在Safari中打开"按钮（不要直接点击）
+2️⃣ 等待弹出菜单出现  
+3️⃣ 选择"在Safari中打开"或"Open in Safari"
+4️⃣ 成功跳转到Safari后登录
+
+❌ 如果直接点击按钮，会在Telegram内置浏览器打开，PWA功能不可用
+
+🔗 手动方式：复制下面链接到Safari地址栏
+\`${loginUrl}\`
+
+💡 成功标志：能在Safari中看到财务数据页面`
+      
+      await sendTelegramMessage(chatId, helpMessage, { parse_mode: 'Markdown' })
+      await answerCallbackQuery(cq.id, '💡 长按提示已发送')
+      return res.status(200).json({ ok: true })
+    }
     
     
     const userId = await getOrCreateUserByTelegram(from, chatId)
