@@ -60,7 +60,7 @@ self.addEventListener('notificationclick', function(event) {
 
   console.log('点击动作:', clickAction, '数据:', clickData)
 
-  // 根据通知类型决定打开的页面
+  // 根据通知类型和动作决定打开的页面
   let targetUrl = '/'
   
   if (clickData.type === 'morning-report') {
@@ -71,6 +71,13 @@ self.addEventListener('notificationclick', function(event) {
     targetUrl = '/profile' // 排名更新 → 个人资料
   } else if (clickData.type === 'test') {
     targetUrl = '/settings' // 测试通知 → 设置页面
+  } else if (clickData.type === 'personalized-reminder') {
+    // 个性化提醒根据动作类型决定跳转
+    if (clickAction === 'record') {
+      targetUrl = '/add-record' // 记录动作 → 添加记录页面
+    } else {
+      targetUrl = '/profile' // 其他动作 → 个人资料页面
+    }
   }
 
   event.waitUntil(
