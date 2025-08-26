@@ -10,9 +10,17 @@ export default async function handler(req, res) {
     const { id, first_name, username, photo_url, auth_date, hash } = req.query
     
     console.log(`[PWA Auth] 收到认证请求: telegram_id=${id}, name=${first_name}`)
+    console.log(`[PWA Auth] 环境变量检查:`, {
+      hasJWT: !!process.env.JWT_SECRET,
+      hasBotToken: !!process.env.TELEGRAM_BOT_TOKEN,
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY,
+      nodeEnv: process.env.NODE_ENV
+    })
     
     // 如果没有hash，说明是从Bot直接跳转的，跳过hash验证
     if (hash) {
+      console.log(`[PWA Auth] 开始hash验证，hash=${hash}`)
       // 验证Telegram认证数据
       if (!verifyTelegramAuth(req.query, process.env.TELEGRAM_BOT_TOKEN)) {
         console.error(`[PWA Auth] Telegram认证验证失败`)
