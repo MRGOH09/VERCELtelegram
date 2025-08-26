@@ -197,36 +197,43 @@ export function TelegramJumpBanner({ onShow, onDismiss, forceShow = false }) {
   // 强制显示模式（用于测试）
   if (forceShow && !dismissed) {
     console.log('🚀 TelegramJumpBanner 强制显示模式')
-  } else if (dismissed || browserInfo?.device !== 'android' || browserInfo?.browser !== 'telegram') {
+  } else if (dismissed || browserInfo?.browser !== 'telegram') {
     console.log('❌ TelegramJumpBanner 隐藏原因:', {
       dismissed,
       device: browserInfo?.device,
       browser: browserInfo?.browser,
       forceShow,
-      shouldShow: browserInfo?.device === 'android' && browserInfo?.browser === 'telegram'
+      shouldShow: browserInfo?.browser === 'telegram'
     })
     return null
   }
   
   console.log('✅ TelegramJumpBanner 显示条件满足')
   
+  const isIOS = browserInfo?.device === 'ios'
+  const isAndroid = browserInfo?.device === 'android'
+  
   return (
-    <div className="bg-orange-500 text-white px-4 py-3 text-sm">
+    <div className="bg-blue-500 text-white px-4 py-3 text-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <span className="mr-2">🚀</span>
-          <span>在Chrome中获得更好体验</span>
+          <span className="mr-2">📱</span>
+          <span>
+            {isIOS && '点击这里长按链接 → Safari浏览器'}
+            {isAndroid && 'Android用户按这里 → Chrome浏览器'}
+            {!isIOS && !isAndroid && '在浏览器中获得更好体验'}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onShow}
-            className="text-white underline hover:no-underline"
+            className="text-white underline hover:no-underline font-medium"
           >
-            跳转
+            按这里
           </button>
           <button
             onClick={handleDismiss}
-            className="text-white hover:text-orange-200"
+            className="text-white hover:text-blue-200"
           >
             ✕
           </button>

@@ -95,7 +95,7 @@ export default function LoginPage() {
         {/* Telegram跳转横幅 */}
         <TelegramJumpBanner 
           onShow={() => setShowTelegramJump(true)}
-          onDismiss={() => {}} 
+          onDismiss={() => {}}
         />
         
       <div className="min-h-screen flex items-center justify-center p-4">

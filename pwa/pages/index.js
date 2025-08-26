@@ -126,7 +126,6 @@ export default function ModernDashboard() {
         <TelegramJumpBanner 
           onShow={() => setShowTelegramJump(true)}
           onDismiss={() => {}}
-          forceShow={true} // 临时强制显示用于调试
         />
         
       <SmoothTransition>
