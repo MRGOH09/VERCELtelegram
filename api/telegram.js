@@ -419,23 +419,27 @@ export default async function handler(req, res) {
       
       console.log('📱 生成PWA登录链接:', loginUrl)
       
-      // 使用特殊格式强制在外部浏览器打开
+      // 多种方法尝试外部浏览器打开
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🌐 在Safari中打开登录', url: loginUrl }],
-          [{ text: '📱 复制链接手动打开', callback_data: `copy_pwa_login:${from.id}` }]
+          [{ text: '🌐 在Safari中打开', url: loginUrl }],
+          [{ text: '📋 复制链接', callback_data: `copy_pwa_login:${from.id}` }],
+          [{ text: '📱 查看详细步骤', callback_data: `pwa_guide:${from.id}` }]
         ]
       }
       
-      const instructions = `🌐 PWA快速登录
+      const instructions = `🌐 PWA登录链接已生成
 
-⚠️ 重要：必须在Safari浏览器中打开
+⚠️ 重要提醒：由于Telegram安全策略，链接可能在内置浏览器中打开
 
-📱 选择方式：
-1️⃣ 点击"在Safari中打开登录"按钮
-2️⃣ 点击"复制链接"然后手动在Safari中打开
+🎯 推荐操作方式：
+1️⃣ 点击"复制链接"按钮获取链接
+2️⃣ 退出Telegram，打开Safari
+3️⃣ 粘贴链接到Safari地址栏访问
 
-✨ 登录后可安装PWA到桌面，体验原生APP效果！`
+💡 或者长按上方"在Safari中打开"按钮，选择"在Safari中打开"
+
+✨ 成功登录后可将PWA安装到桌面！`
       
       await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
@@ -1295,6 +1299,40 @@ export async function handleCallback(update, req, res) {
         { parse_mode: 'Markdown' })
       
       await answerCallbackQuery(cq.id, '✅ 链接已发送，请在Safari中打开')
+      return res.status(200).json({ ok: true })
+    }
+    
+    // 处理PWA详细步骤指导
+    if (data.startsWith('pwa_guide:')) {
+      const userId = data.replace('pwa_guide:', '')
+      
+      const detailedGuide = `📱 PWA登录详细步骤指南
+
+🎯 方法一：长按按钮法（推荐）
+1️⃣ 长按上面的"在Safari中打开"按钮
+2️⃣ 在弹出菜单中选择"在Safari中打开"
+3️⃣ 如果成功跳转到Safari，继续登录
+
+🎯 方法二：复制粘贴法（100%有效）
+1️⃣ 点击"复制链接"按钮
+2️⃣ 按Home键或滑动退出Telegram
+3️⃣ 打开Safari浏览器
+4️⃣ 在地址栏长按，选择"粘贴并前往"
+
+🎯 方法三：分享法
+1️⃣ 长按登录链接消息
+2️⃣ 选择"转发" → "分享"
+3️⃣ 选择"在Safari中打开"
+
+⚠️ 为什么必须用Safari？
+• Telegram内置浏览器不支持PWA安装
+• 只有Safari能正确设置登录Cookie
+• PWA功能需要原生浏览器支持
+
+✅ 成功标志：看到财务数据页面且能安装到桌面`
+      
+      await sendTelegramMessage(chatId, detailedGuide)
+      await answerCallbackQuery(cq.id, '📖 详细步骤已发送')
       return res.status(200).json({ ok: true })
     }
     
