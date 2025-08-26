@@ -422,7 +422,7 @@ export default async function handler(req, res) {
       // 单一按钮方式，引导用户长按
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🌐 在Safari中打开', url: loginUrl }]
+          [{ text: '🌐 长按在Safari中打开', url: loginUrl }]
         ]
       }
       
@@ -476,7 +476,7 @@ export default async function handler(req, res) {
         // 单一按钮方式，引导用户长按
         const keyboard = {
           inline_keyboard: [
-            [{ text: '🌐 在Safari中打开', url: loginUrl }]
+            [{ text: '🌐 长按在Safari中打开', url: loginUrl }]
           ]
         }
         
