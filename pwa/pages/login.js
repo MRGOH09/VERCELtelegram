@@ -47,7 +47,7 @@ export default function LoginPage() {
     const script = document.createElement('script')
     script.id = 'telegram-widget-script'
     script.src = 'https://telegram.org/js/telegram-widget.js?22'
-    script.setAttribute('data-telegram-login', process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'your_bot_username')
+    script.setAttribute('data-telegram-login', process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'LeanerClubEXEbot')
     script.setAttribute('data-size', 'large')
     script.setAttribute('data-auth-url', `${typeof window !== 'undefined' ? window.location.origin : ''}/api/pwa/auth`)
     script.setAttribute('data-request-access', 'write')
