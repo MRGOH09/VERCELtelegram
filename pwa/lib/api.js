@@ -7,7 +7,7 @@ class PWAClient {
     return typeof window !== 'undefined' ? window.location.origin : ''
   }
   
-  async call(endpoint, action, params = {}) {
+  async call(endpoint, action, params = {}, options = {}) {
     try {
       const response = await fetch(`${this.getBaseURL()}/api/pwa/${endpoint}`, {
         method: 'POST',
@@ -22,11 +22,14 @@ class PWAClient {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         
-        // 401错误跳转到登录页
-        if (response.status === 401 && typeof window !== 'undefined') {
-          console.log('用户未认证，跳转到登录页')
-          window.location.href = '/login'
-          return
+        // 401错误处理 - 除非明确禁用跳转
+        if (response.status === 401 && typeof window !== 'undefined' && !options.skipRedirect) {
+          // 避免在登录页重复跳转
+          if (!window.location.pathname.includes('/login')) {
+            console.log('用户未认证，跳转到登录页')
+            window.location.href = '/login'
+            return
+          }
         }
         
         throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
@@ -55,10 +58,10 @@ class PWAClient {
     return this.call('data', 'profile')
   }
   
-  // 检查认证状态
+  // 检查认证状态 - 不自动跳转
   async checkAuth() {
     try {
-      return await this.call('data', 'check-auth')
+      return await this.call('data', 'check-auth', {}, { skipRedirect: true })
     } catch (error) {
       return { authenticated: false }
     }

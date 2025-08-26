@@ -13,8 +13,24 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   
   useEffect(() => {
-    loadDashboard()
+    checkAuthAndLoadDashboard()
   }, [])
+  
+  const checkAuthAndLoadDashboard = async () => {
+    try {
+      // 先检查认证状态
+      const authResult = await PWAClient.checkAuth()
+      if (!authResult.authenticated) {
+        router.replace('/login')
+        return
+      }
+      // 认证成功后加载仪表板
+      loadDashboard()
+    } catch (error) {
+      console.error('认证检查失败:', error)
+      router.replace('/login')
+    }
+  }
   
   const loadDashboard = async (isRefresh = false) => {
     try {
