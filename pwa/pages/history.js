@@ -5,7 +5,7 @@ import ModernCard from '../components/ModernCard'
 import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
-import { formatDisplayDate } from '../../lib/date-utils'
+import { formatDisplayDate } from '../../../lib/date-utils'
 
 export default function HistoryPage() {
   const router = useRouter()

@@ -247,6 +247,8 @@ async function handleTestPushNotification(req, res) {
 // 获取用户ID的辅助函数
 async function getUserIdFromCookies(req) {
   const cookies = req.headers.cookie
+  console.log(`[PWA Auth] 原始cookies: ${cookies || 'no cookies'}`)
+  
   let userId = null
   
   if (cookies) {
@@ -256,17 +258,31 @@ async function getUserIdFromCookies(req) {
       cookieObj[key] = value
     })
     
+    console.log(`[PWA Auth] 解析后的cookies:`, cookieObj)
+    
     if (cookieObj.user_name) {
+      const decodedUserName = decodeURIComponent(cookieObj.user_name)
+      console.log(`[PWA Auth] 查找用户: ${decodedUserName}`)
+      
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('id')
-        .eq('name', decodeURIComponent(cookieObj.user_name))
+        .eq('name', decodedUserName)
         .single()
       
-      if (!userError && user) {
+      if (userError) {
+        console.log(`[PWA Auth] 用户查询失败:`, userError)
+      } else if (user) {
         userId = user.id
+        console.log(`[PWA Auth] 用户ID找到: ${userId}`)
+      } else {
+        console.log(`[PWA Auth] 用户不存在: ${decodedUserName}`)
       }
+    } else {
+      console.log(`[PWA Auth] 缺少user_name cookie`)
     }
+  } else {
+    console.log(`[PWA Auth] 没有cookies`)
   }
   
   return userId
