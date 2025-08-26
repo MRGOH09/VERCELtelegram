@@ -666,23 +666,31 @@ function EnhancedExpenseChart({ data }) {
     )
   }
   
+  // 找出最大占比类别
+  const maxPercentage = Math.max(percentage_a, percentage_b, percentage_c)
+  const dominantCategory = percentage_a === maxPercentage ? '开销' : 
+                          percentage_b === maxPercentage ? '学习' : '储蓄'
+  
   // 为圆环图准备数据，强调百分比
   const chartData = [
     {
-      name: `开销 ${percentage_a}%`,
+      name: '开销',
       value: spent_a,
+      percentage: percentage_a,
       color: percentage_a > 60 ? '#EF4444' : '#3B82F6',
       icon: '🛒'
     },
     {
-      name: `学习 ${percentage_b}%`,
+      name: '学习',
       value: spent_b,
+      percentage: percentage_b,
       color: '#10B981',
       icon: '📚'
     },
     {
-      name: `储蓄 ${percentage_c}%`, 
+      name: '储蓄', 
       value: spent_c,
+      percentage: percentage_c,
       color: percentage_c < 20 ? '#F59E0B' : '#10B981',
       icon: '💎'
     }
@@ -697,12 +705,14 @@ function EnhancedExpenseChart({ data }) {
         </h3>
       </div>
       
-      {/* 使用DonutChart但自定义中心文本 */}
-      <DonutChart 
-        data={chartData}
-        total={total}
-        centerText=""
-      />
+      {/* 自定义百分比圆环图 */}
+      <div className="relative">
+        <PercentageDonutChart 
+          data={chartData}
+          dominantCategory={dominantCategory}
+          maxPercentage={maxPercentage}
+        />
+      </div>
       
       {/* 占比分析建议 */}
       <div className="mt-6 p-4 bg-blue-50 rounded-xl">
@@ -726,5 +736,98 @@ function EnhancedExpenseChart({ data }) {
         </div>
       </div>
     </ModernCard>
+  )
+}
+
+// 百分比专用圆环图组件
+function PercentageDonutChart({ data, dominantCategory, maxPercentage }) {
+  const [hoveredIndex, setHoveredIndex] = React.useState(null)
+  
+  const radius = 80
+  const strokeWidth = 20
+  const center = 100
+  const circumference = 2 * Math.PI * radius
+  
+  let cumulativePercentage = 0
+  const total = data.reduce((sum, item) => sum + item.value, 0)
+  
+  return (
+    <div>
+      <div className="flex items-center justify-center mb-6">
+        <div className="relative">
+          {/* SVG圆环 */}
+          <svg width="200" height="200" className="transform -rotate-90">
+            {/* 背景圆环 */}
+            <circle
+              cx={center}
+              cy={center}
+              r={radius}
+              fill="none"
+              stroke="#f3f4f6"
+              strokeWidth={strokeWidth}
+            />
+            
+            {/* 数据圆环 */}
+            {data.map((item, index) => {
+              const percentage = total > 0 ? (item.value / total) * 100 : 0
+              const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`
+              const strokeDashoffset = -((cumulativePercentage / 100) * circumference)
+              
+              cumulativePercentage += percentage
+              
+              return (
+                <circle
+                  key={index}
+                  cx={center}
+                  cy={center}
+                  r={radius}
+                  fill="none"
+                  stroke={item.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={strokeDasharray}
+                  strokeDashoffset={strokeDashoffset}
+                  className={`transition-all duration-300 ${hoveredIndex === index ? 'opacity-80' : ''}`}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                />
+              )
+            })}
+          </svg>
+          
+          {/* 中心显示百分比 */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900">
+                {Math.round(maxPercentage)}%
+              </div>
+              <div className="text-sm text-gray-500">{dominantCategory}占比</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* 图例 - 显示所有类别百分比 */}
+      <div className="grid grid-cols-3 gap-4">
+        {data.map((item, index) => (
+          <div 
+            key={index}
+            className={`text-center p-3 rounded-lg transition-all duration-200 cursor-pointer ${
+              hoveredIndex === index ? 'bg-gray-50 scale-105' : 'hover:bg-gray-50'
+            }`}
+            onMouseEnter={() => setHoveredIndex(index)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          >
+            <div className="text-2xl mb-1">{item.icon}</div>
+            <div className="text-xs text-gray-600">{item.name}</div>
+            <div className="text-xl font-bold" style={{ color: item.color }}>
+              {item.percentage}%
+            </div>
+            <div className="text-xs text-gray-500">
+              RM {item.value.toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
