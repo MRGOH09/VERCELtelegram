@@ -419,19 +419,23 @@ export default async function handler(req, res) {
       
       console.log('📱 生成PWA登录链接:', loginUrl)
       
-      // 单一按钮方式，引导用户长按
+      // 双平台按钮方式
       const keyboard = {
         inline_keyboard: [
-          [{ text: '🌐 长按在Safari中打开', url: loginUrl }]
+          [
+            { text: '🍎 iPhone用户长按链接', url: loginUrl },
+            { text: '🤖 Android用户点击链接', url: loginUrl }
+          ]
         ]
       }
       
       const instructions = `🌐 PWA登录链接已准备好
 
-📱 操作方式：
-**长按**下方按钮，在弹出菜单中选择"在Safari中打开"
+📱 根据你的设备选择操作：
 
-⚠️ 注意：必须长按按钮，不要直接点击
+🍎 **iPhone用户**：长按左边按钮 → 选择"在Safari中打开"
+🤖 **Android用户**：直接点击右边按钮 → 会在Chrome中打开
+
 💡 成功跳转后即可登录并安装PWA到桌面`
       
       await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
