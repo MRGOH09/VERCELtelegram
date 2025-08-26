@@ -210,19 +210,20 @@ export function TelegramJumpBanner({ onShow, onDismiss, forceShow = false }) {
   
   console.log('✅ TelegramJumpBanner 显示条件满足')
   
-  const isIOS = browserInfo?.device === 'ios'
-  const isAndroid = browserInfo?.device === 'android'
-  
   return (
-    <div className="bg-blue-500 text-white px-4 py-3 text-sm">
+    <div className="bg-blue-500 text-white px-3 py-3 text-sm">
       <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <span className="mr-2">📱</span>
-          <span>
-            {isIOS && '点击这里长按链接 → Safari浏览器'}
-            {isAndroid && 'Android用户按这里 → Chrome浏览器'}
-            {!isIOS && !isAndroid && '在浏览器中获得更好体验'}
-          </span>
+        <div className="flex-1 mr-2">
+          <div className="flex flex-col space-y-1">
+            <div className="flex items-center">
+              <span className="mr-2">🍎</span>
+              <span>iPhone用户长按链接</span>
+            </div>
+            <div className="flex items-center">
+              <span className="mr-2">🤖</span>
+              <span>Android用户按这里</span>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
