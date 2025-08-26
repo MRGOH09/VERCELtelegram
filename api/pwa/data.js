@@ -285,21 +285,23 @@ async function handleGetHistory(req, res, params) {
     const { month, limit = 20, offset = 0 } = params
     console.log(`[PWA History] 查询参数 - userId: ${userId}, month: ${month}, limit: ${limit}, offset: ${offset}`)
 
-    // 构建查询
+    // 完全模仿Telegram的查询逻辑
     let query = supabase
       .from('records')
-      .select('*')
+      .select('id,ymd,category_group,category_code,amount,note,created_at')
       .eq('user_id', userId)
       .eq('is_voided', false)
       .order('ymd', { ascending: false })
-      .range(offset, offset + limit - 1)
 
-    // 如果指定了月份，添加月份过滤
+    // 如果指定了月份，添加月份过滤 (模仿Telegram逻辑)
     if (month) {
       const { startDate, endDate } = getMonthRange(month)
-      console.log(`[PWA History] 月份过滤: ${startDate} 至 ${endDate}`)
+      console.log(`[PWA History] Telegram风格月份过滤: ${startDate} 至 ${endDate}`)
       query = query.gte('ymd', startDate).lte('ymd', endDate)
     }
+    
+    // 分页处理
+    query = query.range(offset, offset + limit - 1)
 
     const { data: records, error } = await query
 
