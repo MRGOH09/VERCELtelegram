@@ -5,6 +5,7 @@ import ModernCard from '../components/ModernCard'
 import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
+import { formatDisplayDate } from '../../lib/date-utils'
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -34,14 +35,23 @@ export default function HistoryPage() {
         offset 
       })
       
-      if (append) {
-        setRecords(prev => [...prev, ...result.records])
-      } else {
-        setRecords(result.records)
-        setStats(result.stats)
+      // 防御性检查 - 确保返回数据格式正确
+      if (!result || typeof result !== 'object') {
+        throw new Error('API返回数据格式错误')
       }
       
-      setHasMore(result.records.length === 20) // 如果返回20条记录，可能还有更多
+      console.log('[History] API返回数据:', result.debug || 'no debug info')
+      
+      const safeRecords = Array.isArray(result.records) ? result.records : []
+      
+      if (append) {
+        setRecords(prev => [...prev, ...safeRecords])
+      } else {
+        setRecords(safeRecords)
+        setStats(result.stats || {})
+      }
+      
+      setHasMore(safeRecords.length === 20) // 如果返回20条记录，可能还有更多
       setError('')
 
     } catch (error) {
@@ -278,9 +288,11 @@ function MonthlyStats({ stats }) {
 
 // 记录列表组件
 function RecordsList({ records, onDeleteRecord }) {
-  // 按日期分组记录
+  // 按日期分组记录 - 使用统一的日期格式化
   const groupedRecords = records.reduce((groups, record) => {
-    const date = formatDate(record.ymd || record.date)
+    // 优先使用ymd字段，回退到date字段，最后使用格式化函数
+    const dateStr = record.ymd || record.date
+    const date = dateStr ? formatDisplayDate(dateStr) : formatDate(dateStr)
     if (!groups[date]) {
       groups[date] = []
     }

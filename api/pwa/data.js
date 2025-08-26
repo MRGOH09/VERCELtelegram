@@ -1,4 +1,5 @@
 import supabase from '../../lib/supabase.js'
+import { getMonthRange, getLocalYMD } from '../../lib/date-utils.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -277,10 +278,12 @@ async function handleGetHistory(req, res, params) {
     const userId = await getUserIdFromCookies(req)
     
     if (!userId) {
+      console.log('[PWA History] 用户未认证')
       return res.status(401).json({ error: 'User not authenticated' })
     }
 
     const { month, limit = 20, offset = 0 } = params
+    console.log(`[PWA History] 查询参数 - userId: ${userId}, month: ${month}, limit: ${limit}, offset: ${offset}`)
 
     // 构建查询
     let query = supabase
@@ -293,8 +296,8 @@ async function handleGetHistory(req, res, params) {
 
     // 如果指定了月份，添加月份过滤
     if (month) {
-      const startDate = `${month}-01`
-      const endDate = `${month}-31` // 简化处理，对于所有月份都用31号
+      const { startDate, endDate } = getMonthRange(month)
+      console.log(`[PWA History] 月份过滤: ${startDate} 至 ${endDate}`)
       query = query.gte('ymd', startDate).lte('ymd', endDate)
     }
 
@@ -311,10 +314,18 @@ async function handleGetHistory(req, res, params) {
       totalSpent: records.reduce((sum, record) => sum + Math.abs(record.amount), 0)
     }
 
-    console.log(`✅ [PWA] 获取历史记录成功: ${records.length} 条记录`)
+    console.log(`✅ [PWA History] 查询成功 - 返回 ${records?.length || 0} 条记录`)
+    console.log(`[PWA History] 统计数据:`, stats)
+    
     return res.status(200).json({ 
       records: records || [],
-      stats
+      stats,
+      debug: {
+        userId,
+        month,
+        totalRecords: records?.length || 0,
+        queryRange: month ? `${month}-01 to ${month}-XX` : 'all'
+      }
     })
 
   } catch (error) {
@@ -347,7 +358,7 @@ async function handleAddRecord(req, res, params) {
         category_code: category,
         amount: -Math.abs(amount), // 支出为负数
         note: note || null,
-        ymd: date || new Date().toISOString().split('T')[0],
+        ymd: date || getLocalYMD(),
         created_at: new Date().toISOString()
       }])
       .select()

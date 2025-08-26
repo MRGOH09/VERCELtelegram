@@ -1,4 +1,5 @@
 import { smartCache } from './cache.js'
+import { useState } from 'react'
 
 // PWA API客户端 - 带智能缓存
 class PWAClient {
@@ -133,8 +134,8 @@ export default new PWAClient()
 
 // React Hook for API calls
 export function useApi() {
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   
   const call = async (apiCall) => {
     setLoading(true)
