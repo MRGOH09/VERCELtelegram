@@ -422,7 +422,7 @@ export default async function handler(req, res) {
         const keyboard = {
           inline_keyboard: [
             [{ text: '🌐 在Safari中打开登录', url: loginUrl }],
-            [{ text: '📱 复制链接手动打开', callback_data: `copy_login_url:${Buffer.from(loginUrl).toString('base64')}` }]
+            [{ text: '📱 复制链接手动打开', callback_data: `copy_pwa_login:${from.id}` }]
           ]
         }
         
@@ -1220,9 +1220,16 @@ export async function handleCallback(update, req, res) {
     try { await answerCallbackQuery(cq.id) } catch {}
     
     // 处理PWA登录链接复制
-    if (data.startsWith('copy_login_url:')) {
-      const base64Url = data.replace('copy_login_url:', '')
-      const loginUrl = Buffer.from(base64Url, 'base64').toString('utf8')
+    if (data.startsWith('copy_pwa_login:')) {
+      const userId = data.replace('copy_pwa_login:', '')
+      console.log(`[PWA Copy] 为用户 ${userId} 重新生成登录链接`)
+      
+      // 重新构建登录URL
+      const pwaDomain = process.env.PWA_DOMAIN || 'https://verce-ltelegram.vercel.app'
+      const authParams = `id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+      const loginUrl = `${pwaDomain}/api/pwa/auth?${authParams}`
+      
+      console.log(`[PWA Copy] 生成的登录链接: ${loginUrl}`)
       
       await sendTelegramMessage(chatId, 
         `🔗 PWA登录链接：\n\n\`${loginUrl}\`\n\n📱 复制上面的链接，然后在Safari浏览器中打开`, 
