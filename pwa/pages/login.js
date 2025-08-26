@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
-import Card from '../components/Card'
-import LoadingSpinner from '../components/LoadingSpinner'
+import ModernCard from '../components/ModernCard'
+import WebAppWrapper from '../components/WebAppWrapper'
 import { getBrowserInfo } from '../lib/browser-detection'
 import PWAClient from '../lib/api'
 
@@ -83,7 +83,8 @@ export default function LoginPage() {
   }
   
   return (
-    <Layout title="登录 - Learner Club">
+    <WebAppWrapper>
+      <Layout title="登录 - Learner Club">
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           {/* Logo和标题 */}
@@ -202,6 +203,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-    </Layout>
+      </Layout>
+    </WebAppWrapper>
   )
 }

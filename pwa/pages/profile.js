@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
-import Card, { StatCard } from '../components/Card'
-import Button from '../components/Button'
-import { LoadingPage, LoadingCard } from '../components/LoadingSpinner'
+import ModernCard, { DataCard } from '../components/ModernCard'
+import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
+import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency, formatDate } from '../lib/api'
 
 export default function ProfilePage() {
@@ -63,68 +63,73 @@ export default function ProfilePage() {
   }
   
   if (loading) {
-    return <LoadingPage message="正在加载个人信息..." />
+    return (
+      <Layout title="个人中心 - Learner Club">
+        <PageSkeleton type="profile" />
+      </Layout>
+    )
   }
   
   if (error && !data) {
     return (
       <Layout title="个人中心 - Learner Club">
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <Card>
-            <div className="text-center py-8">
-              <div className="text-4xl mb-4">😞</div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
-                加载失败
-              </h2>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <button
-                onClick={() => loadProfile()}
-                className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-              >
-                重试
-              </button>
-            </div>
-          </Card>
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100">
+          <ModernCard className="p-8 text-center">
+            <div className="text-6xl mb-4">😞</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              加载失败
+            </h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={() => loadProfile()}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transform hover:scale-105 transition-all duration-200"
+            >
+              重新加载
+            </button>
+          </ModernCard>
         </div>
       </Layout>
     )
   }
   
   return (
-    <Layout title="个人中心 - Learner Club">
-      {/* 个人信息头部 */}
-      <ProfileHeader user={data?.user} profile={data?.profile} />
-      
-      {/* 统计数据 */}
-      <div className="px-4 mt-6">
-        <UserStatistics stats={data?.stats} />
-      </div>
-      
-      {/* 个人信息 */}
-      <div className="px-4 mt-6">
-        <PersonalInfo profile={data?.profile} user={data?.user} />
-      </div>
-      
-      {/* 功能菜单 */}
-      <div className="px-4 mt-6">
-        <FunctionMenu />
-      </div>
-      
-      {/* 退出登录 */}
-      <div className="px-4 mt-6 mb-8">
-        <Card>
-          <Button
-            variant="danger"
-            size="large"
-            onClick={handleLogout}
-            loading={loggingOut}
-            className="w-full"
-          >
-            {loggingOut ? '正在退出...' : '退出登录'}
-          </Button>
-        </Card>
-      </div>
-    </Layout>
+    <WebAppWrapper>
+      <Layout title="个人中心 - Learner Club">
+      <SmoothTransition>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          
+          {/* 现代化个人信息头部 */}
+          <ModernProfileHeader user={data?.user} profile={data?.profile} />
+          
+          <div className="px-4 pb-8 space-y-6">
+            
+            {/* 统计数据卡片 */}
+            <div className="-mt-16 relative z-10">
+              <UserStatistics stats={data?.stats} />
+            </div>
+            
+            {/* 个人信息卡片 */}
+            <PersonalInfo profile={data?.profile} user={data?.user} />
+            
+            {/* 功能菜单 */}
+            <FunctionMenu />
+            
+            {/* 退出登录 */}
+            <ModernCard className="p-6">
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50"
+              >
+                {loggingOut ? '正在退出...' : '🚪 退出登录'}
+              </button>
+            </ModernCard>
+            
+          </div>
+        </div>
+      </SmoothTransition>
+      </Layout>
+    </WebAppWrapper>
   )
 }
 

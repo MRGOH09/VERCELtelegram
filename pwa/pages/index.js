@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } from '../components/ModernCard'
 import { SmoothTransition, useSmartPreload, PageSkeleton } from '../components/SmoothTransition'
-import InstallGuide, { InstallBanner } from '../components/InstallGuide'
+import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 
 export default function ModernDashboard() {
@@ -12,7 +12,6 @@ export default function ModernDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const [showInstallGuide, setShowInstallGuide] = useState(false)
   const [showSkeleton, setShowSkeleton] = useState(false)
   const { preloadPage } = useSmartPreload()
   
@@ -119,15 +118,11 @@ export default function ModernDashboard() {
   }
   
   return (
-    <Layout title="首页 - Learner Club">
+    <WebAppWrapper>
+      <Layout title="首页 - Learner Club">
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         
-        {/* 安装引导横幅 */}
-        <InstallBanner 
-          onShow={() => setShowInstallGuide(true)}
-          onDismiss={() => {}} 
-        />
         
         {/* 现代化头部 */}
         <ModernHeader 
@@ -155,14 +150,11 @@ export default function ModernDashboard() {
           
         </div>
         
-        {/* 安装引导弹窗 */}
-        {showInstallGuide && (
-          <InstallGuide onClose={() => setShowInstallGuide(false)} />
-        )}
         
         </div>
       </SmoothTransition>
-    </Layout>
+      </Layout>
+    </WebAppWrapper>
   )
 }
 
