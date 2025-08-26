@@ -5,6 +5,7 @@ import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } fro
 import { SmoothTransition, useSmartPreload, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import TelegramJumpOut, { TelegramJumpBanner } from '../components/TelegramJumpOut'
+import QuickActions from '../components/QuickActions'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 
 export default function ModernDashboard() {
@@ -166,6 +167,9 @@ export default function ModernDashboard() {
       {showTelegramJump && (
         <TelegramJumpOut onDismiss={() => setShowTelegramJump(false)} />
       )}
+      
+      {/* 快速操作按钮 */}
+      <QuickActions />
       
       </Layout>
     </WebAppWrapper>

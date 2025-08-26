@@ -299,23 +299,31 @@ function PersonalInfo({ profile, user }) {
 }
 
 function FunctionMenu() {
+  const router = useRouter()
+  
   const menuItems = [
     {
+      icon: '💰',
+      label: '快速记账',
+      description: '添加收支记录',
+      action: () => router.push('/add-record')
+    },
+    {
       icon: '📊',
-      label: '数据分析',
-      description: '查看详细的支出分析报告',
-      action: () => alert('功能开发中，敬请期待！')
+      label: '历史记录',
+      description: '查看详细的消费历史',
+      action: () => router.push('/history')
+    },
+    {
+      icon: '⚙️',
+      label: '应用设置',
+      description: '推送通知和个性化设置',
+      action: () => router.push('/settings')
     },
     {
       icon: '🏆',
       label: '排行榜',
       description: '查看个人和分行排名',
-      action: () => alert('功能开发中，敬请期待！')
-    },
-    {
-      icon: '🎯',
-      label: '目标管理',
-      description: '设置和追踪财务目标',
       action: () => alert('功能开发中，敬请期待！')
     },
     {
@@ -329,8 +337,9 @@ function FunctionMenu() {
       label: '帮助反馈',
       description: '使用帮助和问题反馈',
       action: () => {
+        const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'learner_club_bot'
         if (confirm('需要帮助？我们将跳转到Telegram Bot')) {
-          window.open('https://t.me/' + (process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'your_bot_username'), '_blank')
+          window.open(`https://t.me/${botUsername}`, '_blank')
         }
       }
     }

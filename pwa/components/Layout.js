@@ -96,6 +96,18 @@ function BottomNavigation() {
       active: router.pathname === '/'
     },
     {
+      path: '/add-record',
+      icon: '💰',
+      label: '记账',
+      active: router.pathname === '/add-record'
+    },
+    {
+      path: '/history',
+      icon: '📊',
+      label: '历史',
+      active: router.pathname === '/history'
+    },
+    {
       path: '/profile',
       icon: '👤',
       label: '我的',

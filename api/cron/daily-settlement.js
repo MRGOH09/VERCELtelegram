@@ -13,7 +13,8 @@ export default async function handler(req, res) {
       hour: now.getHours(),
       breakStreaks: null,
       monthlyAutoPost: null,
-      reminderQueue: null
+      reminderQueue: null,
+      webPushReminders: null
     }
     
     // 1. 断签清零
@@ -30,6 +31,10 @@ export default async function handler(req, res) {
     // 3. 生成WhatsApp提醒队列
     console.log('[daily-settlement] 生成WhatsApp提醒队列...')
     results.reminderQueue = await generateReminderQueue(now)
+    
+    // 4. 发送Web推送提醒
+    console.log('[daily-settlement] 发送Web推送提醒...')
+    results.webPushReminders = await sendWebPushReminders(now)
     
     // 发送管理员报告
     await sendAdminReport(results, now)
@@ -259,6 +264,14 @@ async function sendAdminReport(results, now) {
       }
     }
     
+    if (results.webPushReminders) {
+      if (results.webPushReminders.error) {
+        report += `📲 Web推送提醒：发送失败 - ${results.webPushReminders.error}\n`
+      } else {
+        report += `📲 Web推送提醒：成功 ${results.webPushReminders.sent}，失败 ${results.webPushReminders.failed}\n`
+      }
+    }
+    
     report += `\n✅ 每日结算完成！`
     
     const adminMessages = adminIds.map(chatId => ({
@@ -271,5 +284,117 @@ async function sendAdminReport(results, now) {
     
   } catch (e) {
     console.error('[admin-report] 发送报告失败:', e)
+  }
+}
+
+// 发送Web推送记账提醒
+async function sendWebPushReminders(now) {
+  try {
+    // 动态导入web-push模块
+    const { sendWebPushNotification, pushTemplates } = await import('../../lib/web-push.js')
+    
+    console.log('[webPush] 开始发送记账提醒Web推送...')
+    
+    // 获取昨天日期
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayYmd = yesterday.toISOString().split('T')[0]
+    
+    console.log(`[webPush] 查找 ${yesterdayYmd} 未记录的启用推送用户...`)
+    
+    // 查找昨天没有记录且启用推送的活跃用户
+    const { data: inactiveUsers, error: queryError } = await supabase
+      .from('users')
+      .select(`
+        id, name, created_at,
+        user_profile!inner(last_record),
+        push_subscriptions!inner(id)
+      `)
+      .eq('status', 'active')
+      .not('push_subscriptions.id', 'is', null)
+      .not('id', 'in', 
+        supabase.from('records')
+          .select('user_id')
+          .eq('ymd', yesterdayYmd)
+          .eq('is_voided', false)
+      )
+    
+    if (queryError) {
+      console.error('[webPush] 查询未记录用户失败:', queryError)
+      return { sent: 0, failed: 1, error: queryError.message }
+    }
+    
+    if (!inactiveUsers || inactiveUsers.length === 0) {
+      console.log('[webPush] 没有找到需要提醒的启用推送用户')
+      return { sent: 0, failed: 0, note: '无需提醒的用户' }
+    }
+    
+    console.log(`[webPush] 找到 ${inactiveUsers.length} 个需要提醒的启用推送用户`)
+    
+    let totalSent = 0
+    let totalFailed = 0
+    
+    // 为每个用户发送个性化提醒
+    for (const user of inactiveUsers) {
+      try {
+        // 计算总天数和断档天数
+        const createdAt = new Date(user.created_at)
+        const daysSinceStart = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24))
+        
+        let daysSinceLast = 1 // 默认1天（昨天没记录）
+        if (user.user_profile?.last_record) {
+          const lastRecord = new Date(user.user_profile.last_record)
+          daysSinceLast = Math.ceil((now - lastRecord) / (1000 * 60 * 60 * 24))
+        }
+        
+        // 根据断档天数选择不同的提醒消息
+        let title, body
+        if (daysSinceLast === 1) {
+          title = '⏰ 记账提醒'
+          body = `${user.name}，昨天忘记记录了？第${daysSinceStart}天挑战不能断！`
+        } else if (daysSinceLast <= 3) {
+          title = '🚨 习惯养成关键期'
+          body = `${user.name}，已经${daysSinceLast}天没记账了，立即行动重启习惯！`
+        } else if (daysSinceLast <= 7) {
+          title = '💔 我们想念你的记录'
+          body = `${user.name}，第${daysSinceStart}天理财之旅还在继续，重启记账吧！`
+        } else {
+          title = '🌟 理财高手在召唤'
+          body = `${user.name}，第${daysSinceStart}天，Learner Club在等你回来！`
+        }
+        
+        const result = await sendWebPushNotification(
+          user.id,
+          title,
+          body,
+          {
+            tag: 'daily-reminder',
+            data: { 
+              type: 'daily-reminder',
+              userId: user.id,
+              daysSinceStart,
+              daysSinceLast
+            }
+          }
+        )
+        
+        if (result.sent > 0) {
+          totalSent++
+        } else {
+          totalFailed++
+        }
+        
+      } catch (error) {
+        console.error(`[webPush] 发送提醒给用户 ${user.name} 失败:`, error)
+        totalFailed++
+      }
+    }
+    
+    console.log(`[webPush] 记账提醒Web推送完成: 成功${totalSent}, 失败${totalFailed}`)
+    return { sent: totalSent, failed: totalFailed }
+    
+  } catch (error) {
+    console.error('[webPush] 记账提醒Web推送异常:', error)
+    return { sent: 0, failed: 1, error: error.message }
   }
 }
