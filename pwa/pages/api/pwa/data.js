@@ -41,6 +41,9 @@ export default async function handler(req, res) {
       case 'profile':
         return await getProfileData(user.id, res)
         
+      case 'history':
+        return await getHistoryData(user.id, params, res)
+        
       case 'check-auth':
         return res.json({ authenticated: true, user: { id: user.id, name: user.name, branch: user.branch_code } })
         
@@ -169,6 +172,75 @@ async function getDashboardData(userId, res) {
   } catch (error) {
     console.error('[getDashboardData] 错误:', error)
     return res.status(500).json({ error: 'Failed to get dashboard data' })
+  }
+}
+
+// 获取历史记录数据 - 完全模仿Telegram逻辑
+async function getHistoryData(userId, params, res) {
+  try {
+    const { month, limit = 20, offset = 0 } = params
+    console.log(`[getHistoryData] 查询历史记录: userId=${userId}, month=${month}, limit=${limit}, offset=${offset}`)
+    
+    let query = supabase
+      .from('records')
+      .select('id,ymd,category_group,category_code,amount,note,created_at')
+      .eq('user_id', userId)
+      .eq('is_voided', false)
+      .order('ymd', { ascending: false })
+
+    // 如果指定了月份，添加月份过滤 (模仿Telegram逻辑)
+    if (month) {
+      const today = new Date()
+      const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+      
+      const startDate = `${month}-01`
+      let endDate
+      
+      if (month === currentMonth) {
+        // 如果是当前月份，查询到今天 (模仿Telegram逻辑)
+        endDate = today.toISOString().slice(0, 10)
+      } else {
+        // 如果是历史月份，查询整个月
+        const year = parseInt(month.split('-')[0])
+        const monthNum = parseInt(month.split('-')[1])
+        const lastDay = new Date(year, monthNum, 0).getDate()
+        endDate = `${month}-${lastDay.toString().padStart(2, '0')}`
+      }
+      
+      console.log(`[getHistoryData] 日期过滤: ${startDate} 至 ${endDate}`)
+      query = query.gte('ymd', startDate).lte('ymd', endDate)
+    }
+    
+    // 分页处理
+    const { data: records, error } = await query.range(offset, offset + limit - 1)
+
+    if (error) {
+      console.error('[getHistoryData] 查询失败:', error)
+      return res.status(500).json({ error: 'Failed to fetch history' })
+    }
+
+    // 计算统计数据
+    const stats = {
+      totalRecords: records.length,
+      totalSpent: records.reduce((sum, record) => sum + Math.abs(record.amount), 0)
+    }
+
+    console.log(`[getHistoryData] 查询成功: 返回 ${records?.length || 0} 条记录`)
+    
+    return res.json({ 
+      records: records || [],
+      stats,
+      debug: {
+        userId,
+        month,
+        totalRecords: records?.length || 0,
+        queryRange: month ? `${month} month` : 'all'
+      }
+    })
+
+  } catch (error) {
+    console.error('[getHistoryData] 错误:', error)
+    return res.status(500).json({ error: error.message })
   }
 }
 
