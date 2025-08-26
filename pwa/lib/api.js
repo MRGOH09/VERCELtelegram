@@ -20,7 +20,16 @@ class PWAClient {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        const errorData = await response.json().catch(() => ({}))
+        
+        // 401错误跳转到登录页
+        if (response.status === 401 && typeof window !== 'undefined') {
+          console.log('用户未认证，跳转到登录页')
+          window.location.href = '/login'
+          return
+        }
+        
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()

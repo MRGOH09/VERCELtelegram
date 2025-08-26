@@ -24,7 +24,11 @@ export default async function handler(req, res) {
     // JWT Token验证
     const user = await validateJWTToken(req)
     if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: '请先通过Telegram登录',
+        redirect: '/login'
+      })
     }
     
     const { action, ...params } = req.body

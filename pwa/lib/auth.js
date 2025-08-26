@@ -13,29 +13,21 @@ export async function validateJWTToken(req) {
     // 从Cookie或Authorization header获取token
     let token = null
     
-    console.log('🔍 Headers:', req.headers)
-    
     if (req.headers.cookie) {
       const cookies = parseCookies(req.headers.cookie)
       token = cookies.auth_token || cookies.auth
-      console.log('🔍 Cookie token:', token ? 'Found' : 'Not found')
     }
     
     if (!token && req.headers.authorization) {
       token = req.headers.authorization.replace('Bearer ', '')
-      console.log('🔍 Auth header token:', token ? 'Found' : 'Not found')
     }
     
     if (!token) {
-      console.log('❌ No token found')
       return null
     }
     
-    console.log('🔍 JWT_SECRET exists:', !!process.env.JWT_SECRET)
-    
     // 验证JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    console.log('✅ JWT decoded:', decoded)
     
     // 获取用户信息
     const { data: user, error: dbError } = await supabase
@@ -45,14 +37,13 @@ export async function validateJWTToken(req) {
       .single()
       
     if (dbError) {
-      console.error('❌ Database error:', dbError)
+      console.error('Database error:', dbError)
       return null
     }
     
-    console.log('✅ User found:', user)
     return user
   } catch (error) {
-    console.error('❌ JWT validation error:', error)
+    console.error('JWT validation error:', error)
     return null
   }
 }
