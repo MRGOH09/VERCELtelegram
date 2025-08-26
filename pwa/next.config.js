@@ -4,7 +4,14 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   sw: 'sw.js',
-  buildExcludes: [/middleware-manifest.json$/]
+  buildExcludes: [/middleware-manifest.json$/],
+  // 添加推送处理
+  additionalManifestEntries: [
+    {
+      url: '/sw-push.js',
+      revision: null
+    }
+  ]
 })
 
 /** @type {import('next').NextConfig} */
