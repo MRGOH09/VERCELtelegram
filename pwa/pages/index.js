@@ -134,6 +134,17 @@ export default function ModernDashboard() {
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         
+        {/* LEARNER CLUB 品牌标语 */}
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-2xl">🎯</span>
+            <div>
+              <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
+              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+            </div>
+            <span className="text-2xl">📚</span>
+          </div>
+        </div>
         
         {/* 现代化头部 */}
         <ModernHeader 
@@ -145,16 +156,13 @@ export default function ModernDashboard() {
         {/* 主要内容区域 */}
         <div className="px-4 pb-8 space-y-6">
           
-          {/* 余额总览卡片 */}
+          {/* 强化版目标控制 - 替代原本月总览 */}
           <div className="-mt-16 relative z-10">
-            <BalanceOverview data={data?.monthly} />
+            <EnhancedBudgetControl data={data} />
           </div>
           
-          {/* 目标控制 */}
-          <BudgetControl data={data} />
-          
-          {/* 支出占比图表 */}
-          <ExpenseDonutChart data={data} />
+          {/* 支出占比图表 - 强调百分比 */}
+          <EnhancedExpenseChart data={data} />
           
           {/* 快速数据卡片组 */}
           <QuickStats data={data?.monthly} stats={data?.stats} />
@@ -495,5 +503,228 @@ function ExpenseDonutChart({ data }) {
       total={total}
       centerText="总支出"
     />
+  )
+}
+
+// 强化版目标控制组件
+function EnhancedBudgetControl({ data }) {
+  if (!data) return null
+  
+  const { monthly, budget_details } = data
+  const { income, spent_a, budget_a, remaining_a, percentage_a } = monthly
+  
+  // 计算目标达成状态
+  const isOverBudget = spent_a > budget_a
+  const budgetProgress = budget_a > 0 ? (spent_a / budget_a * 100) : 0
+  const daysLeft = monthly.days_left || 0
+  const dailyBudget = remaining_a > 0 ? (remaining_a / Math.max(1, daysLeft)) : 0
+  
+  return (
+    <ModernCard className="p-6 bg-gradient-to-br from-white to-blue-50 shadow-xl">
+      <div className="space-y-4">
+        {/* 标题区域 - LEARNER CLUB 理念 */}
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            🎯 目标控制系统
+          </h2>
+          <p className="text-sm text-gray-600 mt-2">
+            "控制开销，投资学习，成就未来"
+          </p>
+        </div>
+        
+        {/* 核心指标展示 */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-600 text-sm">月收入</span>
+              <span className="text-2xl">💰</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">RM {income.toLocaleString()}</p>
+          </div>
+          
+          <div className="bg-white rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-gray-600 text-sm">剩余天数</span>
+              <span className="text-2xl">📅</span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900">{daysLeft} 天</p>
+          </div>
+        </div>
+        
+        {/* 开销控制进度条 - 更强烈的视觉提醒 */}
+        <div className="bg-white rounded-xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
+                <span>🛒</span>
+                <span>开销控制目标</span>
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">
+                把开销控制在 RM {budget_a.toLocaleString()}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-500">当前支出</p>
+              <p className={`text-xl font-bold ${isOverBudget ? 'text-red-600' : 'text-blue-600'}`}>
+                RM {spent_a.toLocaleString()}
+              </p>
+            </div>
+          </div>
+          
+          {/* 进度条 */}
+          <div className="relative">
+            <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+              <div 
+                className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                  isOverBudget 
+                    ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                    : budgetProgress > 80 
+                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500'
+                      : 'bg-gradient-to-r from-green-400 to-emerald-500'
+                }`}
+                style={{ width: `${Math.min(100, budgetProgress)}%` }}
+              >
+                <div className="h-full flex items-center justify-end pr-2">
+                  <span className="text-xs font-bold text-white">
+                    {Math.round(budgetProgress)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            {/* 目标线 */}
+            {!isOverBudget && (
+              <div className="absolute top-0 right-0 h-6 w-0.5 bg-gray-800" 
+                   style={{ right: '0%' }}>
+                <span className="absolute -top-5 -right-6 text-xs text-gray-600">目标</span>
+              </div>
+            )}
+          </div>
+          
+          {/* 状态提示 */}
+          <div className={`mt-4 p-3 rounded-lg ${
+            isOverBudget 
+              ? 'bg-red-50 border border-red-200' 
+              : budgetProgress > 80
+                ? 'bg-yellow-50 border border-yellow-200'
+                : 'bg-green-50 border border-green-200'
+          }`}>
+            <p className={`text-sm font-medium ${
+              isOverBudget ? 'text-red-800' : budgetProgress > 80 ? 'text-yellow-800' : 'text-green-800'
+            }`}>
+              {isOverBudget 
+                ? `⚠️ 已超支 RM ${(spent_a - budget_a).toLocaleString()}！请立即控制开销！`
+                : budgetProgress > 80
+                  ? `⏰ 注意：仅剩 RM ${remaining_a.toLocaleString()} 额度，请谨慎消费`
+                  : `✅ 状态良好，还有 RM ${remaining_a.toLocaleString()} 可用额度`
+              }
+            </p>
+            
+            {!isOverBudget && daysLeft > 0 && (
+              <p className="text-xs text-gray-600 mt-2">
+                💡 建议每日开销控制在 RM {dailyBudget.toFixed(2)} 以内
+              </p>
+            )}
+          </div>
+        </div>
+        
+        {/* LEARNER CLUB 激励语 */}
+        <div className="text-center p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
+          <p className="text-sm italic text-gray-700">
+            {budgetProgress < 50 
+              ? "🌟 优秀！继续保持理性消费"
+              : budgetProgress < 80
+                ? "💪 加油！合理规划每一笔开销"
+                : isOverBudget
+                  ? "🚨 警惕！学会延迟满足，投资未来"
+                  : "⚡ 关键时刻！每一分钱都要精打细算"
+            }
+          </p>
+        </div>
+      </div>
+    </ModernCard>
+  )
+}
+
+// 强化版支出占比图表 - 强调百分比
+function EnhancedExpenseChart({ data }) {
+  if (!data) return null
+  
+  const { monthly } = data
+  const { percentage_a, percentage_b, percentage_c, spent_a, spent_b, spent_c } = monthly
+  const total = spent_a + spent_b + spent_c
+  
+  if (total === 0) {
+    return (
+      <ModernCard className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 支出占比分析</h3>
+        <div className="text-center py-8">
+          <div className="text-4xl mb-3">💭</div>
+          <p className="text-gray-500">开始记录，掌控财务</p>
+        </div>
+      </ModernCard>
+    )
+  }
+  
+  // 为圆环图准备数据，强调百分比
+  const chartData = [
+    {
+      name: `开销 ${percentage_a}%`,
+      value: spent_a,
+      color: percentage_a > 60 ? '#EF4444' : '#3B82F6',
+      icon: '🛒'
+    },
+    {
+      name: `学习 ${percentage_b}%`,
+      value: spent_b,
+      color: '#10B981',
+      icon: '📚'
+    },
+    {
+      name: `储蓄 ${percentage_c}%`, 
+      value: spent_c,
+      color: percentage_c < 20 ? '#F59E0B' : '#10B981',
+      icon: '💎'
+    }
+  ].filter(item => item.value > 0)
+  
+  return (
+    <ModernCard className="p-6">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 flex items-center justify-between">
+          <span>📊 支出占比分析</span>
+          <span className="text-sm font-normal text-gray-500">基于月收入计算</span>
+        </h3>
+      </div>
+      
+      {/* 使用DonutChart但自定义中心文本 */}
+      <DonutChart 
+        data={chartData}
+        total={total}
+        centerText=""
+      />
+      
+      {/* 占比分析建议 */}
+      <div className="mt-6 p-4 bg-blue-50 rounded-xl">
+        <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 LEARNER CLUB 理财建议</h4>
+        <div className="space-y-1">
+          <p className="text-xs text-blue-800">
+            {percentage_a > 60 
+              ? '• 开销占比偏高，建议优化日常支出结构'
+              : '• 开销控制良好，继续保持理性消费'}
+          </p>
+          <p className="text-xs text-blue-800">
+            {percentage_b < 10
+              ? '• 学习投资偏低，建议增加自我提升投入'
+              : '• 学习投资合理，知识就是力量'}
+          </p>
+          <p className="text-xs text-blue-800">
+            {percentage_c < 20
+              ? '• 储蓄率偏低，建议提高财务安全边际'
+              : '• 储蓄习惯良好，财务未来可期'}
+          </p>
+        </div>
+      </div>
+    </ModernCard>
   )
 }
