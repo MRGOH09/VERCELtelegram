@@ -327,10 +327,28 @@ async function subscribePushNotification(userId, params, res) {
       return res.status(400).json({ error: 'Invalid subscription data' })
     }
 
-    // 保存推送订阅到数据库
+    // 先检查用户是否存在
+    const { data: userExists } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single()
+    
+    if (!userExists) {
+      console.error('[subscribePushNotification] 用户不存在:', userId)
+      return res.status(400).json({ error: 'User not found' })
+    }
+
+    // 保存推送订阅到数据库 - 先删除现有的，再插入新的
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('endpoint', subscription.endpoint)
+
     const { data, error } = await supabase
       .from('push_subscriptions')
-      .upsert({
+      .insert({
         user_id: userId,
         endpoint: subscription.endpoint,
         p256dh: subscription.keys.p256dh,
@@ -338,9 +356,6 @@ async function subscribePushNotification(userId, params, res) {
         user_agent: deviceInfo?.userAgent || '',
         device_info: deviceInfo || {},
         last_used: new Date().toISOString()
-      }, {
-        onConflict: 'user_id,endpoint',
-        ignoreDuplicates: false
       })
 
     if (error) {
