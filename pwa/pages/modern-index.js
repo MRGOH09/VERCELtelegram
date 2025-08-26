@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } from '../components/ModernCard'
-import { LoadingPage } from '../components/LoadingSpinner'
-import InstallGuide, { InstallBanner } from '../components/InstallGuide'
+import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
+import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 
 export default function ModernDashboard() {
@@ -64,7 +64,11 @@ export default function ModernDashboard() {
   }
   
   if (loading) {
-    return <LoadingPage message="正在加载您的财务数据..." />
+    return (
+      <Layout title="首页 - Learner Club">
+        <PageSkeleton type="dashboard" />
+      </Layout>
+    )
   }
   
   if (error && !data) {

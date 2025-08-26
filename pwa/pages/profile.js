@@ -99,7 +99,36 @@ export default function ProfilePage() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
           
           {/* 现代化个人信息头部 */}
-          <ModernProfileHeader user={data?.user} profile={data?.profile} />
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-8 text-white relative overflow-hidden">
+            <div className="flex items-center space-x-4 relative z-10">
+              <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <span className="text-3xl">👤</span>
+              </div>
+              
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold mb-2">
+                  {data?.profile?.display_name || data?.user?.name || 'User'}
+                </h1>
+                <div className="space-y-1 text-blue-100">
+                  {data?.user?.branch && (
+                    <p className="flex items-center">
+                      <span className="mr-2">🏢</span>
+                      {data.user.branch} 分行
+                    </p>
+                  )}
+                  {data?.user?.joined_date && (
+                    <p className="flex items-center">
+                      <span className="mr-2">📅</span>
+                      {formatDate(data.user.joined_date)} 加入
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
+          </div>
           
           <div className="px-4 pb-8 space-y-6">
             
@@ -167,35 +196,36 @@ function ProfileHeader({ user, profile }) {
 
 function UserStatistics({ stats }) {
   if (!stats) {
-    return <LoadingCard message="加载统计数据..." />
+    return (
+      <ModernCard className="p-6 animate-pulse">
+        <div className="text-center">
+          <div className="w-8 h-8 bg-gray-300 rounded-full mx-auto mb-3"></div>
+          <p className="text-gray-500">加载统计数据...</p>
+        </div>
+      </ModernCard>
+    )
   }
   
   return (
-    <Card>
+    <ModernCard className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">我的统计</h3>
       
       <div className="grid grid-cols-3 gap-4">
-        <StatCard
-          label="记录天数"
-          value={stats.record_days || 0}
-          suffix="天"
-          color="blue"
-          icon="📅"
-        />
-        <StatCard
-          label="总记录数"
-          value={stats.total_records || 0}
-          suffix="笔"
-          color="green"
-          icon="📝"
-        />
-        <StatCard
-          label="连续记录"
-          value={stats.current_streak || 0}
-          suffix="天"
-          color="orange"
-          icon="🔥"
-        />
+        <div className="text-center p-4 bg-blue-50 rounded-xl">
+          <div className="text-2xl mb-2">📅</div>
+          <div className="text-xl font-bold text-blue-600">{stats.record_days || 0}</div>
+          <div className="text-sm text-gray-600">记录天数</div>
+        </div>
+        <div className="text-center p-4 bg-green-50 rounded-xl">
+          <div className="text-2xl mb-2">📝</div>
+          <div className="text-xl font-bold text-green-600">{stats.total_records || 0}</div>
+          <div className="text-sm text-gray-600">总记录数</div>
+        </div>
+        <div className="text-center p-4 bg-orange-50 rounded-xl">
+          <div className="text-2xl mb-2">🔥</div>
+          <div className="text-xl font-bold text-orange-600">{stats.current_streak || 0}</div>
+          <div className="text-sm text-gray-600">连续记录</div>
+        </div>
       </div>
       
       {stats.max_streak > 0 && (
@@ -205,7 +235,7 @@ function UserStatistics({ stats }) {
           </p>
         </div>
       )}
-    </Card>
+    </ModernCard>
   )
 }
 
@@ -244,7 +274,7 @@ function PersonalInfo({ profile, user }) {
   ]
   
   return (
-    <Card>
+    <ModernCard className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">个人信息</h3>
       
       <div className="space-y-4">
@@ -264,7 +294,7 @@ function PersonalInfo({ profile, user }) {
           💡 如需修改个人信息，请使用Telegram Bot的 /settings 命令
         </p>
       </div>
-    </Card>
+    </ModernCard>
   )
 }
 
@@ -307,7 +337,7 @@ function FunctionMenu() {
   ]
   
   return (
-    <Card>
+    <ModernCard className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">功能菜单</h3>
       
       <div className="space-y-1">
@@ -326,6 +356,6 @@ function FunctionMenu() {
           </button>
         ))}
       </div>
-    </Card>
+    </ModernCard>
   )
 }
