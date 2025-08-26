@@ -383,6 +383,61 @@ export default async function handler(req, res) {
     const from = msg.from
     const text = (msg.text || '').trim()
 
+    // 专门的PWA登录命令
+    if (text === '/webapp') {
+      console.log('📱 收到PWA登录命令，用户ID:', from.id)
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      
+      // 检查用户是否已注册
+      const { data: prof } = await supabase
+        .from('user_profile')
+        .select('display_name,monthly_income,a_pct')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      const isFullyRegistered = prof && 
+        prof.display_name && 
+        prof.display_name.trim() && 
+        prof.monthly_income && 
+        prof.monthly_income > 0 && 
+        prof.a_pct && 
+        prof.a_pct > 0
+      
+      if (!isFullyRegistered) {
+        await sendTelegramMessage(chatId, 
+          '⚠️ 请先完成Bot注册设置\n\n发送 /start 开始注册流程，完成后即可使用PWA')
+        return res.status(200).json({ ok: true })
+      }
+      
+      // 生成PWA登录链接 - 强制在外部浏览器打开
+      const pwaDomain = process.env.PWA_DOMAIN || 'https://verce-ltelegram.vercel.app'
+      const authParams = `id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+      const loginUrl = `${pwaDomain}/api/pwa/auth?${authParams}`
+      
+      console.log('📱 生成PWA登录链接:', loginUrl)
+      
+      // 使用特殊格式强制在外部浏览器打开
+      const keyboard = {
+        inline_keyboard: [
+          [{ text: '🌐 在Safari中打开登录', url: loginUrl }],
+          [{ text: '📱 复制链接手动打开', callback_data: `copy_pwa_login:${from.id}` }]
+        ]
+      }
+      
+      const instructions = `🌐 PWA快速登录
+
+⚠️ 重要：必须在Safari浏览器中打开
+
+📱 选择方式：
+1️⃣ 点击"在Safari中打开登录"按钮
+2️⃣ 点击"复制链接"然后手动在Safari中打开
+
+✨ 登录后可安装PWA到桌面，体验原生APP效果！`
+      
+      await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
+      return res.status(200).json({ ok: true })
+    }
+
     if (text.startsWith('/start')) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       
