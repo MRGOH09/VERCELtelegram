@@ -1,14 +1,15 @@
 // PWA API客户端
 class PWAClient {
-  constructor() {
-    this.baseURL = process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:3001' 
-      : window.location.origin
+  getBaseURL() {
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:3001'
+    }
+    return typeof window !== 'undefined' ? window.location.origin : ''
   }
   
   async call(endpoint, action, params = {}) {
     try {
-      const response = await fetch(`${this.baseURL}/api/pwa/${endpoint}`, {
+      const response = await fetch(`${this.getBaseURL()}/api/pwa/${endpoint}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
