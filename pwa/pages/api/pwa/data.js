@@ -114,37 +114,64 @@ async function getDashboardData(userId, res) {
       
     console.log(`[getDashboardData] 当月记录数: ${records?.length || 0}`)
       
-    // 计算支出汇总和详细分类
-    const expenses = { A: 0, B: 0, C: 0 }
+    // 使用与 /my 命令完全相同的计算逻辑
+    const groupStats = {
+      A: { total: 0, count: 0 }, // 开销
+      B: { total: 0, count: 0 }, // 学习  
+      C: { total: 0, count: 0 }  // 储蓄
+    }
     const categoryDetails = {}
     const recordDays = new Set()
     
     records?.forEach(record => {
-      const amount = Math.abs(record.amount)
+      const amount = Number(record.amount || 0)  // 使用原始值，不取绝对值
       const group = record.category_group
       const code = record.category_code
       
-      // 汇总分组支出
-      expenses[group] = (expenses[group] || 0) + amount
+      // 汇总分组支出（与/my命令一致）
+      if (groupStats[group]) {
+        groupStats[group].total += amount
+        groupStats[group].count += 1
+      }
       
-      // 详细分类统计
+      // 详细分类统计（使用绝对值用于显示）
       if (!categoryDetails[group]) {
         categoryDetails[group] = {}
       }
-      categoryDetails[group][code] = (categoryDetails[group][code] || 0) + amount
+      categoryDetails[group][code] = (categoryDetails[group][code] || 0) + Math.abs(amount)
       
       // 记录天数统计
       recordDays.add(record.ymd)
     })
     
-    // 计算占比
-    const totalExpenses = expenses.A + expenses.B + expenses.C
+    // 按 /my 命令逻辑计算最终金额
     const income = budget?.income || profile?.monthly_income || 0
-    const percentages = {
-      A: income > 0 ? Math.round((expenses.A / income) * 100) : 0,
-      B: income > 0 ? Math.round((expenses.B / income) * 100) : 0,
-      C: income > 0 ? Math.round((expenses.C / income) * 100) : 0
+    
+    // A类：开销（直接使用统计值）
+    const aTotal = groupStats.A.total
+    
+    // B类：学习 = B类记录 + 旅游基金
+    const travelMonthly = Math.round((profile?.travel_budget_annual || 0) / 12 * 100) / 100
+    const bTotal = Math.round((groupStats.B.total + travelMonthly) * 100) / 100
+    
+    // C类：储蓄 = 收入 - 开销 - 学习（计算得出）
+    const cTotal = Math.round((income - aTotal - bTotal) * 100) / 100
+    
+    // 最终支出结构
+    const expenses = {
+      A: aTotal,
+      B: bTotal, 
+      C: cTotal
     }
+    
+    // 计算占比（与/my命令一致）
+    const percentages = {
+      A: income > 0 ? Math.round((aTotal / income) * 100) : 0,
+      B: income > 0 ? Math.round((bTotal / income) * 100) : 0,
+      C: income > 0 ? Math.round((cTotal / income) * 100) : 0
+    }
+    
+    const totalExpenses = aTotal + bTotal + cTotal
     
     // 记录统计
     const recordStats = {
