@@ -419,35 +419,33 @@ export default async function handler(req, res) {
       
       console.log('📱 生成PWA登录链接:', loginUrl)
       
-      // 多种方式按钮布局
-      // Android Chrome Intent URL - 尝试直接打开Chrome
-      const domain = loginUrl.replace('https://', '').replace('http://', '')
-      const chromeIntentUrl = `intent://${domain}#Intent;scheme=https;package=com.android.chrome;end`
-      
+      // 简化按钮布局 - 专注于用户操作指引
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '🍎 iPhone长按 → Safari', url: loginUrl }
+            { text: '🍎 iPhone用户长按此链接', url: loginUrl }
           ],
           [
-            { text: '🤖 Android点击 → Chrome', url: chromeIntentUrl }
-          ],
-          [
-            { text: '📋 手动复制链接', url: `https://t.me/share/url?url=${encodeURIComponent(loginUrl)}&text=复制到Chrome打开` }
+            { text: '🤖 Android用户点击此链接', url: loginUrl }
           ]
         ]
       }
       
       const instructions = `🌐 PWA登录链接已准备好
 
-📱 **请选择你的操作方式：**
+📱 **重要操作指引：**
 
-🍎 **iPhone**：长按第一个按钮 → 选择"Safari浏览器"
-🤖 **Android**：点击第二个按钮 → 自动打开Chrome
-📋 **备用**：点击第三个按钮复制链接，手动粘贴到浏览器
+🍎 **iPhone用户**：
+1. 长按上面第一个按钮
+2. 选择"在Safari中打开"
 
-⚠️ **重要**：必须在外部浏览器打开才能正常使用PWA功能
-💡 打开后可以"添加到主屏幕"获得App体验`
+🤖 **Android用户**：
+1. 点击上面第二个按钮  
+2. 在弹出的浏览器选择中选择"Chrome"
+3. 或长按按钮选择"在外部浏览器中打开"
+
+⚠️ **关键**：一定要在Chrome/Safari中打开，不要在Telegram内置浏览器
+💡 成功打开后可以"添加到主屏幕"变成App`
       
       await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
