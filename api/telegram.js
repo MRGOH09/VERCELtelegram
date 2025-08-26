@@ -411,21 +411,35 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true })
         }
         
-        // 生成PWA登录链接 - 需要在环境变量中设置PWA_DOMAIN
+        // 生成PWA登录链接 - 强制在外部浏览器打开
         const pwaDomain = process.env.PWA_DOMAIN || 'https://verce-ltelegram.vercel.app'
-        const loginUrl = `${pwaDomain}/api/pwa/auth?id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+        const authParams = `id=${from.id}&first_name=${encodeURIComponent(from.first_name || '')}&username=${encodeURIComponent(from.username || '')}`
+        const loginUrl = `${pwaDomain}/api/pwa/auth?${authParams}`
         
         console.log('📱 生成PWA登录链接:', loginUrl)
         
+        // 使用特殊格式强制在外部浏览器打开
         const keyboard = {
           inline_keyboard: [
-            [{ text: '🌐 打开PWA登录', url: loginUrl }]
+            [{ text: '🌐 在Safari中打开登录', url: loginUrl }],
+            [{ text: '📱 复制链接手动打开', callback_data: `copy_login_url:${Buffer.from(loginUrl).toString('base64')}` }]
           ]
         }
         
-        await sendTelegramMessage(chatId, 
-          '📱 PWA登录链接已生成\n\n点击下方按钮完成登录：', 
-          { reply_markup: keyboard })
+        const instructions = `🌐 PWA登录准备就绪
+
+⚠️ 重要：需要在Safari浏览器中打开
+
+📱 两种方法：
+1️⃣ 点击"在Safari中打开登录"按钮
+2️⃣ 点击"复制链接"，然后：
+   • 打开Safari浏览器
+   • 粘贴链接到地址栏
+   • 按回车键打开
+
+✨ 在Safari中打开后才能正常使用PWA功能！`
+
+        await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
         return res.status(200).json({ ok: true })
       }
       
@@ -1204,6 +1218,20 @@ export async function handleCallback(update, req, res) {
     const data = cq.data || ''
     // 先应答，避免按钮卡转圈
     try { await answerCallbackQuery(cq.id) } catch {}
+    
+    // 处理PWA登录链接复制
+    if (data.startsWith('copy_login_url:')) {
+      const base64Url = data.replace('copy_login_url:', '')
+      const loginUrl = Buffer.from(base64Url, 'base64').toString('utf8')
+      
+      await sendTelegramMessage(chatId, 
+        `🔗 PWA登录链接：\n\n\`${loginUrl}\`\n\n📱 复制上面的链接，然后在Safari浏览器中打开`, 
+        { parse_mode: 'Markdown' })
+      
+      await answerCallbackQuery(cq.id, '✅ 链接已发送，请在Safari中打开')
+      return res.status(200).json({ ok: true })
+    }
+    
     const userId = await getOrCreateUserByTelegram(from, chatId)
     const st = await getState(userId)
     if (data.startsWith('hist:page:')) {
