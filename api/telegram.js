@@ -419,24 +419,35 @@ export default async function handler(req, res) {
       
       console.log('📱 生成PWA登录链接:', loginUrl)
       
-      // 双平台按钮方式
+      // 多种方式按钮布局
+      // Android Chrome Intent URL - 尝试直接打开Chrome
+      const domain = loginUrl.replace('https://', '').replace('http://', '')
+      const chromeIntentUrl = `intent://${domain}#Intent;scheme=https;package=com.android.chrome;end`
+      
       const keyboard = {
         inline_keyboard: [
           [
-            { text: '🍎 iPhone用户长按链接', url: loginUrl },
-            { text: '🤖 Android用户点击链接', url: loginUrl }
+            { text: '🍎 iPhone长按 → Safari', url: loginUrl }
+          ],
+          [
+            { text: '🤖 Android点击 → Chrome', url: chromeIntentUrl }
+          ],
+          [
+            { text: '📋 手动复制链接', url: `https://t.me/share/url?url=${encodeURIComponent(loginUrl)}&text=复制到Chrome打开` }
           ]
         ]
       }
       
       const instructions = `🌐 PWA登录链接已准备好
 
-📱 根据你的设备选择操作：
+📱 **请选择你的操作方式：**
 
-🍎 **iPhone用户**：长按左边按钮 → 选择"在Safari中打开"
-🤖 **Android用户**：直接点击右边按钮 → 会在Chrome中打开
+🍎 **iPhone**：长按第一个按钮 → 选择"Safari浏览器"
+🤖 **Android**：点击第二个按钮 → 自动打开Chrome
+📋 **备用**：点击第三个按钮复制链接，手动粘贴到浏览器
 
-💡 成功跳转后即可登录并安装PWA到桌面`
+⚠️ **重要**：必须在外部浏览器打开才能正常使用PWA功能
+💡 打开后可以"添加到主屏幕"获得App体验`
       
       await sendTelegramMessage(chatId, instructions, { reply_markup: keyboard })
       return res.status(200).json({ ok: true })
