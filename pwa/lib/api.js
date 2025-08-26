@@ -190,30 +190,29 @@ export function formatDateTime(dateString) {
 }
 
 // 分类映射
+// 分类定义 - 与Telegram /my命令和数据库保持一致
 export const CATEGORIES = {
   A: {
     food: { name: '餐饮', icon: '🍽️' },
+    ent: { name: '娱乐', icon: '🎬' },
+    shop: { name: '购物', icon: '🛍️' },
     transport: { name: '交通', icon: '🚗' },
-    shopping: { name: '购物', icon: '🛍️' },
-    entertainment: { name: '娱乐', icon: '🎬' },
-    daily: { name: '日用品', icon: '🏠' },
-    health: { name: '医疗', icon: '🏥' },
-    other_a: { name: '其他', icon: '📝' }
+    utilities: { name: '水电', icon: '💡' },
+    mobile: { name: '手机', icon: '📱' },
+    home: { name: '家用', icon: '🏠' },
+    other: { name: '其他', icon: '📦' }
   },
   B: {
-    education: { name: '教育', icon: '📚' },
-    investment: { name: '投资', icon: '📈' },
-    course: { name: '课程', icon: '💻' },
-    books: { name: '图书', icon: '📖' },
-    skill: { name: '技能', icon: '🎯' },
-    other_b: { name: '其他', icon: '📝' }
+    books: { name: '书籍', icon: '📖' },
+    course: { name: '课程', icon: '📚' },
+    training: { name: '培训', icon: '🎓' },
+    cert: { name: '认证', icon: '🏆' }
   },
   C: {
-    savings: { name: '储蓄', icon: '💰' },
+    stock: { name: '股票', icon: '📈' },
+    fixed: { name: '定存', icon: '🏦' },
     insurance: { name: '保险', icon: '🛡️' },
-    emergency: { name: '应急基金', icon: '🆘' },
-    retirement: { name: '养老', icon: '🏖️' },
-    other_c: { name: '其他', icon: '📝' }
+    emerg: { name: '紧急基金', icon: '🚨' }
   }
 }
 

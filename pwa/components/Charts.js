@@ -1,46 +1,70 @@
 import { useState } from 'react'
 import ModernCard from './ModernCard'
 
-// 分类名称映射
+// 分类名称映射 - 与Telegram /my命令保持一致
 const CATEGORY_NAMES = {
-  'dining': '餐饮',
-  'shopping': '购物',
-  'mobile': '手机',
-  'others': '其他', 
-  'transport': '交通',
-  'entertainment': '娱乐',
-  'utilities': '水电',
-  'household': '家用',
-  'course': '课程',
-  'books': '书籍',
-  'certification': '认证',
-  'travel_fund_monthly': '旅游基金（月）',
-  'medical_insurance_monthly': '医疗保险（月）',
-  'car_insurance_monthly': '车险（月）',
-  'emergency_fund': '紧急基金',
-  'stocks': '股票',
-  'overdraft': '透支'
+  // 开销类别 (Group A - Expenses)
+  'food': '餐饮', '餐饮': '餐饮',
+  'ent': '娱乐', '娱乐': '娱乐', 
+  'shop': '购物', '购物': '购物',
+  'transport': '交通', '交通': '交通',
+  'utilities': '水电', '水电': '水电',
+  'mobile': '手机', '手机': '手机',
+  'home': '家用', '家用': '家用',
+  'other': '其他', '其他': '其他',
+  
+  // 学习类别 (Group B - Learning)
+  'books': '书籍', '书籍': '书籍',
+  'course': '课程', '课程': '课程',
+  'training': '培训', '培训': '培训',
+  'cert': '认证', '认证': '认证',
+  
+  // 储蓄类别 (Group C - Savings)
+  'stock': '股票', '股票': '股票',
+  'fixed': '定存', '定存': '定存',
+  'insurance': '保险', '保险': '保险',
+  'emerg': '紧急基金', '紧急基金': '紧急基金',
+  
+  // 自动生成项目 (Auto-generated items)
+  'ins_med_auto': '医疗保险（月）',
+  'ins_car_auto': '车险（月）',
+  'epf_auto': 'EPF（月）',
+  'travel_auto': '旅游基金（月）',
+  'balance': '余额',
+  'overspent': '透支'
 }
 
-// 分类图标映射
+// 分类图标映射 - 与Telegram /my命令保持一致
 const CATEGORY_ICONS = {
-  'dining': '🍽️',
-  'shopping': '🛍️', 
-  'mobile': '📱',
-  'others': '📦',
-  'transport': '🚗',
-  'entertainment': '🎬',
-  'utilities': '💡',
-  'household': '🏠',
-  'course': '📚',
-  'books': '📖',
-  'certification': '🏆',
-  'travel_fund_monthly': '✈️',
-  'medical_insurance_monthly': '🏥',
-  'car_insurance_monthly': '🚗',
-  'emergency_fund': '🚨', 
-  'stocks': '📈',
-  'overdraft': '⚠️'
+  // 开销类别 (Group A - Expenses)
+  'food': '🍽️', '餐饮': '🍽️',
+  'ent': '🎬', '娱乐': '🎬',
+  'shop': '🛍️', '购物': '🛍️',
+  'transport': '🚗', '交通': '🚗',
+  'utilities': '💡', '水电': '💡',
+  'mobile': '📱', '手机': '📱',
+  'home': '🏠', '家用': '🏠',
+  'other': '📦', '其他': '📦',
+  
+  // 学习类别 (Group B - Learning)
+  'books': '📖', '书籍': '📖',
+  'course': '📚', '课程': '📚',
+  'training': '🎓', '培训': '🎓',
+  'cert': '🏆', '认证': '🏆',
+  
+  // 储蓄类别 (Group C - Savings)  
+  'stock': '📈', '股票': '📈',
+  'fixed': '🏦', '定存': '🏦',
+  'insurance': '🛡️', '保险': '🛡️',
+  'emerg': '🚨', '紧急基金': '🚨',
+  
+  // 自动生成项目 (Auto-generated items)
+  'ins_med_auto': '🏥',
+  'ins_car_auto': '🚗',
+  'epf_auto': '💰',
+  'travel_auto': '✈️',
+  'balance': '💵',
+  'overspent': '⚠️'
 }
 
 // 条形图组件
