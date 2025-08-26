@@ -8,7 +8,6 @@ import PWAClient from '../lib/api'
 export default function LoginPage() {
   const router = useRouter()
   const [checking, setChecking] = useState(true)
-  const [error, setError] = useState('')
   
   useEffect(() => {
     // 检查是否已登录
@@ -29,40 +28,6 @@ export default function LoginPage() {
     }
   }
   
-  useEffect(() => {
-    if (!checking) {
-      // 加载Telegram Widget
-      loadTelegramWidget()
-    }
-  }, [checking])
-  
-  const loadTelegramWidget = () => {
-    // 清理现有的script
-    const existingScript = document.getElementById('telegram-widget-script')
-    if (existingScript) {
-      existingScript.remove()
-    }
-    
-    // 创建新的script
-    const script = document.createElement('script')
-    script.id = 'telegram-widget-script'
-    script.src = 'https://telegram.org/js/telegram-widget.js?22'
-    script.setAttribute('data-telegram-login', process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'LeanerClubEXEbot')
-    script.setAttribute('data-size', 'large')
-    script.setAttribute('data-auth-url', `${typeof window !== 'undefined' ? window.location.origin : ''}/api/pwa/auth`)
-    script.setAttribute('data-request-access', 'write')
-    
-    // 添加到DOM
-    const container = document.getElementById('telegram-widget-container')
-    if (container) {
-      container.appendChild(script)
-    }
-    
-    // 监听错误
-    script.onerror = () => {
-      setError('无法加载Telegram登录组件，请检查网络连接')
-    }
-  }
   
   if (checking) {
     return (
@@ -97,45 +62,23 @@ export default function LoginPage() {
               </h2>
               
               <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-4">
-                  点击下方按钮使用您的Telegram账号安全登录
+                <p className="text-sm text-gray-600 mb-6">
+                  点击下方按钮在Telegram应用中完成登录
                 </p>
                 
-                {/* Telegram Widget容器 */}
-                <div 
-                  id="telegram-widget-container" 
-                  className="flex justify-center mb-4"
-                />
-                
-                {/* 或者使用Telegram App直接登录 */}
+                {/* Telegram App登录按钮 */}
                 <div className="text-center">
-                  <p className="text-xs text-gray-500 mb-3">或</p>
                   <a
                     href={`https://t.me/LeanerClubEXEbot?start=webapp_login`}
-                    className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                    className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
                   >
-                    <span className="mr-2">📱</span>
-                    在Telegram App中登录
+                    <span className="text-xl mr-3">📱</span>
+                    使用Telegram登录
                   </a>
-                  <p className="text-xs text-gray-500 mt-2">
-                    直接在Telegram应用中完成认证
+                  <p className="text-xs text-gray-500 mt-4">
+                    点击按钮将跳转到Telegram应用完成认证
                   </p>
                 </div>
-                
-                {error && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-600">{error}</p>
-                    <button 
-                      onClick={() => {
-                        setError('')
-                        loadTelegramWidget()
-                      }}
-                      className="mt-2 text-sm text-red-700 underline"
-                    >
-                      重试
-                    </button>
-                  </div>
-                )}
               </div>
               
               <div className="text-xs text-gray-500">
