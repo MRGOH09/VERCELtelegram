@@ -95,10 +95,24 @@ create table if not exists branch_leads (
   leader_chat_ids bigint[] not null
 );
 
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references users(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  device_info jsonb,
+  last_used timestamptz default now(),
+  created_at timestamptz default now(),
+  unique(user_id, endpoint)
+);
+
 -- Indexes
 create index if not exists idx_records_user_ymd on records(user_id, ymd);
 create index if not exists idx_daily_summary_user_ymd on daily_summary(user_id, ymd);
 create index if not exists idx_branch_daily_code_ymd on branch_daily(branch_code, ymd);
 create index if not exists idx_leaderboard_daily_ymd on leaderboard_daily(ymd);
 create index if not exists idx_user_month_budget_user_yyyymm on user_month_budget(user_id, yyyymm);
+create index if not exists idx_push_subscriptions_user_id on push_subscriptions(user_id);
 

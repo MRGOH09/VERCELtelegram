@@ -96,12 +96,12 @@ async function sendWebPushMorningReport(now) {
     
     console.log('[webPush] 开始发送晨间Web推送...')
     
-    // 获取所有活跃用户的基本信息（重用现有逻辑）
+    // 获取所有活跃用户的基本信息（包含个性化提醒需要的数据）
     const { data: activeUsers, error: userError } = await supabase
       .from('users')
       .select(`
-        id, name, 
-        user_profile(last_record),
+        id, name, created_at,
+        user_profile(last_record, display_name, current_streak),
         push_subscriptions!inner(id)
       `)
       .eq('status', 'active')
@@ -122,26 +122,62 @@ async function sendWebPushMorningReport(now) {
     let totalSent = 0
     let totalFailed = 0
     
+    // 动态导入个性化提醒模块
+    const { 
+      generatePersonalizedPushNotification, 
+      calculateDaysSinceLastRecord 
+    } = await import('../../lib/web-push-reminders.js')
+
+    // 获取今日已记录用户列表
+    const todayYmd = now.toISOString().slice(0, 10)
+    const { data: todayRecords } = await supabase
+      .from('records')
+      .select('user_id')
+      .eq('ymd', todayYmd)
+      .eq('is_voided', false)
+    
+    const todayRecordedUsers = new Set((todayRecords || []).map(r => r.user_id))
+
     // 为每个用户发送个性化推送
     for (const user of activeUsers) {
       try {
-        // 计算用户天数（简化版）
+        // 计算用户注册天数
         const createdAt = new Date(user.created_at || now)
         const daysSinceStart = Math.ceil((now - createdAt) / (1000 * 60 * 60 * 24))
         
-        // 使用推送模板生成消息
+        // 计算距离上次记录的天数
+        const daysSinceLast = calculateDaysSinceLastRecord(
+          user.user_profile?.last_record, 
+          now
+        )
+        
+        // 检查今天是否已记录
+        const hasRecordToday = todayRecordedUsers.has(user.id)
+        
+        // 获取连续记录天数
+        const streak = user.user_profile?.current_streak || 0
+        
+        // 生成个性化推送内容
+        const pushData = generatePersonalizedPushNotification(
+          {
+            id: user.id,
+            name: user.name,
+            display_name: user.user_profile?.display_name
+          },
+          daysSinceStart,
+          daysSinceLast,
+          hasRecordToday,
+          streak
+        )
+        
+        console.log(`[webPush] 用户 ${user.name}: ${daysSinceStart}天注册, ${daysSinceLast}天未记录, 今日${hasRecordToday?'已':'未'}记录, 连续${streak}天`)
+        
+        // 发送个性化推送
         const result = await sendWebPushNotification(
           user.id,
-          '🌅 早安理财报告',
-          `第${daysSinceStart}天挑战，查看你的理财进度！`,
-          {
-            tag: 'morning-report',
-            data: { 
-              type: 'morning-report',
-              userId: user.id,
-              day: daysSinceStart 
-            }
-          }
+          pushData.title,
+          pushData.body,
+          pushData.options
         )
         
         if (result.sent > 0) {
