@@ -3,11 +3,8 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
   register: true,
   skipWaiting: true,
-  sw: 'sw.js',
   buildExcludes: [/middleware-manifest.json$/],
-  // 自定义 Service Worker 模板，包含推送功能
-  swSrc: 'public/sw-custom.js',
-  // 添加推送处理
+  // 使用默认Service Worker生成，推送功能通过additionalManifestEntries添加
   additionalManifestEntries: [
     {
       url: '/sw-push.js',
