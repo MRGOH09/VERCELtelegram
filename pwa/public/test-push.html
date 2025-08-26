@@ -148,10 +148,34 @@
                 if (permission === 'granted') {
                     const subscription = await registration.pushManager.getSubscription()
                     if (subscription) {
-                        log('✅ 已存在推送订阅')
-                        setButtonState('unsubscribe', true)
-                        setButtonState('testPush', true)
-                        updateStatus('✅ 推送通知已启用', 'success')
+                        log('✅ 浏览器存在推送订阅')
+                        log(`订阅端点: ${subscription.endpoint.slice(-50)}...`)
+                        
+                        // 验证服务器是否也有这个订阅
+                        try {
+                            const verifyResponse = await fetch('/api/pwa/data', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ action: 'verify-subscription' })
+                            })
+                            
+                            const verifyResult = await verifyResponse.json()
+                            if (verifyResult.hasSubscription) {
+                                log('✅ 服务器也存在对应订阅')
+                                setButtonState('unsubscribe', true)
+                                setButtonState('testPush', true)
+                                updateStatus('✅ 推送通知已完全启用', 'success')
+                            } else {
+                                log('⚠️  服务器没有对应订阅，需要重新同步')
+                                setButtonState('subscribe', true)
+                                updateStatus('⚠️  需要重新同步订阅', 'info')
+                            }
+                        } catch (error) {
+                            log('⚠️  无法验证服务器订阅状态，假设需要重新订阅')
+                            setButtonState('subscribe', true)
+                            updateStatus('⚠️  需要重新订阅推送服务', 'info')
+                        }
                     } else {
                         log('📝 需要订阅推送服务')
                         setButtonState('subscribe', true)

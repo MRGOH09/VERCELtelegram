@@ -56,6 +56,9 @@ export default async function handler(req, res) {
       case 'test-push-notification':
         return await sendTestPushNotification(user.id, res)
         
+      case 'verify-subscription':
+        return await verifyPushSubscription(user.id, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -488,5 +491,40 @@ async function sendTestPushNotification(userId, res) {
   } catch (error) {
     console.error('[sendTestPushNotification] 错误:', error)
     return res.status(500).json({ error: 'Failed to send test push notification' })
+  }
+}
+
+// 验证推送订阅状态
+async function verifyPushSubscription(userId, res) {
+  try {
+    console.log(`[verifyPushSubscription] 验证用户 ${userId} 的推送订阅`)
+
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('id, endpoint, last_used')
+      .eq('user_id', userId)
+
+    if (error) {
+      console.error('[verifyPushSubscription] 查询失败:', error)
+      return res.status(500).json({ error: 'Failed to verify subscription' })
+    }
+
+    const hasSubscription = subscriptions && subscriptions.length > 0
+    
+    console.log(`[verifyPushSubscription] 用户订阅状态: ${hasSubscription ? '存在' : '不存在'} (${subscriptions?.length || 0}个)`)
+
+    return res.json({ 
+      hasSubscription,
+      subscriptionCount: subscriptions?.length || 0,
+      subscriptions: subscriptions?.map(s => ({
+        id: s.id,
+        endpoint: s.endpoint.slice(-20), // 只返回端点的最后20个字符用于调试
+        lastUsed: s.last_used
+      }))
+    })
+
+  } catch (error) {
+    console.error('[verifyPushSubscription] 错误:', error)
+    return res.status(500).json({ error: 'Failed to verify push subscription' })
   }
 }
