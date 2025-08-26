@@ -213,4 +213,4 @@ export function TelegramJumpBanner({ onShow, onDismiss }) {
       </div>
     </div>
   )
-}</function>
+}
