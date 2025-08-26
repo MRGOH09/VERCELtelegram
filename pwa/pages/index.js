@@ -511,7 +511,11 @@ function EnhancedBudgetControl({ data }) {
   if (!data) return null
   
   const { monthly, budget_details } = data
-  const { income, spent_a, budget_a, remaining_a, percentage_a } = monthly
+  const { income, spent_a, percentage_a } = monthly
+  
+  // 如果没有设置预算，使用收入的60%作为默认开销预算
+  const budget_a = monthly.budget_a || (income * 0.6)
+  const remaining_a = Math.max(0, budget_a - spent_a)
   
   // 计算目标达成状态
   const isOverBudget = spent_a > budget_a
