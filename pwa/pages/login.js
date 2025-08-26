@@ -104,8 +104,23 @@ export default function LoginPage() {
                 {/* Telegram Widget容器 */}
                 <div 
                   id="telegram-widget-container" 
-                  className="flex justify-center"
+                  className="flex justify-center mb-4"
                 />
+                
+                {/* 或者使用Telegram App直接登录 */}
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 mb-3">或</p>
+                  <a
+                    href={`https://t.me/LeanerClubEXEbot?start=webapp_login`}
+                    className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors"
+                  >
+                    <span className="mr-2">📱</span>
+                    在Telegram App中登录
+                  </a>
+                  <p className="text-xs text-gray-500 mt-2">
+                    直接在Telegram应用中完成认证
+                  </p>
+                </div>
                 
                 {error && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
