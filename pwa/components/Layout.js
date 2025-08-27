@@ -116,20 +116,20 @@ function BottomNavigation() {
   ]
   
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2">
-      <div className="flex justify-around max-w-md mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-2 py-2 safe-area-inset-bottom">
+      <div className="flex justify-between items-center w-full">
         {navItems.map((item) => (
           <Link
             key={item.path}
             href={item.path}
-            className={`flex flex-col items-center py-2 px-4 rounded-lg transition-colors ${
+            className={`flex flex-col items-center py-2 px-3 rounded-lg transition-colors flex-1 min-w-0 ${
               item.active 
                 ? 'text-primary bg-blue-50' 
                 : 'text-gray-600 hover:text-primary'
             }`}
           >
             <span className="text-xl mb-1">{item.icon}</span>
-            <span className="text-xs font-medium">{item.label}</span>
+            <span className="text-xs font-medium truncate">{item.label}</span>
           </Link>
         ))}
       </div>
