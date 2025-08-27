@@ -47,12 +47,15 @@ export default function HistoryPage() {
     }
   }, [toast])
 
-  // Safari检测
+  // 强化Safari检测 - 包括PWA模式
   const isSafari = () => {
     const ua = navigator.userAgent
-    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(ua)
     const isIOS = /iPad|iPhone|iPod/.test(ua)
-    return isSafariBrowser || isIOS
+    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(ua)
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+    
+    // iOS设备 OR Safari浏览器 OR PWA模式都使用Safari策略
+    return isIOS || isSafariBrowser || isPWA
   }
 
   const addDebugInfo = (info) => {
@@ -126,15 +129,25 @@ export default function HistoryPage() {
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      // Safari: 先删除，然后立即刷新页面
+      // 统一使用强制刷新策略 - 解决所有缓存问题
+      addDebugInfo(`开始删除记录: ${recordId}`)
+      showToast('🔄 正在删除...', 'info')
+      
+      await PWAClient.deleteRecord(recordId)
+      addDebugInfo('删除API成功')
+      
+      // 多重刷新策略确保成功
       if (isSafari()) {
-        addDebugInfo(`Safari删除: ${recordId}`)
-        showToast('🔄 正在删除...', 'info')
+        addDebugInfo('Safari/PWA - 使用强制页面刷新')
         
-        await PWAClient.deleteRecord(recordId)
-        
-        addDebugInfo('删除成功，立即刷新页面')
-        window.location.reload()
+        // 方法1: 强制无缓存刷新
+        try {
+          window.location.reload(true)
+        } catch (e) {
+          // 方法2: 替代刷新方案
+          addDebugInfo('reload()失败，尝试href刷新')
+          window.location.href = window.location.href + '?t=' + Date.now()
+        }
         return
       }
       
@@ -167,15 +180,25 @@ export default function HistoryPage() {
       // 关闭编辑模态框
       setEditingRecord(null)
       
-      // Safari: 先修改，然后立即刷新页面
+      // 统一使用强制刷新策略
+      addDebugInfo(`开始修改记录: ${recordId}`)
+      showToast('🔄 正在修改...', 'info')
+      
+      await PWAClient.updateRecord(recordId, updatedData)
+      addDebugInfo('修改API成功')
+      
+      // 多重刷新策略确保成功
       if (isSafari()) {
-        addDebugInfo(`Safari修改: ${recordId}`)
-        showToast('🔄 正在修改...', 'info')
+        addDebugInfo('Safari/PWA - 使用强制页面刷新')
         
-        await PWAClient.updateRecord(recordId, updatedData)
-        
-        addDebugInfo('修改成功，立即刷新页面')
-        window.location.reload()
+        // 方法1: 强制无缓存刷新
+        try {
+          window.location.reload(true)
+        } catch (e) {
+          // 方法2: 替代刷新方案
+          addDebugInfo('reload()失败，尝试href刷新')
+          window.location.href = window.location.href + '?t=' + Date.now()
+        }
         return
       }
       
@@ -240,16 +263,53 @@ export default function HistoryPage() {
 
             <div className="px-4 pb-8 space-y-6">
               
-              {/* 月份选择 */}
+              {/* 月份选择与刷新按钮 */}
               <div className="-mt-16 relative z-10">
                 <ModernCard className="p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">选择月份</h3>
                     <MonthSelector 
                       selectedMonth={selectedMonth}
                       onMonthChange={handleMonthChange}
                     />
                   </div>
+                  
+                  {/* 紧急刷新区域 - Safari专用 */}
+                  {isSafari() && (
+                    <div className="border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Safari刷新工具</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              addDebugInfo('用户手动强制刷新')
+                              window.location.reload(true)
+                            }}
+                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                          >
+                            🔄 强制刷新
+                          </button>
+                          <button
+                            onClick={() => {
+                              addDebugInfo('用户手动清理缓存并刷新')
+                              // 清理Service Worker缓存
+                              if ('caches' in window) {
+                                caches.keys().then(names => {
+                                  names.forEach(name => caches.delete(name))
+                                  window.location.href = window.location.href + '?clear=' + Date.now()
+                                })
+                              } else {
+                                window.location.href = window.location.href + '?clear=' + Date.now()
+                              }
+                            }}
+                            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          >
+                            🧹 清理缓存
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </ModernCard>
               </div>
 

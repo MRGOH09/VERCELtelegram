@@ -124,13 +124,79 @@ class PWAClient {
     return this.call('data', 'add-record', recordData, { useCache: false })
   }
 
-  // 删除记录
+  // 删除记录 - Safari强化版
   async deleteRecord(recordId) {
+    // 强制无缓存请求，绕过所有缓存层
+    const isSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                     /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+                     window.matchMedia('(display-mode: standalone)').matches
+    
+    if (isSafari) {
+      // Safari专用：直接发送fetch请求绕过所有缓存
+      const response = await fetch(`${this.getBaseURL()}/api/pwa/data`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        credentials: 'include',
+        cache: 'no-store', // 关键：强制不使用缓存
+        body: JSON.stringify({ action: 'delete-record', recordId })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      return data
+    }
+    
     return this.call('data', 'delete-record', { recordId }, { useCache: false })
   }
 
-  // 修改记录
+  // 修改记录 - Safari强化版
   async updateRecord(recordId, recordData) {
+    // 强制无缓存请求，绕过所有缓存层
+    const isSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                     /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+                     window.matchMedia('(display-mode: standalone)').matches
+    
+    if (isSafari) {
+      // Safari专用：直接发送fetch请求绕过所有缓存
+      const response = await fetch(`${this.getBaseURL()}/api/pwa/data`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        credentials: 'include',
+        cache: 'no-store', // 关键：强制不使用缓存
+        body: JSON.stringify({ action: 'update-record', recordId, ...recordData })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      return data
+    }
+    
     return this.call('data', 'update-record', { recordId, ...recordData }, { useCache: false })
   }
 }
