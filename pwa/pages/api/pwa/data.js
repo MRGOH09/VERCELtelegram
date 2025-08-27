@@ -623,13 +623,10 @@ async function addRecord(userId, recordData, res) {
       })
     }
 
-    // 构建API请求 - 调用主系统的 record-system
-    // 使用与Telegram相同的动态域名获取方式
+    // 构建API请求 - 直接调用主系统部署的域名
+    // PWA部署和主系统部署分离，需要跨域调用主系统
     const baseURL = process.env.NODE_ENV === 'production' 
-      ? (() => {
-          const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-          return `${url.protocol}//${url.host}`
-        })()
+      ? 'https://versalsupabase.vercel.app' // 主系统域名，包含record-system API
       : 'http://localhost:3000' // 开发环境需要主系统在3000端口运行
 
     console.log(`[addRecord] API调用: ${baseURL}/api/records/record-system`)
@@ -690,12 +687,9 @@ async function batchAddRecords(userId, params, res) {
       })
     }
 
-    // 使用与单条记录相同的API路径逻辑 - 动态域名获取
+    // 使用与单条记录相同的API路径逻辑 - 直接调用主系统
     const baseURL = process.env.NODE_ENV === 'production' 
-      ? (() => {
-          const url = new URL(req.headers['x-forwarded-url'] || `https://${req.headers.host}${req.url}`)
-          return `${url.protocol}//${url.host}`
-        })()
+      ? 'https://versalsupabase.vercel.app' // 主系统域名，包含record-system API
       : 'http://localhost:3000' // 开发环境需要主系统在3000端口运行
 
     const results = []
