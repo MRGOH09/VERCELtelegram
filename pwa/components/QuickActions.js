@@ -21,6 +21,13 @@ export default function QuickActions({ className = '' }) {
       action: () => router.push('/history')
     },
     {
+      icon: '🏆',
+      label: '分行排行',
+      description: '实时排名',
+      color: 'bg-orange-500',
+      action: () => router.push('/branch-rankings')
+    },
+    {
       icon: '⚙️',
       label: '应用设置',
       description: '通知设置',
