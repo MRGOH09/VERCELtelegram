@@ -27,6 +27,7 @@ export default function HistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [editingRecord, setEditingRecord] = useState(null)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     // 默认选择当前月份
@@ -34,6 +35,20 @@ export default function HistoryPage() {
     setSelectedMonth(currentMonth)
     loadHistory(currentMonth)
   }, [])
+
+  // Toast自动消失
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null)
+      }, 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type })
+  }
 
   const loadHistory = async (month = selectedMonth, offset = 0, append = false) => {
     try {
@@ -96,12 +111,15 @@ export default function HistoryPage() {
     try {
       await PWAClient.deleteRecord(recordId)
       
+      // 显示成功提示
+      showToast('✅ 记录已成功删除', 'success')
+      
       // 删除成功后重新加载整个历史记录列表
-      loadHistory(selectedMonth, 0, false)
+      await loadHistory(selectedMonth, 0, false)
       
     } catch (error) {
       console.error('删除记录失败:', error)
-      alert(error.message || '删除失败，请重试')
+      showToast('❌ ' + (error.message || '删除失败，请重试'), 'error')
     }
   }
 
@@ -113,13 +131,16 @@ export default function HistoryPage() {
     try {
       await PWAClient.updateRecord(recordId, updatedData)
       
+      // 显示成功提示
+      showToast('✅ 记录已成功修改', 'success')
+      
       // 修改成功后关闭编辑模态框并重新加载历史记录
       setEditingRecord(null)
-      loadHistory(selectedMonth, 0, false)
+      await loadHistory(selectedMonth, 0, false)
       
     } catch (error) {
       console.error('修改记录失败:', error)
-      alert(error.message || '修改失败，请重试')
+      showToast('❌ ' + (error.message || '修改失败，请重试'), 'error')
     }
   }
 
@@ -246,6 +267,15 @@ export default function HistoryPage() {
             record={editingRecord}
             onSave={handleUpdateRecord}
             onCancel={handleCancelEdit}
+          />
+        )}
+
+        {/* Toast 提示 */}
+        {toast && (
+          <Toast 
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
           />
         )}
       </Layout>
@@ -603,6 +633,43 @@ function EditRecordModal({ record, onSave, onCancel }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// Toast 提示组件
+function Toast({ message, type = 'success', onClose }) {
+  const [isVisible, setIsVisible] = useState(false)
+  
+  useEffect(() => {
+    // 入场动画
+    setTimeout(() => setIsVisible(true), 50)
+  }, [])
+  
+  const handleClose = () => {
+    setIsVisible(false)
+    setTimeout(onClose, 300) // 等待动画完成
+  }
+  
+  const bgColor = type === 'success' 
+    ? 'bg-gradient-to-r from-green-500 to-green-600' 
+    : 'bg-gradient-to-r from-red-500 to-red-600'
+  
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+      <div className={`${bgColor} text-white px-6 py-3 rounded-xl shadow-lg flex items-center space-x-3 transition-all duration-300 ${
+        isVisible 
+          ? 'translate-y-0 opacity-100 scale-100' 
+          : '-translate-y-2 opacity-0 scale-95'
+      }`}>
+        <span className="text-base font-medium">{message}</span>
+        <button
+          onClick={handleClose}
+          className="text-white hover:text-gray-200 text-xl leading-none ml-2 hover:scale-110 transition-transform"
+        >
+          ×
+        </button>
       </div>
     </div>
   )
