@@ -109,6 +109,18 @@ export default function HistoryPage() {
   return (
     <WebAppWrapper>
       <Layout title="历史记录 - Learner Club">
+        {/* LEARNER CLUB 品牌标语 */}
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-2xl">🎯</span>
+            <div>
+              <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
+              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+            </div>
+            <span className="text-2xl">📚</span>
+          </div>
+        </div>
+        
         <SmoothTransition>
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
             
@@ -123,8 +135,11 @@ export default function HistoryPage() {
                     <span className="text-xl">←</span>
                   </button>
                   <div>
-                    <h1 className="text-2xl font-bold">📊 历史记录</h1>
-                    <p className="text-blue-100 text-sm">查看你的消费历史</p>
+                    <h1 className="text-2xl font-bold flex items-center space-x-2">
+                      <span>📊</span>
+                      <span>LEARNER历史记录</span>
+                    </h1>
+                    <p className="text-blue-100 text-sm">回顾财务轨迹 · 掌握消费规律</p>
                   </div>
                 </div>
                 

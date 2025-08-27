@@ -98,36 +98,53 @@ export default function ProfilePage() {
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
           
+          {/* LEARNER CLUB 品牌标语 */}
+          <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-2xl">🎯</span>
+              <div>
+                <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
+                <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+              </div>
+              <span className="text-2xl">📚</span>
+            </div>
+          </div>
+
           {/* 现代化个人信息头部 */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-8 text-white relative overflow-hidden">
-            <div className="flex items-center space-x-4 relative z-10">
+          <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-6 pt-6 pb-24 relative overflow-hidden">
+            {/* 装饰性元素 */}
+            <div className="absolute top-0 right-0 opacity-10">
+              <div className="w-64 h-64 rounded-full bg-white transform translate-x-20 -translate-y-20"></div>
+            </div>
+            <div className="absolute bottom-0 left-0 opacity-5">
+              <div className="w-48 h-48 rounded-full bg-white transform -translate-x-12 translate-y-12"></div>
+            </div>
+            
+            <div className="relative z-10 flex items-start space-x-4 text-white">
               <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                 <span className="text-3xl">👤</span>
               </div>
               
-              <div className="flex-1">
-                <h1 className="text-2xl font-bold mb-2">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl font-bold mb-2 truncate">
                   {data?.profile?.display_name || data?.user?.name || 'User'}
                 </h1>
                 <div className="space-y-1 text-blue-100">
                   {data?.user?.branch && (
-                    <p className="flex items-center">
+                    <p className="flex items-center text-sm">
                       <span className="mr-2">🏢</span>
-                      {data.user.branch} 分行
+                      <span className="truncate">{data.user.branch} 分行</span>
                     </p>
                   )}
                   {data?.user?.joined_date && (
-                    <p className="flex items-center">
+                    <p className="flex items-center text-sm">
                       <span className="mr-2">📅</span>
-                      {formatDate(data.user.joined_date)} 加入
+                      <span className="truncate">{formatDate(data.user.joined_date)} 加入</span>
                     </p>
                   )}
                 </div>
               </div>
             </div>
-            
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-12 -translate-x-12"></div>
           </div>
           
           <div className="px-4 pb-8 space-y-6">
