@@ -381,7 +381,7 @@ export default function AddRecordPage() {
                           : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:scale-105'
                       } ${isCheckingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {hasCheckedInToday ? '✅ 已打卡' : (isCheckingIn ? '打卡中...' : '立即打卡')}
+                      {hasCheckedInToday ? '✅ 已获得积分' : (isCheckingIn ? '打卡中...' : '立即打卡')}
                     </button>
                   </div>
                 </ModernCard>
