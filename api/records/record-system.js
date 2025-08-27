@@ -225,10 +225,10 @@ async function handleDeleteRecord(req, res, userId, recordId) {
       })
     }
 
-    // 验证记录所有权
+    // 验证记录所有权并获取ymd用于daily summary更新
     const { data: existingRecord, error: checkError } = await supabase
       .from('records')
-      .select('id, user_id')
+      .select('id, user_id, ymd')
       .eq('id', recordId)
       .eq('user_id', userId)
       .single()
@@ -257,7 +257,7 @@ async function handleDeleteRecord(req, res, userId, recordId) {
     }
 
     // 异步更新daily summary（不阻塞响应）
-    triggerDailySummaryUpdate(userId, recordToDelete.ymd)
+    triggerDailySummaryUpdate(userId, existingRecord.ymd)
 
     return res.status(200).json({ 
       ok: true, 

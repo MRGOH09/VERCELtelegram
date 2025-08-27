@@ -27,15 +27,21 @@ export default function TestRecordOperationsPage() {
       
       console.log('[测试] 添加记录响应:', response)
       
-      // 尝试从响应中提取记录ID
+      // 尝试从响应中提取记录ID - 根据record-system.js的返回格式
       let recordId = null
-      if (response.data && response.data.id) {
+      console.log('[测试] 分析响应结构以提取记录ID:', response)
+      
+      if (response.record && response.record.id) {
+        recordId = response.record.id  // 主系统直接返回 {ok: true, record: {id: ...}}
+      } else if (response.data && response.data.record && response.data.record.id) {
+        recordId = response.data.record.id  // 如果PWA包装了一层data
+      } else if (response.data && response.data.id) {
         recordId = response.data.id
       } else if (response.id) {
         recordId = response.id
-      } else if (response.data && response.data.record && response.data.record.id) {
-        recordId = response.data.record.id
       }
+      
+      console.log('[测试] 提取的记录ID:', recordId)
       
       setCreatedRecordId(recordId)
       setResult({
