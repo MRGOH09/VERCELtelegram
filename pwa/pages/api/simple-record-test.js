@@ -94,7 +94,7 @@ export default async function handler(req, res) {
     
     // 步骤4: 调用主系统API - 使用最简单的方式
     console.log('[Simple Test] 步骤4: 调用主系统API')
-    const apiURL = 'https://versalsupabase.vercel.app/api/records/record-system'
+    const apiURL = 'https://verceteleg.vercel.app/api/records/record-system'
     console.log('[Simple Test] API URL:', apiURL)
     
     const response = await fetch(apiURL, {

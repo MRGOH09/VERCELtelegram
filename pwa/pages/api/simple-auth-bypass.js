@@ -44,7 +44,7 @@ export default async function handler(req, res) {
     console.log('[Bypass Test] API请求数据:', JSON.stringify(requestData))
     
     // 调用主系统API
-    const apiURL = 'https://versalsupabase.vercel.app/api/records/record-system'
+    const apiURL = 'https://verceteleg.vercel.app/api/records/record-system'
     console.log('[Bypass Test] 开始调用:', apiURL)
     
     const response = await fetch(apiURL, {
