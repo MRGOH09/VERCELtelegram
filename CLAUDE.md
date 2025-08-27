@@ -43,9 +43,13 @@
 - 重用现有查询模式
 - 保持事务处理一致性
 
-### 前端集成
+### 前端集成 (PWA)
 - 保持与现有按钮和界面风格一致
 - 重用现有回调数据格式
+- **PWA品牌标识**: 确保LEARNER CLUB标语和理念融入界面
+- **数据一致性**: PWA与Telegram机器人数据显示必须完全一致
+- **分类映射**: 使用统一的category_code映射 (food→餐饮, shop→购物等)
+- **去重逻辑**: 实现与Telegram `/my`命令一致的分类去重算法
 
 ### Google Sheets同步系统
 - 使用clasp自动部署到Google Apps Script
@@ -101,7 +105,7 @@
 - Google Sheets作为中间层便于调试和监控WhatsApp发送状态
 - 电话号码脱敏处理确保隐私安全（high sensitive level）
 
-## 🐛 重要调试经验 (v2.1更新)
+## 🐛 重要调试经验 (v2.2更新)
 
 ### 数据库Schema一致性检查
 - **问题**: 字段位置错误查询（如`user_profile.branch_code`实际在`users`表）
@@ -122,6 +126,13 @@
 - **UPSERT**: 仅用于确实需要"不存在则创建"的场景
 - **UPDATE**: 用于更新已知存在的记录，避免意外覆盖
 - **分行设置**: 使用UPDATE避免重置现有配置
+
+### PWA与Telegram数据一致性 (v2.2新增)
+- **分类去重**: 实现与Telegram `/my`命令相同的mergedCategories逻辑
+- **预算计算**: 优先使用user_month_budget，备选user_profile百分比计算
+- **分类映射**: 统一使用category_code (food/shop/ent) 而非英文全称
+- **React Hook**: 使用useState而非React.useState避免导入错误
+- **品牌一致性**: PWA界面必须体现LEARNER CLUB理念和标语
 
 ## 🔍 Linux思维调试方法
 
@@ -173,5 +184,11 @@ console.log(`[Function] 映射后:`, targetMap.entries())
 
 ---
 *此文件定义了项目的开发规范，确保代码质量和一致性*
+*v2.3更新：新增PWA增强经验和LEARNER CLUB品牌集成规范*
 *v2.2更新：新增WhatsApp提醒队列系统设计经验*
 *v2.1更新：新增Linux思维调试方法和重要调试经验*
+
+## 📋 相关文档
+- **PWA增强记录**: `/PWA_ENHANCEMENT_LOG.md` - 详细的PWA改进文档
+- **Git提交历史**: 记录了完整的PWA品牌升级过程  
+- **技术实现**: 分类去重、预算计算、品牌集成的具体实现方式
