@@ -5,6 +5,12 @@ import { formatTemplate } from '../../lib/helpers.js'
 import { triggerDailySummaryUpdate } from '../../lib/daily-summary.js'
 
 export default async function handler(req, res) {
+  // 强制无缓存 - 确保数据写入操作不被缓存
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+  res.setHeader('Last-Modified', new Date().toUTCString())
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' })
   }

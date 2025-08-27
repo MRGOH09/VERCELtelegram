@@ -8,10 +8,16 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   try {
-    // CORS处理
+    // CORS和缓存控制处理
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Pragma')
+    
+    // 强制无缓存 - 特别针对Safari PWA
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
+    res.setHeader('Last-Modified', new Date().toUTCString())
     
     if (req.method === 'OPTIONS') {
       return res.status(200).end()
@@ -801,8 +807,12 @@ async function deleteRecord(userId, params, res) {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'User-Agent': 'PWA-Delete-Client'
+        'User-Agent': 'PWA-Delete-Client',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
+      cache: 'no-store', // 强制不使用任何缓存
       body: JSON.stringify({
         action: 'delete',
         userId: userId,
@@ -840,10 +850,15 @@ async function deleteRecord(userId, params, res) {
     
     console.log(`[deleteRecord] 删除成功:`, responseData)
     
+    // 添加时间戳确保响应不被缓存
+    const timestamp = new Date().toISOString()
+    
     return res.json({
       success: true,
       message: '记录删除成功',
-      data: responseData
+      data: responseData,
+      timestamp: timestamp,
+      debug: `Deleted at ${timestamp} by user ${userId}`
     })
     
   } catch (error) {
@@ -883,8 +898,12 @@ async function updateRecord(userId, params, res) {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'User-Agent': 'PWA-Update-Client'
+        'User-Agent': 'PWA-Update-Client',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
       },
+      cache: 'no-store', // 强制不使用任何缓存
       body: JSON.stringify({
         action: 'update',
         userId: userId,
@@ -929,10 +948,15 @@ async function updateRecord(userId, params, res) {
     
     console.log(`[updateRecord] 修改成功:`, responseData)
     
+    // 添加时间戳确保响应不被缓存
+    const timestamp = new Date().toISOString()
+    
     return res.json({
       success: true,
       message: '记录修改成功',
-      data: responseData
+      data: responseData,
+      timestamp: timestamp,
+      debug: `Updated at ${timestamp} by user ${userId} - record ${recordId}`
     })
     
   } catch (error) {
