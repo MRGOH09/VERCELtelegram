@@ -182,7 +182,25 @@ export default function AddRecordPage() {
 
     try {
       setIsSubmitting(true)
-      await PWAClient.call('data', 'batch-add-records', { records: validRecords })
+      
+      // 使用修复的批量记录API（直接调用成功的解决方案）
+      const response = await fetch('/api/batch-no-auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          records: validRecords
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `批量记录失败: ${response.status}`)
+      }
+      
+      console.log('✅ 批量记录成功:', result)
       
       setShowSuccess(true)
       setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
