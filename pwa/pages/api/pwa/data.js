@@ -65,6 +65,9 @@ export default async function handler(req, res) {
       case 'batch-add-records':
         return await batchAddRecords(user.id, params, res)
         
+      case 'delete-record':
+        return await deleteRecord(user.id, params, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -768,6 +771,82 @@ async function batchAddRecords(userId, params, res) {
     console.error('[batchAddRecords] 错误:', error)
     return res.status(500).json({ 
       error: error.message || 'Failed to process batch records' 
+    })
+  }
+}
+
+// 删除记录
+async function deleteRecord(userId, params, res) {
+  try {
+    const { recordId } = params
+    console.log(`[deleteRecord] 用户 ${userId} 删除记录: ${recordId}`)
+    
+    if (!recordId) {
+      return res.status(400).json({ 
+        error: 'Missing required field: recordId' 
+      })
+    }
+    
+    // 构建API请求 - 调用主系统的record-system API
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://verceteleg.vercel.app' // 主系统域名
+      : 'http://localhost:3000'
+    
+    console.log(`[deleteRecord] API调用: ${baseURL}/api/records/record-system`)
+    
+    const response = await fetch(`${baseURL}/api/records/record-system`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'PWA-Delete-Client'
+      },
+      body: JSON.stringify({
+        action: 'delete',
+        userId: userId,
+        recordId: recordId
+      })
+    })
+    
+    const responseText = await response.text()
+    console.log(`[deleteRecord] 主系统响应:`, {
+      status: response.status,
+      ok: response.ok,
+      text: responseText.substring(0, 200)
+    })
+    
+    if (!response.ok) {
+      console.error(`[deleteRecord] 主系统API调用失败:`, {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      })
+      return res.status(response.status || 500).json({ 
+        error: `删除记录失败: ${response.status} ${response.statusText}`,
+        details: responseText
+      })
+    }
+    
+    // 尝试解析JSON响应
+    let responseData
+    try {
+      responseData = JSON.parse(responseText)
+    } catch (e) {
+      console.warn('[deleteRecord] 响应不是JSON格式:', responseText.substring(0, 100))
+      responseData = { success: true, message: responseText }
+    }
+    
+    console.log(`[deleteRecord] 删除成功:`, responseData)
+    
+    return res.json({
+      success: true,
+      message: '记录删除成功',
+      data: responseData
+    })
+    
+  } catch (error) {
+    console.error('[deleteRecord] 错误:', error)
+    return res.status(500).json({ 
+      error: error.message || 'Failed to delete record' 
     })
   }
 }
