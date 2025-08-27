@@ -8,6 +8,16 @@ import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
 import { formatDisplayDate } from '../../lib/date-utils'
 
+// 分类说明函数
+function getCategoryDescription(group) {
+  const descriptions = {
+    'A': '开销 - 生活必需支出',
+    'B': '学习 - 投资未来成长', 
+    'C': '储蓄 - 财富积累保障'
+  }
+  return descriptions[group] || `${group}类`
+}
+
 export default function HistoryPage() {
   const router = useRouter()
   const [records, setRecords] = useState([])
@@ -262,7 +272,7 @@ function MonthlyStats({ stats }) {
         </div>
         <div className="text-center">
           <div className="text-2xl font-bold text-red-600">
-            RM {formatCurrency(Math.abs(stats.totalSpent || 0))}
+            {formatCurrency(Math.abs(stats.totalSpent || 0))}
           </div>
           <div className="text-sm text-blue-700">总支出</div>
         </div>
@@ -274,7 +284,7 @@ function MonthlyStats({ stats }) {
           {Object.entries(stats.categoryBreakdown).map(([category, amount]) => (
             <div key={category} className="flex justify-between text-sm">
               <span className="text-blue-700">{category}</span>
-              <span className="font-medium text-blue-900">RM {formatCurrency(amount)}</span>
+              <span className="font-medium text-blue-900">{formatCurrency(amount)}</span>
             </div>
           ))}
         </div>
@@ -347,8 +357,8 @@ function RecordItem({ record, onDelete }) {
           {categoryInfo.name}
         </p>
         <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-          <span className="bg-gray-200 px-2 py-0.5 rounded text-xs font-medium">
-            {record.category_group}类
+          <span className="bg-gray-200 px-2 py-0.5 rounded text-xs font-medium" title={getCategoryDescription(record.category_group)}>
+            {getCategoryDescription(record.category_group)}
           </span>
           {record.note && (
             <>
@@ -365,10 +375,14 @@ function RecordItem({ record, onDelete }) {
           <p className={`font-bold text-lg ${
             isExpense ? 'text-red-500' : 'text-emerald-500'
           }`}>
-            {isExpense ? '-' : '+'}RM {formatCurrency(Math.abs(record.amount))}
+            {isExpense ? '-' : '+'}{formatCurrency(Math.abs(record.amount))}
           </p>
           <div className="text-xs text-gray-400">
-            {record.time ? record.time.slice(0, 5) : ''}
+            {record.created_at ? new Date(record.created_at).toLocaleTimeString('zh-CN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            }) : ''}
           </div>
         </div>
         
