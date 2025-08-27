@@ -210,6 +210,18 @@ export default function AddRecordPage() {
   return (
     <WebAppWrapper>
       <Layout title="记账 - Learner Club">
+        {/* LEARNER CLUB 品牌标语 */}
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-2xl">🎯</span>
+            <div>
+              <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
+              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+            </div>
+            <span className="text-2xl">📚</span>
+          </div>
+        </div>
+        
         <SmoothTransition>
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
             
@@ -224,8 +236,13 @@ export default function AddRecordPage() {
                     <span className="text-xl">←</span>
                   </button>
                   <div>
-                    <h1 className="text-2xl font-bold">💰 快速记账</h1>
-                    <p className="text-blue-100 text-sm">{isBatchMode ? '表格式批量输入' : '记录你的每一笔支出'}</p>
+                    <h1 className="text-2xl font-bold flex items-center space-x-2">
+                      <span>💰</span>
+                      <span>LEARNER记账系统</span>
+                    </h1>
+                    <p className="text-blue-100 text-sm">
+                      {isBatchMode ? '表格式批量输入 · 高效记录每笔支出' : '精准记录 · 掌控财务未来'}
+                    </p>
                   </div>
                 </div>
                 
@@ -276,18 +293,25 @@ export default function AddRecordPage() {
               {isBatchMode ? (
                 // 批量记录模式
                 <>
-                  {/* 统计卡片 */}
+                  {/* 统计卡片 - LEARNER CLUB 风格 */}
                   <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
-                    <ModernCard className="p-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <div>
-                          <span className="text-gray-600">有效记录: </span>
-                          <span className="font-bold text-blue-600">{getValidRecordsCount()}</span>
-                          <span className="text-gray-500">/5</span>
+                    <ModernCard className="p-6 bg-gradient-to-br from-white to-blue-50 shadow-xl">
+                      <div className="text-center mb-4">
+                        <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                          📊 批量记录统计
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">"高效批量记录，掌控财务全局"</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+                          <div className="text-2xl mb-2">📋</div>
+                          <div className="text-lg font-bold text-blue-600">{getValidRecordsCount()}</div>
+                          <div className="text-sm text-gray-600">有效记录/5</div>
                         </div>
-                        <div>
-                          <span className="text-gray-600">总计: </span>
-                          <span className="font-bold text-red-600">RM {calculateTotal().toFixed(2)}</span>
+                        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+                          <div className="text-2xl mb-2">💰</div>
+                          <div className="text-lg font-bold text-red-600">RM {calculateTotal().toFixed(2)}</div>
+                          <div className="text-sm text-gray-600">总支出金额</div>
                         </div>
                       </div>
                     </ModernCard>
@@ -295,7 +319,12 @@ export default function AddRecordPage() {
 
                   {/* 批量记录表格 */}
                   <ModernCard className="p-3">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">记录明细</h3>
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        📋 记录明细表
+                      </h3>
+                      <p className="text-sm text-gray-600">请填写以下表格，系统将自动验证数据完整性</p>
+                    </div>
                     
                     {/* 表格头部 */}
                     <div className="grid grid-cols-12 gap-1 mb-3 text-xs font-semibold text-gray-600 bg-gray-50 p-2 rounded-lg">
@@ -419,14 +448,29 @@ export default function AddRecordPage() {
                     </button>
                   </div>
 
-                  {/* 使用提示 */}
-                  <ModernCard className="p-4 bg-blue-50/50">
-                    <h4 className="font-semibold text-blue-900 mb-2">💡 使用提示</h4>
-                    <div className="text-sm text-blue-800 space-y-1">
-                      <p>• 填写完整的记录会显示绿色边框</p>
-                      <p>• 只需填写有数据的行，空行会自动忽略</p>
-                      <p>• 默认日期为今天，可手动调整</p>
-                      <p>• 实时显示有效记录数和总金额</p>
+                  {/* LEARNER CLUB 批量记录指导 */}
+                  <ModernCard className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50">
+                    <div className="text-center mb-4">
+                      <h4 className="font-bold text-gray-900 mb-1">🎓 LEARNER CLUB 批量记录指导</h4>
+                      <p className="text-sm text-gray-600">"高效记录，精准管理，成就财务自由"</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-white/70 p-3 rounded-lg">
+                        <div className="text-green-600 font-semibold mb-1">✓ 数据验证</div>
+                        <p className="text-gray-700">完整记录显示绿色边框</p>
+                      </div>
+                      <div className="bg-white/70 p-3 rounded-lg">
+                        <div className="text-blue-600 font-semibold mb-1">📅 日期管理</div>
+                        <p className="text-gray-700">默认今天，可手动调整</p>
+                      </div>
+                      <div className="bg-white/70 p-3 rounded-lg">
+                        <div className="text-purple-600 font-semibold mb-1">⚡ 智能过滤</div>
+                        <p className="text-gray-700">空行自动忽略，无需手动删除</p>
+                      </div>
+                      <div className="bg-white/70 p-3 rounded-lg">
+                        <div className="text-orange-600 font-semibold mb-1">📊 实时统计</div>
+                        <p className="text-gray-700">动态显示有效数和金额</p>
+                      </div>
                     </div>
                   </ModernCard>
                 </>
@@ -436,7 +480,12 @@ export default function AddRecordPage() {
                   {/* 分组选择 */}
               <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
                 <ModernCard className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">选择分组</h3>
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                      🎯 选择财务分组
+                    </h3>
+                    <p className="text-sm text-gray-600">"分类记录，精准掌控每一分钱"</p>
+                  </div>
                   
                   <div className="grid grid-cols-3 gap-3">
                     {Object.entries(TELEGRAM_CATEGORIES).map(([groupKey, groupInfo]) => (
@@ -462,9 +511,12 @@ export default function AddRecordPage() {
 
               {/* 分类选择 */}
               <ModernCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  选择具体分类 - {TELEGRAM_CATEGORIES[selectedGroup].name}
-                </h3>
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {TELEGRAM_CATEGORIES[selectedGroup].icon} {TELEGRAM_CATEGORIES[selectedGroup].name}
+                  </h3>
+                  <p className="text-sm text-gray-600">选择具体分类，明细记录支出结构</p>
+                </div>
                 
                 <div className="grid grid-cols-2 gap-3">
                   {TELEGRAM_CATEGORIES[selectedGroup].items.map((category) => (
@@ -488,7 +540,12 @@ export default function AddRecordPage() {
 
               {/* 金额和备注输入 */}
               <ModernCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">金额和备注</h3>
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                    💰 金额和备注
+                  </h3>
+                  <p className="text-sm text-gray-600">"每一笔支出都值得记录，每一分钱都值得珍惜"</p>
+                </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* 金额输入 */}
@@ -530,7 +587,7 @@ export default function AddRecordPage() {
                   {/* 记录预览 */}
                   {selectedCategoryInfo && amount && (
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-                      <h4 className="font-semibold text-blue-900 mb-2">记录预览</h4>
+                      <h4 className="font-semibold text-blue-900 mb-2">🔎 记录预览</h4>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <span className="text-2xl">{selectedCategoryInfo.icon}</span>
@@ -574,19 +631,32 @@ export default function AddRecordPage() {
 
               {/* 快速金额按钮 */}
               <ModernCard className="p-6">
-                <h4 className="font-semibold text-gray-900 mb-3">快速金额</h4>
+                <div className="text-center mb-4">
+                  <h4 className="font-bold text-gray-900 mb-1">⚡ 快速金额</h4>
+                  <p className="text-sm text-gray-600">点击快速填入常用金额</p>
+                </div>
                 <div className="grid grid-cols-4 gap-3">
                   {[10, 20, 50, 100, 200, 500, 1000, 2000].map((quickAmount) => (
                     <button
                       key={quickAmount}
                       onClick={() => setAmount(quickAmount.toString())}
-                      className="py-3 px-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium"
+                      className="py-3 px-2 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-blue-50 hover:to-blue-100 hover:border-blue-200 border border-gray-200 rounded-lg transition-all duration-200 text-sm font-medium hover:scale-105 transform"
                     >
-                      {quickAmount}
+                      RM {quickAmount}
                     </button>
                   ))}
                 </div>
               </ModernCard>
+              
+              {/* LEARNER CLUB 激励语 */}
+              <div className="text-center p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl mx-4">
+                <p className="text-sm italic text-gray-700 mb-2">
+                  🌟 "每一笔记录都是通向财务自由的一步"
+                </p>
+                <p className="text-xs text-gray-500">
+                  LEARNER CLUB - 学习改变命运，记录成就未来
+                </p>
+              </div>
                 </>
               )}
 
