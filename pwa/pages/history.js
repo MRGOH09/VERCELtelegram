@@ -67,12 +67,15 @@ export default function HistoryPage() {
       }
       
       console.log('[History] API返回数据:', result.debug || 'no debug info')
+      console.log('[History] 返回的记录数量:', result.records?.length || 0)
       
       const safeRecords = Array.isArray(result.records) ? result.records : []
       
       if (append) {
+        console.log('[History] 追加模式 - 原有记录:', records.length, '新增记录:', safeRecords.length)
         setRecords(prev => [...prev, ...safeRecords])
       } else {
+        console.log('[History] 替换模式 - 设置新记录数量:', safeRecords.length)
         setRecords(safeRecords)
       }
       
@@ -109,13 +112,27 @@ export default function HistoryPage() {
     if (!confirm('确定要删除这条记录吗？')) return
 
     try {
+      console.log('[Delete] 开始删除记录:', recordId)
       await PWAClient.deleteRecord(recordId)
+      console.log('[Delete] 删除成功，开始刷新数据')
       
       // 显示成功提示
       showToast('✅ 记录已成功删除', 'success')
       
-      // 删除成功后重新加载整个历史记录列表
-      await loadHistory(selectedMonth, 0, false)
+      // 强制刷新 - 绕过缓存获取最新数据
+      setTimeout(async () => {
+        console.log('[Delete] 开始重新加载历史记录 (绕过缓存)')
+        const result = await PWAClient.call('data', 'history', { 
+          month: selectedMonth, 
+          limit: 20, 
+          offset: 0 
+        }, { useCache: false })
+        
+        const safeRecords = Array.isArray(result.records) ? result.records : []
+        console.log('[Delete] 强制刷新获取记录数量:', safeRecords.length)
+        setRecords(safeRecords)
+        console.log('[Delete] 页面数据已强制更新')
+      }, 200)
       
     } catch (error) {
       console.error('删除记录失败:', error)
@@ -129,14 +146,30 @@ export default function HistoryPage() {
 
   const handleUpdateRecord = async (recordId, updatedData) => {
     try {
+      console.log('[Update] 开始修改记录:', recordId, updatedData)
       await PWAClient.updateRecord(recordId, updatedData)
+      console.log('[Update] 修改成功，开始刷新数据')
       
       // 显示成功提示
       showToast('✅ 记录已成功修改', 'success')
       
-      // 修改成功后关闭编辑模态框并重新加载历史记录
+      // 修改成功后关闭编辑模态框
       setEditingRecord(null)
-      await loadHistory(selectedMonth, 0, false)
+      
+      // 强制刷新 - 绕过缓存获取最新数据
+      setTimeout(async () => {
+        console.log('[Update] 开始重新加载历史记录 (绕过缓存)')
+        const result = await PWAClient.call('data', 'history', { 
+          month: selectedMonth, 
+          limit: 20, 
+          offset: 0 
+        }, { useCache: false })
+        
+        const safeRecords = Array.isArray(result.records) ? result.records : []
+        console.log('[Update] 强制刷新获取记录数量:', safeRecords.length)
+        setRecords(safeRecords)
+        console.log('[Update] 页面数据已强制更新，应该看到修改后的数据')
+      }, 200)
       
     } catch (error) {
       console.error('修改记录失败:', error)
