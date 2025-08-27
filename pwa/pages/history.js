@@ -28,6 +28,7 @@ export default function HistoryPage() {
   const [hasMore, setHasMore] = useState(true)
   const [editingRecord, setEditingRecord] = useState(null)
   const [toast, setToast] = useState(null)
+  const [debugInfo, setDebugInfo] = useState('')
 
   useEffect(() => {
     // 默认选择当前月份
@@ -45,6 +46,21 @@ export default function HistoryPage() {
       return () => clearTimeout(timer)
     }
   }, [toast])
+
+  // Safari检测
+  const isSafari = () => {
+    const ua = navigator.userAgent
+    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(ua)
+    const isIOS = /iPad|iPhone|iPod/.test(ua)
+    return isSafariBrowser || isIOS
+  }
+
+  const addDebugInfo = (info) => {
+    const timestamp = new Date().toLocaleTimeString()
+    const safariInfo = isSafari() ? '[Safari]' : '[Other]'
+    setDebugInfo(prev => `${prev}\n${timestamp} ${safariInfo} ${info}`)
+    console.log(`${timestamp} ${safariInfo} ${info}`)
+  }
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -109,45 +125,79 @@ export default function HistoryPage() {
   }
 
   const handleDeleteRecord = async (recordId) => {
+    addDebugInfo(`删除记录开始: ${recordId}`)
+    
     try {
-      console.log('[Delete] Safari兼容删除开始:', recordId)
-      
       // 显示删除中提示
       showToast('🔄 正在删除记录...', 'info')
       
+      // 记录删除前的数据状态
+      const beforeCount = records.length
+      addDebugInfo(`删除前记录数量: ${beforeCount}`)
+      
       const deleteResult = await PWAClient.deleteRecord(recordId)
-      console.log('[Delete] 删除API响应:', deleteResult)
+      addDebugInfo(`删除API成功: ${JSON.stringify(deleteResult)}`)
       
-      // 显示成功提示
-      showToast('✅ 记录已成功删除', 'success')
-      
-      // 立即刷新 - Safari优化
-      console.log('[Delete] Safari刷新开始')
-      
-      const refreshData = async () => {
+      // Safari多重刷新策略
+      const safariRefresh = async (attempt = 1) => {
+        addDebugInfo(`刷新尝试 ${attempt} 开始`)
+        
         try {
-          const result = await PWAClient.call('data', 'history', { 
-            month: selectedMonth, 
-            limit: 20, 
-            offset: 0 
-          }, { useCache: false })
+          // 强制绕过所有缓存
+          const result = await fetch('/api/pwa/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            },
+            body: JSON.stringify({
+              action: 'history',
+              month: selectedMonth,
+              limit: 20,
+              offset: 0
+            })
+          })
           
-          const safeRecords = Array.isArray(result.records) ? result.records : []
-          console.log('[Delete] Safari刷新获取记录:', safeRecords.length)
-          setRecords(safeRecords)
-          console.log('[Delete] Safari刷新完成')
+          const refreshData = await result.json()
+          addDebugInfo(`刷新API响应: ${result.status}`)
+          
+          if (refreshData && refreshData.records) {
+            const newRecords = Array.isArray(refreshData.records) ? refreshData.records : []
+            addDebugInfo(`获取到新记录数量: ${newRecords.length}`)
+            
+            // 直接强制更新状态
+            setRecords([...newRecords]) // 使用扩展运算符强制触发重新渲染
+            
+            if (newRecords.length < beforeCount) {
+              addDebugInfo(`✅ 删除成功！记录数量从 ${beforeCount} 减少到 ${newRecords.length}`)
+              showToast('✅ 记录已成功删除并刷新', 'success')
+              return true
+            } else {
+              addDebugInfo(`⚠️ 记录数量未变化，继续尝试刷新`)
+              return false
+            }
+          }
         } catch (refreshError) {
-          console.error('[Delete] Safari刷新失败:', refreshError)
-          showToast('⚠️ 删除成功但刷新失败，请手动刷新页面', 'warning')
+          addDebugInfo(`刷新失败: ${refreshError.message}`)
+          return false
         }
       }
       
-      // Safari: 立即刷新 + 备用延时刷新
-      await refreshData()
-      setTimeout(refreshData, 1000)
+      // Safari刷新策略: 立即尝试，然后多次重试
+      let success = await safariRefresh(1)
+      
+      if (!success && isSafari()) {
+        addDebugInfo('Safari多次重试刷新')
+        setTimeout(() => safariRefresh(2), 500)
+        setTimeout(() => safariRefresh(3), 1500)
+        setTimeout(() => safariRefresh(4), 3000)
+        showToast('⚠️ Safari正在多次尝试刷新...', 'warning')
+      }
       
     } catch (error) {
-      console.error('[Delete] Safari删除失败:', error)
+      addDebugInfo(`删除失败: ${error.message}`)
       showToast('❌ ' + (error.message || '删除失败，请重试'), 'error')
     }
   }
@@ -157,34 +207,63 @@ export default function HistoryPage() {
   }
 
   const handleUpdateRecord = async (recordId, updatedData) => {
+    addDebugInfo(`修改记录开始: ${recordId}`)
+    
     try {
-      console.log('[Update] 开始修改记录:', recordId, updatedData)
+      showToast('🔄 正在保存修改...', 'info')
+      
       await PWAClient.updateRecord(recordId, updatedData)
-      console.log('[Update] 修改成功，开始刷新数据')
+      addDebugInfo(`修改API成功`)
       
-      // 显示成功提示
-      showToast('✅ 记录已成功修改', 'success')
-      
-      // 修改成功后关闭编辑模态框
+      // 关闭编辑模态框
       setEditingRecord(null)
       
-      // 强制刷新 - 绕过缓存获取最新数据
-      setTimeout(async () => {
-        console.log('[Update] 开始重新加载历史记录 (绕过缓存)')
-        const result = await PWAClient.call('data', 'history', { 
-          month: selectedMonth, 
-          limit: 20, 
-          offset: 0 
-        }, { useCache: false })
+      // Safari刷新策略
+      const safariRefresh = async () => {
+        addDebugInfo(`修改后刷新开始`)
         
-        const safeRecords = Array.isArray(result.records) ? result.records : []
-        console.log('[Update] 强制刷新获取记录数量:', safeRecords.length)
-        setRecords(safeRecords)
-        console.log('[Update] 页面数据已强制更新，应该看到修改后的数据')
-      }, 200)
+        try {
+          const result = await fetch('/api/pwa/data', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            },
+            body: JSON.stringify({
+              action: 'history',
+              month: selectedMonth,
+              limit: 20,
+              offset: 0
+            })
+          })
+          
+          const refreshData = await result.json()
+          
+          if (refreshData && refreshData.records) {
+            const newRecords = Array.isArray(refreshData.records) ? refreshData.records : []
+            addDebugInfo(`修改后获取记录: ${newRecords.length}`)
+            
+            // 强制触发重新渲染
+            setRecords([...newRecords])
+            showToast('✅ 记录已成功修改并刷新', 'success')
+          }
+        } catch (refreshError) {
+          addDebugInfo(`修改后刷新失败: ${refreshError.message}`)
+          showToast('⚠️ 修改成功但刷新失败', 'warning')
+        }
+      }
+      
+      // 立即刷新 + Safari多次重试
+      await safariRefresh()
+      
+      if (isSafari()) {
+        setTimeout(safariRefresh, 1000)
+        setTimeout(safariRefresh, 2500)
+      }
       
     } catch (error) {
-      console.error('修改记录失败:', error)
+      addDebugInfo(`修改失败: ${error.message}`)
       showToast('❌ ' + (error.message || '修改失败，请重试'), 'error')
     }
   }
@@ -322,6 +401,22 @@ export default function HistoryPage() {
             type={toast.type}
             onClose={() => setToast(null)}
           />
+        )}
+
+        {/* Safari调试面板 */}
+        {isSafari() && debugInfo && (
+          <div className="fixed bottom-4 left-4 right-4 bg-black text-green-400 p-4 rounded-lg max-h-48 overflow-y-auto text-xs font-mono z-40">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-bold">Safari调试信息</span>
+              <button 
+                onClick={() => setDebugInfo('')}
+                className="text-red-400 hover:text-red-300"
+              >
+                清除
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap">{debugInfo}</pre>
+          </div>
         )}
       </Layout>
     </WebAppWrapper>
