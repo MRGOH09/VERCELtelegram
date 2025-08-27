@@ -329,22 +329,48 @@ function TimelineRecordItem({ record, onDelete }) {
     const dateStr = record.ymd || record.date
     const timeStr = record.created_at
     
-    if (dateStr && timeStr) {
-      const date = new Date(`${dateStr} ${timeStr}`)
-      const today = new Date()
-      const yesterday = new Date(today)
-      yesterday.setDate(today.getDate() - 1)
-      
-      // 判断是否为今天、昨天
-      if (date.toDateString() === today.toDateString()) {
-        return `今天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        return `昨天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-      } else {
-        return `${date.getDate()} ${date.toLocaleDateString('zh-CN', { month: 'short' })}, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+    // 调试信息
+    console.log('[TimelineRecord] 调试数据:', { dateStr, timeStr, record })
+    
+    // 处理不同的时间格式
+    let date
+    if (timeStr) {
+      // 如果created_at是完整的ISO字符串 (如: 2024-08-27T10:30:00.000Z)
+      if (timeStr.includes('T')) {
+        date = new Date(timeStr)
+      } 
+      // 如果created_at只是时间部分 (如: 10:30:00)
+      else if (dateStr) {
+        date = new Date(`${dateStr} ${timeStr}`)
       }
+      // 如果只有created_at，尝试直接解析
+      else {
+        date = new Date(timeStr)
+      }
+    } 
+    // 如果没有created_at，只用日期
+    else if (dateStr) {
+      date = new Date(dateStr)
     }
-    return formatDisplayDate(dateStr || '')
+    
+    // 验证日期有效性
+    if (!date || isNaN(date.getTime())) {
+      console.warn('[TimelineRecord] 无效日期:', { dateStr, timeStr })
+      return formatDisplayDate(dateStr || '未知时间')
+    }
+    
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(today.getDate() - 1)
+    
+    // 判断是否为今天、昨天
+    if (date.toDateString() === today.toDateString()) {
+      return `今天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return `昨天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+    } else {
+      return `${date.getDate()} ${date.toLocaleDateString('zh-CN', { month: 'short' })}, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+    }
   }
 
   return (
