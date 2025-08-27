@@ -59,6 +59,12 @@ export default async function handler(req, res) {
       case 'verify-subscription':
         return await verifyPushSubscription(user.id, res)
         
+      case 'add-record':
+        return await addRecord(user.id, params, res)
+        
+      case 'batch-add-records':
+        return await batchAddRecords(user.id, params, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -603,5 +609,162 @@ async function verifyPushSubscription(userId, res) {
   } catch (error) {
     console.error('[verifyPushSubscription] 错误:', error)
     return res.status(500).json({ error: 'Failed to verify push subscription' })
+  }
+}
+
+// 添加单条记录
+async function addRecord(userId, recordData, res) {
+  try {
+    console.log(`[addRecord] 用户 ${userId} 添加记录:`, recordData)
+
+    if (!recordData.group || !recordData.category || !recordData.amount || !recordData.date) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: group, category, amount, date' 
+      })
+    }
+
+    // 构建API请求 - 调用主系统的 record-system
+    // PWA运行在3001端口，主系统在3000端口
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://versalsupabase.vercel.app'
+      : 'http://localhost:3000'
+
+    const response = await fetch(`${baseURL}/api/records/record-system`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'PWA-Client'
+      },
+      body: JSON.stringify({
+        action: 'create',
+        userId: userId,
+        data: {
+          category_group: recordData.group,
+          category_code: recordData.category,
+          amount: parseFloat(recordData.amount),
+          note: recordData.note || '',
+          ymd: recordData.date
+        }
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => 'Unknown error')
+      console.error(`[addRecord] 主系统API调用失败:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      })
+      throw new Error(`记录保存失败: ${response.status} ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    
+    return res.json({
+      success: true,
+      message: '记录添加成功',
+      record: result.record
+    })
+
+  } catch (error) {
+    console.error('[addRecord] 错误:', error)
+    return res.status(500).json({ 
+      error: error.message || 'Failed to add record' 
+    })
+  }
+}
+
+// 批量添加记录
+async function batchAddRecords(userId, params, res) {
+  try {
+    console.log(`[batchAddRecords] 用户 ${userId} 批量添加记录:`, params.records?.length || 0, '条')
+
+    if (!params.records || !Array.isArray(params.records) || params.records.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid records provided' 
+      })
+    }
+
+    // PWA运行在3001端口，主系统在3000端口
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://versalsupabase.vercel.app'
+      : 'http://localhost:3000'
+
+    const results = []
+    const errors = []
+
+    // 逐个处理记录（确保数据一致性）
+    for (let i = 0; i < params.records.length; i++) {
+      const record = params.records[i]
+      
+      try {
+        const response = await fetch(`${baseURL}/api/records/record-system`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'User-Agent': 'PWA-Batch-Client'
+          },
+          body: JSON.stringify({
+            action: 'create',
+            userId: userId,
+            data: {
+              category_group: record.group,
+              category_code: record.category,
+              amount: parseFloat(record.amount),
+              note: record.note || '',
+              ymd: record.date
+            }
+          })
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          results.push({ 
+            index: i, 
+            success: true, 
+            record: result.record 
+          })
+        } else {
+          const errorData = await response.text().catch(() => 'Unknown error')
+          errors.push({ 
+            index: i, 
+            error: `${response.status}: ${errorData}` 
+          })
+        }
+      } catch (recordError) {
+        errors.push({ 
+          index: i, 
+          error: recordError.message 
+        })
+      }
+    }
+
+    console.log(`[batchAddRecords] 完成: ${results.length} 成功, ${errors.length} 失败`)
+
+    // 如果有任何成功的记录，返回成功
+    if (results.length > 0) {
+      return res.json({
+        success: true,
+        message: `批量记录完成: ${results.length} 条成功${errors.length > 0 ? `, ${errors.length} 条失败` : ''}`,
+        results: {
+          successful: results.length,
+          failed: errors.length,
+          details: results,
+          errors: errors
+        }
+      })
+    } else {
+      // 全部失败
+      return res.status(400).json({
+        error: '批量记录失败',
+        details: errors
+      })
+    }
+
+  } catch (error) {
+    console.error('[batchAddRecords] 错误:', error)
+    return res.status(500).json({ 
+      error: error.message || 'Failed to process batch records' 
+    })
   }
 }

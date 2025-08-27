@@ -6,21 +6,22 @@ import { SmoothTransition } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient, { formatCurrency } from '../lib/api'
 
-const CATEGORIES = {
+// 与Telegram系统完全一致的分类系统
+const TELEGRAM_CATEGORIES = {
   A: {
     name: '生活开销',
     icon: '🛒',
     color: 'bg-red-500',
     bgColor: 'bg-red-50',
     items: [
-      { code: 'food', name: '餐饮', icon: '🍽️' },
-      { code: 'transport', name: '交通', icon: '🚗' },
-      { code: 'shopping', name: '购物', icon: '🛍️' },
-      { code: 'utilities', name: '水电费', icon: '💡' },
-      { code: 'rent', name: '房租', icon: '🏠' },
-      { code: 'healthcare', name: '医疗', icon: '🏥' },
-      { code: 'entertainment', name: '娱乐', icon: '🎬' },
-      { code: 'other_a', name: '其他生活', icon: '📦' }
+      { code: '餐饮', name: '餐饮', icon: '🍽️' },
+      { code: '娱乐', name: '娱乐', icon: '🎬' },
+      { code: '购物', name: '购物', icon: '🛍️' },
+      { code: '交通', name: '交通', icon: '🚗' },
+      { code: '水电', name: '水电', icon: '💡' },
+      { code: '手机', name: '手机', icon: '📱' },
+      { code: '家用', name: '家用', icon: '🏠' },
+      { code: '其他', name: '其他', icon: '📦' }
     ]
   },
   B: {
@@ -29,14 +30,10 @@ const CATEGORIES = {
     color: 'bg-blue-500',
     bgColor: 'bg-blue-50',
     items: [
-      { code: 'education', name: '教育培训', icon: '🎓' },
-      { code: 'books', name: '书籍资料', icon: '📖' },
-      { code: 'courses', name: '在线课程', icon: '💻' },
-      { code: 'skills', name: '技能培训', icon: '🔧' },
-      { code: 'certification', name: '认证考试', icon: '📜' },
-      { code: 'seminars', name: '研讨会', icon: '👥' },
-      { code: 'tools', name: '学习工具', icon: '🔨' },
-      { code: 'other_b', name: '其他学习', icon: '📝' }
+      { code: '书籍', name: '书籍', icon: '📖' },
+      { code: '课程', name: '课程', icon: '🎓' },
+      { code: '培训', name: '培训', icon: '🔧' },
+      { code: '认证', name: '认证', icon: '📜' }
     ]
   },
   C: {
@@ -45,14 +42,11 @@ const CATEGORIES = {
     color: 'bg-green-500',
     bgColor: 'bg-green-50',
     items: [
-      { code: 'savings', name: '储蓄', icon: '🏦' },
-      { code: 'investment', name: '投资理财', icon: '📈' },
-      { code: 'insurance', name: '保险', icon: '🛡️' },
-      { code: 'pension', name: '养老金', icon: '👴' },
-      { code: 'emergency', name: '应急基金', icon: '🚨' },
-      { code: 'property', name: '房产投资', icon: '🏘️' },
-      { code: 'crypto', name: '数字货币', icon: '₿' },
-      { code: 'other_c', name: '其他投资', icon: '💰' }
+      { code: '股票', name: '股票', icon: '📈' },
+      { code: '定存', name: '定存', icon: '🏦' },
+      { code: '保险', name: '保险', icon: '🛡️' },
+      { code: '紧急基金', name: '紧急基金', icon: '🚨' },
+      { code: '其他', name: '其他', icon: '💰' }
     ]
   }
 }
@@ -60,7 +54,7 @@ const CATEGORIES = {
 export default function AddRecordPage() {
   const router = useRouter()
   const [selectedGroup, setSelectedGroup] = useState('A')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('餐饮')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -69,10 +63,10 @@ export default function AddRecordPage() {
   useEffect(() => {
     // 从URL参数中获取预选分类
     const { group, category } = router.query
-    if (group && CATEGORIES[group]) {
+    if (group && TELEGRAM_CATEGORIES[group]) {
       setSelectedGroup(group)
       if (category) {
-        const categoryExists = CATEGORIES[group].items.some(item => item.code === category)
+        const categoryExists = TELEGRAM_CATEGORIES[group].items.some(item => item.code === category)
         if (categoryExists) {
           setSelectedCategory(category)
         }
@@ -105,7 +99,7 @@ export default function AddRecordPage() {
         date: new Date().toISOString().split('T')[0] // YYYY-MM-DD
       }
 
-      await PWAClient.addRecord(recordData)
+      await PWAClient.call('data', 'add-record', recordData)
 
       // 显示成功状态
       setShowSuccess(true)
@@ -129,7 +123,7 @@ export default function AddRecordPage() {
   }
 
   const selectedCategoryInfo = selectedCategory ? 
-    CATEGORIES[selectedGroup].items.find(item => item.code === selectedCategory) : null
+    TELEGRAM_CATEGORIES[selectedGroup].items.find(item => item.code === selectedCategory) : null
 
   return (
     <WebAppWrapper>
@@ -173,7 +167,7 @@ export default function AddRecordPage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">选择分组</h3>
                   
                   <div className="grid grid-cols-3 gap-3">
-                    {Object.entries(CATEGORIES).map(([groupKey, groupInfo]) => (
+                    {Object.entries(TELEGRAM_CATEGORIES).map(([groupKey, groupInfo]) => (
                       <button
                         key={groupKey}
                         onClick={() => {
@@ -197,17 +191,17 @@ export default function AddRecordPage() {
               {/* 分类选择 */}
               <ModernCard className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  选择具体分类 - {CATEGORIES[selectedGroup].name}
+                  选择具体分类 - {TELEGRAM_CATEGORIES[selectedGroup].name}
                 </h3>
                 
                 <div className="grid grid-cols-2 gap-3">
-                  {CATEGORIES[selectedGroup].items.map((category) => (
+                  {TELEGRAM_CATEGORIES[selectedGroup].items.map((category) => (
                     <button
                       key={category.code}
                       onClick={() => setSelectedCategory(category.code)}
                       className={`p-4 rounded-xl border-2 text-left transition-all duration-200 ${
                         selectedCategory === category.code
-                          ? `${CATEGORIES[selectedGroup].bgColor} border-current ${CATEGORIES[selectedGroup].color.replace('bg-', 'text-')}`
+                          ? `${TELEGRAM_CATEGORIES[selectedGroup].bgColor} border-current ${TELEGRAM_CATEGORIES[selectedGroup].color.replace('bg-', 'text-')}`
                           : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -270,7 +264,7 @@ export default function AddRecordPage() {
                           <span className="text-2xl">{selectedCategoryInfo.icon}</span>
                           <div>
                             <p className="font-medium text-blue-900">{selectedCategoryInfo.name}</p>
-                            <p className="text-sm text-blue-700">{CATEGORIES[selectedGroup].name}</p>
+                            <p className="text-sm text-blue-700">{TELEGRAM_CATEGORIES[selectedGroup].name}</p>
                           </div>
                         </div>
                         <div className="text-right">

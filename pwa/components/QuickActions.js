@@ -8,10 +8,17 @@ export default function QuickActions({ className = '' }) {
   const quickActions = [
     {
       icon: '💰',
-      label: '快速记账',
-      description: '记录支出',
+      label: '单条记录',
+      description: '快速记账',
       color: 'bg-blue-500',
       action: () => router.push('/add-record')
+    },
+    {
+      icon: '📋',
+      label: '批量记录',
+      description: '表格录入',
+      color: 'bg-indigo-500',
+      action: () => router.push('/batch-record')
     },
     {
       icon: '📊',
