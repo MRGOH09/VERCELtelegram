@@ -293,97 +293,98 @@ function MonthlyStats({ stats }) {
   )
 }
 
-// 记录列表组件
+// 记录列表组件 - 时间流展示（参考银行应用设计）
 function RecordsList({ records, onDeleteRecord }) {
-  // 按日期分组记录 - 使用统一的日期格式化
-  const groupedRecords = records.reduce((groups, record) => {
-    // 优先使用ymd字段，回退到date字段，最后使用格式化函数
-    const dateStr = record.ymd || record.date
-    const date = dateStr ? formatDisplayDate(dateStr) : formatDate(dateStr)
-    if (!groups[date]) {
-      groups[date] = []
-    }
-    groups[date].push(record)
-    return groups
-  }, {})
+  // 直接按时间排序，不分组 - 最新记录在上
+  const sortedRecords = [...records].sort((a, b) => {
+    const dateA = new Date(`${a.ymd || a.date} ${a.created_at || '00:00:00'}`)
+    const dateB = new Date(`${b.ymd || b.date} ${b.created_at || '00:00:00'}`)
+    return dateB.getTime() - dateA.getTime() // 倒序排列，最新在上
+  })
 
   return (
     <ModernCard className="p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">记录详情</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">交易记录</h3>
       
-      <div className="space-y-6">
-        {Object.entries(groupedRecords).map(([date, dayRecords]) => (
-          <div key={date}>
-            {/* 日期标题 */}
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-semibold text-gray-800">{date}</h4>
-              <div className="text-sm text-gray-500">
-                {dayRecords.length} 笔记录
-              </div>
-            </div>
-            
-            {/* 当日记录 */}
-            <div className="space-y-3">
-              {dayRecords.map((record) => (
-                <RecordItem 
-                  key={record.id} 
-                  record={record} 
-                  onDelete={onDeleteRecord}
-                />
-              ))}
-            </div>
-          </div>
+      <div className="space-y-4">
+        {sortedRecords.map((record) => (
+          <TimelineRecordItem 
+            key={record.id} 
+            record={record} 
+            onDelete={onDeleteRecord}
+          />
         ))}
       </div>
     </ModernCard>
   )
 }
 
-// 单个记录项组件
-function RecordItem({ record, onDelete }) {
+// 时间线记录项组件 - 银行应用风格
+function TimelineRecordItem({ record, onDelete }) {
   const categoryInfo = getCategoryInfo(record.category_code, record.category_group)
   const isExpense = record.amount < 0
+  
+  // 格式化日期时间 - 参考银行应用的显示方式
+  const formatDateTime = (record) => {
+    const dateStr = record.ymd || record.date
+    const timeStr = record.created_at
+    
+    if (dateStr && timeStr) {
+      const date = new Date(`${dateStr} ${timeStr}`)
+      const today = new Date()
+      const yesterday = new Date(today)
+      yesterday.setDate(today.getDate() - 1)
+      
+      // 判断是否为今天、昨天
+      if (date.toDateString() === today.toDateString()) {
+        return `今天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        return `昨天, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+      } else {
+        return `${date.getDate()} ${date.toLocaleDateString('zh-CN', { month: 'short' })}, ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+      }
+    }
+    return formatDisplayDate(dateStr || '')
+  }
 
   return (
-    <div className="flex items-center space-x-4 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group">
-      {/* 分类图标 */}
-      <div className="flex-shrink-0 w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-        <span className="text-xl">{categoryInfo.icon}</span>
-      </div>
+    <div className="flex items-start space-x-4 p-4 hover:bg-gray-50 rounded-lg transition-all duration-200 group border-b border-gray-100">
       
-      {/* 记录信息 */}
+      {/* 左侧：时间和交易信息 */}
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 truncate">
-          {categoryInfo.name}
-        </p>
-        <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-          <span className="bg-gray-200 px-2 py-0.5 rounded text-xs font-medium" title={getCategoryDescription(record.category_group)}>
-            {getCategoryDescription(record.category_group)}
-          </span>
-          {record.note && (
-            <>
-              <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-              <span className="truncate">💬 {record.note}</span>
-            </>
-          )}
+        {/* 时间戳 - 银行应用风格 */}
+        <div className="text-sm text-gray-500 mb-1">
+          {formatDateTime(record)}
         </div>
+        
+        {/* 交易描述 - 主要信息 */}
+        <div className="flex items-center space-x-2 mb-1">
+          <span className="text-xl">{categoryInfo.icon}</span>
+          <p className="font-medium text-gray-900 truncate">
+            {categoryInfo.name}
+          </p>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full" 
+                title={getCategoryDescription(record.category_group)}>
+            {record.category_group}类
+          </span>
+        </div>
+        
+        {/* 备注信息 */}
+        {record.note && (
+          <div className="text-sm text-gray-500 mt-1 truncate">
+            {record.note}
+          </div>
+        )}
       </div>
       
-      {/* 金额和操作 */}
+      {/* 右侧：金额和操作按钮 */}
       <div className="text-right flex items-center space-x-3">
         <div>
           <p className={`font-bold text-lg ${
-            isExpense ? 'text-red-500' : 'text-emerald-500'
+            isExpense ? 'text-red-500' : 'text-blue-500'
           }`}>
-            {isExpense ? '-' : '+'}{formatCurrency(Math.abs(record.amount))}
+            {isExpense ? '-' : '+'}RM{Math.abs(record.amount).toFixed(2)}
           </p>
-          <div className="text-xs text-gray-400">
-            {record.created_at ? new Date(record.created_at).toLocaleTimeString('zh-CN', {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            }) : ''}
-          </div>
         </div>
         
         {/* 删除按钮 */}
