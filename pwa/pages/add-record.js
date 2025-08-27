@@ -51,14 +51,35 @@ const TELEGRAM_CATEGORIES = {
   }
 }
 
+// 创建空记录行
+const createEmptyRecord = (index) => ({
+  id: `temp-${Date.now()}-${index}`,
+  date: new Date().toISOString().split('T')[0],
+  group: 'A',
+  category: '餐饮',
+  amount: '',
+  note: '',
+  isValid: false
+})
+
 export default function AddRecordPage() {
   const router = useRouter()
+  
+  // 模式切换状态
+  const [isBatchMode, setIsBatchMode] = useState(false)
+  
+  // 单条记录状态
   const [selectedGroup, setSelectedGroup] = useState('A')
   const [selectedCategory, setSelectedCategory] = useState('餐饮')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  
+  // 批量记录状态
+  const [batchRecords, setBatchRecords] = useState(() => 
+    Array.from({ length: 5 }, (_, i) => createEmptyRecord(i))
+  )
 
   useEffect(() => {
     // 从URL参数中获取预选分类
@@ -122,6 +143,67 @@ export default function AddRecordPage() {
     }
   }
 
+  // 批量记录函数
+  const updateBatchRecord = (index, field, value) => {
+    setBatchRecords(prev => prev.map((record, i) => {
+      if (i === index) {
+        const updated = { ...record, [field]: value }
+        // 实时验证
+        updated.isValid = updated.date && updated.amount && parseFloat(updated.amount) > 0
+        return updated
+      }
+      return record
+    }))
+  }
+
+  const calculateTotal = () => {
+    return batchRecords.reduce((total, record) => {
+      const amount = parseFloat(record.amount) || 0
+      return total + amount
+    }, 0)
+  }
+
+  const getValidRecordsCount = () => {
+    return batchRecords.filter(record => record.isValid).length
+  }
+
+  const getAllCategories = (group) => {
+    return TELEGRAM_CATEGORIES[group]?.items || []
+  }
+
+  const handleBatchSubmit = async () => {
+    const validRecords = batchRecords.filter(record => record.isValid)
+    
+    if (validRecords.length === 0) {
+      alert('请至少填写一条完整记录')
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      await PWAClient.call('data', 'batch-add-records', { records: validRecords })
+      
+      setShowSuccess(true)
+      setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
+      
+      setTimeout(() => {
+        setShowSuccess(false)
+      }, 3000)
+
+    } catch (error) {
+      console.error('批量记录失败:', error)
+      alert(error.message || '批量记录失败，请重试')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleClearBatch = () => {
+    if (confirm('确定要清空所有记录吗？')) {
+      setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
+    }
+  }
+
   const selectedCategoryInfo = selectedCategory ? 
     TELEGRAM_CATEGORIES[selectedGroup].items.find(item => item.code === selectedCategory) : null
 
@@ -143,8 +225,32 @@ export default function AddRecordPage() {
                   </button>
                   <div>
                     <h1 className="text-2xl font-bold">💰 快速记账</h1>
-                    <p className="text-blue-100 text-sm">记录你的每一笔支出</p>
+                    <p className="text-blue-100 text-sm">{isBatchMode ? '表格式批量输入' : '记录你的每一笔支出'}</p>
                   </div>
+                </div>
+                
+                {/* 模式切换按钮 */}
+                <div className="flex bg-white/20 rounded-xl p-1 mt-4">
+                  <button
+                    onClick={() => setIsBatchMode(false)}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      !isBatchMode 
+                        ? 'bg-white text-blue-700 shadow-sm' 
+                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    💰 单条记录
+                  </button>
+                  <button
+                    onClick={() => setIsBatchMode(true)}
+                    className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                      isBatchMode 
+                        ? 'bg-white text-blue-700 shadow-sm' 
+                        : 'text-white/80 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    📋 批量记录
+                  </button>
                 </div>
               </div>
             </div>
@@ -156,12 +262,178 @@ export default function AddRecordPage() {
                 <div className="-mt-4 relative z-20">
                   <ModernCard className="p-4 bg-green-50 border border-green-200 text-center">
                     <div className="text-4xl mb-2">✅</div>
-                    <p className="text-green-800 font-semibold">记录添加成功！</p>
+                    <p className="text-green-800 font-semibold">
+                      {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
+                    </p>
+                    {isBatchMode && (
+                      <p className="text-green-600 text-sm">已保存 {getValidRecordsCount()} 条记录</p>
+                    )}
                   </ModernCard>
                 </div>
               )}
 
-              {/* 分组选择 */}
+              {/* 根据模式显示不同内容 */}
+              {isBatchMode ? (
+                // 批量记录模式
+                <>
+                  {/* 统计卡片 */}
+                  <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
+                    <ModernCard className="p-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="text-gray-600">有效记录: </span>
+                          <span className="font-bold text-blue-600">{getValidRecordsCount()}</span>
+                          <span className="text-gray-500">/5</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">总计: </span>
+                          <span className="font-bold text-red-600">RM {calculateTotal().toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </ModernCard>
+                  </div>
+
+                  {/* 批量记录表格 */}
+                  <ModernCard className="p-3">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">记录明细</h3>
+                    
+                    {/* 表格头部 */}
+                    <div className="grid grid-cols-12 gap-1 mb-3 text-xs font-semibold text-gray-600 bg-gray-50 p-2 rounded-lg">
+                      <div className="col-span-3">日期</div>
+                      <div className="col-span-2">类型</div>
+                      <div className="col-span-2">项目</div>
+                      <div className="col-span-3">金额</div>
+                      <div className="col-span-2">备注</div>
+                    </div>
+
+                    {/* 记录行 */}
+                    <div className="space-y-2">
+                      {batchRecords.map((record, index) => (
+                        <div 
+                          key={record.id}
+                          className={`grid grid-cols-12 gap-1 p-2 rounded-lg border-2 transition-colors ${
+                            record.isValid 
+                              ? 'border-green-200 bg-green-50/30' 
+                              : record.amount || record.note 
+                                ? 'border-yellow-200 bg-yellow-50/30'
+                                : 'border-gray-200 bg-white'
+                          }`}
+                        >
+                          {/* 日期 */}
+                          <div className="col-span-3">
+                            <input
+                              type="date"
+                              value={record.date}
+                              onChange={(e) => updateBatchRecord(index, 'date', e.target.value)}
+                              className="w-full text-xs p-1 border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+
+                          {/* 类型 */}
+                          <div className="col-span-2">
+                            <select
+                              value={record.group}
+                              onChange={(e) => {
+                                updateBatchRecord(index, 'group', e.target.value)
+                                // 重置分类为该组的第一个
+                                const firstCategory = TELEGRAM_CATEGORIES[e.target.value]?.items[0]?.code || ''
+                                updateBatchRecord(index, 'category', firstCategory)
+                              }}
+                              className="w-full text-xs p-1 border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              <option value="A">🛒开销</option>
+                              <option value="B">📚学习</option>
+                              <option value="C">💎储蓄</option>
+                            </select>
+                          </div>
+
+                          {/* 项目 */}
+                          <div className="col-span-2">
+                            <select
+                              value={record.category}
+                              onChange={(e) => updateBatchRecord(index, 'category', e.target.value)}
+                              className="w-full text-xs p-1 border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                            >
+                              {getAllCategories(record.group).map(cat => (
+                                <option key={cat.code} value={cat.code}>
+                                  {cat.icon}{cat.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* 金额 */}
+                          <div className="col-span-3">
+                            <div className="relative">
+                              <span className="absolute left-1 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">RM</span>
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={record.amount}
+                                onChange={(e) => updateBatchRecord(index, 'amount', e.target.value)}
+                                placeholder="0.00"
+                                className="w-full pl-6 pr-1 py-1 text-xs border rounded text-right font-bold focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+
+                          {/* 备注 */}
+                          <div className="col-span-2">
+                            <input
+                              type="text"
+                              value={record.note}
+                              onChange={(e) => updateBatchRecord(index, 'note', e.target.value)}
+                              placeholder="备注"
+                              className="w-full text-xs p-1 border rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ModernCard>
+
+                  {/* 批量操作按钮 */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={handleClearBatch}
+                      disabled={isSubmitting}
+                      className="py-3 px-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
+                    >
+                      🗑️ 清空
+                    </button>
+                    
+                    <button
+                      onClick={handleBatchSubmit}
+                      disabled={isSubmitting || getValidRecordsCount() === 0}
+                      className="py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? (
+                        <div className="flex items-center justify-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>保存中...</span>
+                        </div>
+                      ) : (
+                        `💾 保存记录 (${getValidRecordsCount()})`
+                      )}
+                    </button>
+                  </div>
+
+                  {/* 使用提示 */}
+                  <ModernCard className="p-4 bg-blue-50/50">
+                    <h4 className="font-semibold text-blue-900 mb-2">💡 使用提示</h4>
+                    <div className="text-sm text-blue-800 space-y-1">
+                      <p>• 填写完整的记录会显示绿色边框</p>
+                      <p>• 只需填写有数据的行，空行会自动忽略</p>
+                      <p>• 默认日期为今天，可手动调整</p>
+                      <p>• 实时显示有效记录数和总金额</p>
+                    </div>
+                  </ModernCard>
+                </>
+              ) : (
+                // 单条记录模式（原来的内容）
+                <>
+                  {/* 分组选择 */}
               <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
                 <ModernCard className="p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">选择分组</h3>
@@ -315,6 +587,8 @@ export default function AddRecordPage() {
                   ))}
                 </div>
               </ModernCard>
+                </>
+              )}
 
             </div>
           </div>
