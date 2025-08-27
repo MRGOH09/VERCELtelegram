@@ -24,7 +24,6 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedMonth, setSelectedMonth] = useState('')
-  const [stats, setStats] = useState(null)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
 
@@ -59,7 +58,6 @@ export default function HistoryPage() {
         setRecords(prev => [...prev, ...safeRecords])
       } else {
         setRecords(safeRecords)
-        setStats(result.stats || {})
       }
       
       setHasMore(safeRecords.length === 20) // 如果返回20条记录，可能还有更多
@@ -146,18 +144,16 @@ export default function HistoryPage() {
 
             <div className="px-4 pb-8 space-y-6">
               
-              {/* 月份选择和统计 */}
+              {/* 月份选择 */}
               <div className="-mt-16 relative z-10">
                 <ModernCard className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">选择月份</h3>
                     <MonthSelector 
                       selectedMonth={selectedMonth}
                       onMonthChange={handleMonthChange}
                     />
                   </div>
-                  
-                  {stats && <MonthlyStats stats={stats} />}
                 </ModernCard>
               </div>
 
@@ -257,41 +253,6 @@ function MonthSelector({ selectedMonth, onMonthChange }) {
   )
 }
 
-// 月度统计组件
-function MonthlyStats({ stats }) {
-  return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
-      <h4 className="font-semibold text-blue-900 mb-3">本月统计</h4>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-blue-600">
-            {stats.totalRecords || 0}
-          </div>
-          <div className="text-sm text-blue-700">总记录数</div>
-        </div>
-        <div className="text-center">
-          <div className="text-2xl font-bold text-red-600">
-            {formatCurrency(Math.abs(stats.totalSpent || 0))}
-          </div>
-          <div className="text-sm text-blue-700">总支出</div>
-        </div>
-      </div>
-      
-      {stats.categoryBreakdown && (
-        <div className="mt-4 space-y-2">
-          <h5 className="text-sm font-medium text-blue-800">分类占比</h5>
-          {Object.entries(stats.categoryBreakdown).map(([category, amount]) => (
-            <div key={category} className="flex justify-between text-sm">
-              <span className="text-blue-700">{category}</span>
-              <span className="font-medium text-blue-900">{formatCurrency(amount)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // 记录列表组件 - 时间流展示（参考银行应用设计）
 function RecordsList({ records, onDeleteRecord }) {
