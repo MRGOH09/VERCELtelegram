@@ -125,85 +125,35 @@ export default function HistoryPage() {
   }
 
   const handleDeleteRecord = async (recordId) => {
-    addDebugInfo(`删除记录开始: ${recordId}`)
-    
     try {
-      // 显示删除中提示
+      // Safari: 先删除，然后立即刷新页面
+      if (isSafari()) {
+        addDebugInfo(`Safari删除: ${recordId}`)
+        showToast('🔄 正在删除...', 'info')
+        
+        await PWAClient.deleteRecord(recordId)
+        
+        addDebugInfo('删除成功，立即刷新页面')
+        window.location.reload()
+        return
+      }
+      
+      // 非Safari: 使用React状态更新
       showToast('🔄 正在删除记录...', 'info')
       
-      // 记录删除前的数据状态
-      const beforeCount = records.length
-      addDebugInfo(`删除前记录数量: ${beforeCount}`)
+      await PWAClient.deleteRecord(recordId)
       
-      const deleteResult = await PWAClient.deleteRecord(recordId)
-      addDebugInfo(`删除API成功: ${JSON.stringify(deleteResult)}`)
+      const result = await PWAClient.call('data', 'history', { 
+        month: selectedMonth, 
+        limit: 20, 
+        offset: 0 
+      }, { useCache: false })
       
-      // Safari多重刷新策略
-      const safariRefresh = async (attempt = 1) => {
-        addDebugInfo(`刷新尝试 ${attempt} 开始`)
-        
-        try {
-          // 强制绕过所有缓存
-          const result = await fetch('/api/pwa/data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
-            },
-            body: JSON.stringify({
-              action: 'history',
-              month: selectedMonth,
-              limit: 20,
-              offset: 0
-            })
-          })
-          
-          const refreshData = await result.json()
-          addDebugInfo(`刷新API响应: ${result.status}`)
-          
-          if (refreshData && refreshData.records) {
-            const newRecords = Array.isArray(refreshData.records) ? refreshData.records : []
-            addDebugInfo(`获取到新记录数量: ${newRecords.length}`)
-            
-            // 直接强制更新状态
-            setRecords([...newRecords]) // 使用扩展运算符强制触发重新渲染
-            
-            if (newRecords.length < beforeCount) {
-              addDebugInfo(`✅ 删除成功！记录数量从 ${beforeCount} 减少到 ${newRecords.length}`)
-              showToast('✅ 记录已成功删除并刷新', 'success')
-              return true
-            } else {
-              addDebugInfo(`⚠️ 记录数量未变化，继续尝试刷新`)
-              return false
-            }
-          }
-        } catch (refreshError) {
-          addDebugInfo(`刷新失败: ${refreshError.message}`)
-          return false
-        }
-      }
-      
-      // Safari简单粗暴解决方案: 直接刷新页面
-      if (isSafari()) {
-        addDebugInfo('Safari检测到，使用页面刷新方案')
-        showToast('✅ 删除成功，Safari正在刷新页面...', 'success')
-        
-        setTimeout(() => {
-          addDebugInfo('执行页面刷新')
-          window.location.reload()
-        }, 1000)
-      } else {
-        // 非Safari继续使用React状态更新
-        let success = await safariRefresh(1)
-        if (!success) {
-          setTimeout(() => safariRefresh(2), 500)
-        }
-      }
+      const safeRecords = Array.isArray(result.records) ? result.records : []
+      setRecords([...safeRecords])
+      showToast('✅ 记录已成功删除', 'success')
       
     } catch (error) {
-      addDebugInfo(`删除失败: ${error.message}`)
       showToast('❌ ' + (error.message || '删除失败，请重试'), 'error')
     }
   }
@@ -213,70 +163,38 @@ export default function HistoryPage() {
   }
 
   const handleUpdateRecord = async (recordId, updatedData) => {
-    addDebugInfo(`修改记录开始: ${recordId}`)
-    
     try {
-      showToast('🔄 正在保存修改...', 'info')
-      
-      await PWAClient.updateRecord(recordId, updatedData)
-      addDebugInfo(`修改API成功`)
-      
       // 关闭编辑模态框
       setEditingRecord(null)
       
-      // Safari刷新策略
-      const safariRefresh = async () => {
-        addDebugInfo(`修改后刷新开始`)
+      // Safari: 先修改，然后立即刷新页面
+      if (isSafari()) {
+        addDebugInfo(`Safari修改: ${recordId}`)
+        showToast('🔄 正在修改...', 'info')
         
-        try {
-          const result = await fetch('/api/pwa/data', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache'
-            },
-            body: JSON.stringify({
-              action: 'history',
-              month: selectedMonth,
-              limit: 20,
-              offset: 0
-            })
-          })
-          
-          const refreshData = await result.json()
-          
-          if (refreshData && refreshData.records) {
-            const newRecords = Array.isArray(refreshData.records) ? refreshData.records : []
-            addDebugInfo(`修改后获取记录: ${newRecords.length}`)
-            
-            // 强制触发重新渲染
-            setRecords([...newRecords])
-            showToast('✅ 记录已成功修改并刷新', 'success')
-          }
-        } catch (refreshError) {
-          addDebugInfo(`修改后刷新失败: ${refreshError.message}`)
-          showToast('⚠️ 修改成功但刷新失败', 'warning')
-        }
+        await PWAClient.updateRecord(recordId, updatedData)
+        
+        addDebugInfo('修改成功，立即刷新页面')
+        window.location.reload()
+        return
       }
       
-      // Safari简单粗暴解决方案: 直接刷新页面
-      if (isSafari()) {
-        addDebugInfo('Safari检测到，使用页面刷新方案')
-        showToast('✅ 修改成功，Safari正在刷新页面...', 'success')
-        
-        setTimeout(() => {
-          addDebugInfo('执行页面刷新')
-          window.location.reload()
-        }, 1000)
-      } else {
-        // 非Safari使用React状态更新
-        await safariRefresh()
-        setTimeout(safariRefresh, 1000)
-      }
+      // 非Safari: 使用React状态更新
+      showToast('🔄 正在保存修改...', 'info')
+      
+      await PWAClient.updateRecord(recordId, updatedData)
+      
+      const result = await PWAClient.call('data', 'history', { 
+        month: selectedMonth, 
+        limit: 20, 
+        offset: 0 
+      }, { useCache: false })
+      
+      const safeRecords = Array.isArray(result.records) ? result.records : []
+      setRecords([...safeRecords])
+      showToast('✅ 记录已成功修改', 'success')
       
     } catch (error) {
-      addDebugInfo(`修改失败: ${error.message}`)
       showToast('❌ ' + (error.message || '修改失败，请重试'), 'error')
     }
   }
