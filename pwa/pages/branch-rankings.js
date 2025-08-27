@@ -5,7 +5,7 @@ import PWAClient from '../lib/api'
 import ModernCard from '../components/ModernCard'
 import PageHeader from '../components/PageHeader'
 import Toast from '../components/Toast'
-import SmoothTransition from '../components/SmoothTransition'
+import { SmoothTransition } from '../components/SmoothTransition'
 
 export default function BranchRankingsPage() {
   const router = useRouter()
