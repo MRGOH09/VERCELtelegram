@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import { validateJWTToken } from '../../lib/auth.js'
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
 )
 
 export default async function handler(req, res) {
@@ -11,11 +12,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const userId = req.headers['x-user-id'] // PWA传递的用户ID
-
-    if (!userId) {
-      return res.status(400).json({ ok: false, error: '用户ID是必需的' })
+    // JWT Token验证 - 与现有PWA API保持一致
+    const user = await validateJWTToken(req)
+    if (!user) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' })
     }
+
+    const userId = user.id
 
     // 1. 获取用户最近30天的积分记录
     const thirtyDaysAgo = new Date()
@@ -34,6 +37,8 @@ export default async function handler(req, res) {
       console.error('获取积分记录失败:', scoresError)
       return res.status(500).json({ ok: false, error: '获取积分记录失败' })
     }
+
+    console.log(`[scores] 用户 ${userId} 积分记录: ${dailyScores?.length || 0} 条`)
 
     // 2. 计算积分统计
     const today = new Date().toISOString().split('T')[0]
