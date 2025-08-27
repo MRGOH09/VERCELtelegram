@@ -68,6 +68,9 @@ export default async function handler(req, res) {
       case 'delete-record':
         return await deleteRecord(user.id, params, res)
         
+      case 'update-record':
+        return await updateRecord(user.id, params, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -847,6 +850,95 @@ async function deleteRecord(userId, params, res) {
     console.error('[deleteRecord] 错误:', error)
     return res.status(500).json({ 
       error: error.message || 'Failed to delete record' 
+    })
+  }
+}
+
+// 修改记录
+async function updateRecord(userId, params, res) {
+  try {
+    const { recordId, group, category, amount, date, note } = params
+    console.log(`[updateRecord] 用户 ${userId} 修改记录 ${recordId}:`, { group, category, amount, date, note })
+    
+    if (!recordId) {
+      return res.status(400).json({ 
+        error: 'Missing required field: recordId' 
+      })
+    }
+    
+    if (!group || !category || !amount || !date) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: group, category, amount, date' 
+      })
+    }
+    
+    // 构建API请求 - 调用主系统的record-system API
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://verceteleg.vercel.app' // 主系统域名
+      : 'http://localhost:3000'
+    
+    console.log(`[updateRecord] API调用: ${baseURL}/api/records/record-system`)
+    
+    const response = await fetch(`${baseURL}/api/records/record-system`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'PWA-Update-Client'
+      },
+      body: JSON.stringify({
+        action: 'update',
+        userId: userId,
+        recordId: recordId,
+        data: {
+          category_group: group,
+          category_code: category,
+          amount: parseFloat(amount),
+          note: note || '',
+          ymd: date
+        }
+      })
+    })
+    
+    const responseText = await response.text()
+    console.log(`[updateRecord] 主系统响应:`, {
+      status: response.status,
+      ok: response.ok,
+      text: responseText.substring(0, 200)
+    })
+    
+    if (!response.ok) {
+      console.error(`[updateRecord] 主系统API调用失败:`, {
+        status: response.status,
+        statusText: response.statusText,
+        response: responseText
+      })
+      return res.status(response.status || 500).json({ 
+        error: `修改记录失败: ${response.status} ${response.statusText}`,
+        details: responseText
+      })
+    }
+    
+    // 尝试解析JSON响应
+    let responseData
+    try {
+      responseData = JSON.parse(responseText)
+    } catch (e) {
+      console.warn('[updateRecord] 响应不是JSON格式:', responseText.substring(0, 100))
+      responseData = { success: true, message: responseText }
+    }
+    
+    console.log(`[updateRecord] 修改成功:`, responseData)
+    
+    return res.json({
+      success: true,
+      message: '记录修改成功',
+      data: responseData
+    })
+    
+  } catch (error) {
+    console.error('[updateRecord] 错误:', error)
+    return res.status(500).json({ 
+      error: error.message || 'Failed to update record' 
     })
   }
 }

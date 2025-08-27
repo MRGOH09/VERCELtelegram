@@ -128,6 +128,11 @@ class PWAClient {
   async deleteRecord(recordId) {
     return this.call('data', 'delete-record', { recordId }, { useCache: false })
   }
+
+  // 修改记录
+  async updateRecord(recordId, recordData) {
+    return this.call('data', 'update-record', { recordId, ...recordData }, { useCache: false })
+  }
 }
 
 export default new PWAClient()
