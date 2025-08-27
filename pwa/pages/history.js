@@ -109,33 +109,45 @@ export default function HistoryPage() {
   }
 
   const handleDeleteRecord = async (recordId) => {
-    if (!confirm('确定要删除这条记录吗？')) return
-
     try {
-      console.log('[Delete] 开始删除记录:', recordId)
-      await PWAClient.deleteRecord(recordId)
-      console.log('[Delete] 删除成功，开始刷新数据')
+      console.log('[Delete] Safari兼容删除开始:', recordId)
+      
+      // 显示删除中提示
+      showToast('🔄 正在删除记录...', 'info')
+      
+      const deleteResult = await PWAClient.deleteRecord(recordId)
+      console.log('[Delete] 删除API响应:', deleteResult)
       
       // 显示成功提示
       showToast('✅ 记录已成功删除', 'success')
       
-      // 强制刷新 - 绕过缓存获取最新数据
-      setTimeout(async () => {
-        console.log('[Delete] 开始重新加载历史记录 (绕过缓存)')
-        const result = await PWAClient.call('data', 'history', { 
-          month: selectedMonth, 
-          limit: 20, 
-          offset: 0 
-        }, { useCache: false })
-        
-        const safeRecords = Array.isArray(result.records) ? result.records : []
-        console.log('[Delete] 强制刷新获取记录数量:', safeRecords.length)
-        setRecords(safeRecords)
-        console.log('[Delete] 页面数据已强制更新')
-      }, 200)
+      // 立即刷新 - Safari优化
+      console.log('[Delete] Safari刷新开始')
+      
+      const refreshData = async () => {
+        try {
+          const result = await PWAClient.call('data', 'history', { 
+            month: selectedMonth, 
+            limit: 20, 
+            offset: 0 
+          }, { useCache: false })
+          
+          const safeRecords = Array.isArray(result.records) ? result.records : []
+          console.log('[Delete] Safari刷新获取记录:', safeRecords.length)
+          setRecords(safeRecords)
+          console.log('[Delete] Safari刷新完成')
+        } catch (refreshError) {
+          console.error('[Delete] Safari刷新失败:', refreshError)
+          showToast('⚠️ 删除成功但刷新失败，请手动刷新页面', 'warning')
+        }
+      }
+      
+      // Safari: 立即刷新 + 备用延时刷新
+      await refreshData()
+      setTimeout(refreshData, 1000)
       
     } catch (error) {
-      console.error('删除记录失败:', error)
+      console.error('[Delete] Safari删除失败:', error)
       showToast('❌ ' + (error.message || '删除失败，请重试'), 'error')
     }
   }
@@ -379,6 +391,19 @@ function TimelineRecordItem({ record, onDelete, onEdit }) {
   const categoryInfo = getCategoryInfo(record.category_code, record.category_group)
   const isExpense = record.amount < 0
   
+  // 移动端友好的删除确认
+  const handleDeleteClick = (recordId) => {
+    // 使用更明确的确认提示
+    const confirmed = window.confirm(`确定要删除这条记录吗？\n\n${categoryInfo.name} - RM${Math.abs(record.amount).toFixed(2)}\n${record.note || '无备注'}`)
+    
+    if (confirmed) {
+      console.log('[Mobile Delete] 用户确认删除记录:', recordId)
+      onDelete(recordId)
+    } else {
+      console.log('[Mobile Delete] 用户取消删除')
+    }
+  }
+  
   // 格式化日期时间 - 参考银行应用的显示方式
   const formatDateTime = (record) => {
     const dateStr = record.ymd || record.date
@@ -468,22 +493,22 @@ function TimelineRecordItem({ record, onDelete, onEdit }) {
           </p>
         </div>
         
-        {/* 编辑按钮 */}
+        {/* 编辑按钮 - 移动端优化 */}
         <button
           onClick={() => onEdit(record)}
-          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-500 rounded-lg flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+          className="w-10 h-10 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-500 rounded-lg flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
           title="修改记录"
         >
-          <span className="text-sm">✏️</span>
+          <span className="text-base">✏️</span>
         </button>
         
-        {/* 删除按钮 */}
+        {/* 删除按钮 - 移动端优化 */}
         <button
-          onClick={() => onDelete(record.id)}
-          className="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+          onClick={() => handleDeleteClick(record.id)}
+          className="w-10 h-10 bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-500 rounded-lg flex items-center justify-center transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 touch-manipulation"
           title="删除记录"
         >
-          <span className="text-sm">🗑️</span>
+          <span className="text-base">🗑️</span>
         </button>
       </div>
     </div>
@@ -685,9 +710,17 @@ function Toast({ message, type = 'success', onClose }) {
     setTimeout(onClose, 300) // 等待动画完成
   }
   
-  const bgColor = type === 'success' 
-    ? 'bg-gradient-to-r from-green-500 to-green-600' 
-    : 'bg-gradient-to-r from-red-500 to-red-600'
+  const getBgColor = (type) => {
+    switch (type) {
+      case 'success': return 'bg-gradient-to-r from-green-500 to-green-600'
+      case 'error': return 'bg-gradient-to-r from-red-500 to-red-600'  
+      case 'info': return 'bg-gradient-to-r from-blue-500 to-blue-600'
+      case 'warning': return 'bg-gradient-to-r from-yellow-500 to-orange-500'
+      default: return 'bg-gradient-to-r from-gray-500 to-gray-600'
+    }
+  }
+  
+  const bgColor = getBgColor(type)
   
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
