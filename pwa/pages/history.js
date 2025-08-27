@@ -26,6 +26,7 @@ export default function HistoryPage() {
   const [selectedMonth, setSelectedMonth] = useState('')
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [editingRecord, setEditingRecord] = useState(null)
 
   useEffect(() => {
     // 默认选择当前月份
@@ -95,16 +96,35 @@ export default function HistoryPage() {
     try {
       await PWAClient.deleteRecord(recordId)
       
-      // 从本地状态中移除记录
-      setRecords(prev => prev.filter(record => record.id !== recordId))
-      
-      // 重新加载统计数据
+      // 删除成功后重新加载整个历史记录列表
       loadHistory(selectedMonth, 0, false)
       
     } catch (error) {
       console.error('删除记录失败:', error)
       alert(error.message || '删除失败，请重试')
     }
+  }
+
+  const handleEditRecord = (record) => {
+    setEditingRecord(record)
+  }
+
+  const handleUpdateRecord = async (recordId, updatedData) => {
+    try {
+      await PWAClient.updateRecord(recordId, updatedData)
+      
+      // 修改成功后关闭编辑模态框并重新加载历史记录
+      setEditingRecord(null)
+      loadHistory(selectedMonth, 0, false)
+      
+    } catch (error) {
+      console.error('修改记录失败:', error)
+      alert(error.message || '修改失败，请重试')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setEditingRecord(null)
   }
 
   if (loading && !records.length) {
@@ -191,6 +211,7 @@ export default function HistoryPage() {
                   <RecordsList 
                     records={records} 
                     onDeleteRecord={handleDeleteRecord}
+                    onEditRecord={handleEditRecord}
                   />
                   
                   {/* 加载更多 */}
@@ -218,6 +239,15 @@ export default function HistoryPage() {
             </div>
           </div>
         </SmoothTransition>
+
+        {/* 编辑记录模态框 */}
+        {editingRecord && (
+          <EditRecordModal 
+            record={editingRecord}
+            onSave={handleUpdateRecord}
+            onCancel={handleCancelEdit}
+          />
+        )}
       </Layout>
     </WebAppWrapper>
   )
@@ -255,7 +285,7 @@ function MonthSelector({ selectedMonth, onMonthChange }) {
 
 
 // 记录列表组件 - 时间流展示（参考银行应用设计）
-function RecordsList({ records, onDeleteRecord }) {
+function RecordsList({ records, onDeleteRecord, onEditRecord }) {
   // 直接按时间排序，不分组 - 最新记录在上
   const sortedRecords = [...records].sort((a, b) => {
     const dateA = new Date(`${a.ymd || a.date} ${a.created_at || '00:00:00'}`)
@@ -273,6 +303,7 @@ function RecordsList({ records, onDeleteRecord }) {
             key={record.id} 
             record={record} 
             onDelete={onDeleteRecord}
+            onEdit={onEditRecord}
           />
         ))}
       </div>
@@ -281,7 +312,7 @@ function RecordsList({ records, onDeleteRecord }) {
 }
 
 // 时间线记录项组件 - 银行应用风格
-function TimelineRecordItem({ record, onDelete }) {
+function TimelineRecordItem({ record, onDelete, onEdit }) {
   const categoryInfo = getCategoryInfo(record.category_code, record.category_group)
   const isExpense = record.amount < 0
   
@@ -365,7 +396,7 @@ function TimelineRecordItem({ record, onDelete }) {
       </div>
       
       {/* 右侧：金额和操作按钮 */}
-      <div className="text-right flex items-center space-x-3">
+      <div className="text-right flex items-center space-x-2">
         <div>
           <p className={`font-bold text-lg ${
             isExpense ? 'text-red-500' : 'text-blue-500'
@@ -373,6 +404,15 @@ function TimelineRecordItem({ record, onDelete }) {
             {isExpense ? '-' : '+'}RM{Math.abs(record.amount).toFixed(2)}
           </p>
         </div>
+        
+        {/* 编辑按钮 */}
+        <button
+          onClick={() => onEdit(record)}
+          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-500 rounded-lg flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+          title="修改记录"
+        >
+          <span className="text-sm">✏️</span>
+        </button>
         
         {/* 删除按钮 */}
         <button
@@ -382,6 +422,187 @@ function TimelineRecordItem({ record, onDelete }) {
         >
           <span className="text-sm">🗑️</span>
         </button>
+      </div>
+    </div>
+  )
+}
+
+// 编辑记录模态框组件
+function EditRecordModal({ record, onSave, onCancel }) {
+  const [formData, setFormData] = useState({
+    group: record.category_group || 'A',
+    category: record.category_code || 'food',
+    amount: Math.abs(record.amount).toString(),
+    date: record.ymd || record.date || new Date().toISOString().slice(0, 10),
+    note: record.note || ''
+  })
+  const [saving, setSaving] = useState(false)
+
+  const categoryInfo = getCategoryInfo(record.category_code, record.category_group)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      await onSave(record.id, formData)
+    } catch (error) {
+      console.error('保存记录失败:', error)
+    }
+
+    setSaving(false)
+  }
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-900">修改记录</h2>
+          <button
+            onClick={onCancel}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* 显示原记录信息 */}
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-xl">{categoryInfo.icon}</span>
+            <span className="font-medium text-gray-900">{categoryInfo.name}</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {record.category_group}类
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            原金额: RM{Math.abs(record.amount).toFixed(2)} | 日期: {record.ymd || record.date}
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* 分类选择 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">分类</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => handleInputChange('group', 'A')}
+                className={`p-2 rounded-lg text-sm font-medium transition-colors ${
+                  formData.group === 'A' 
+                    ? 'bg-red-100 text-red-800 border border-red-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                A类 开销
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInputChange('group', 'B')}
+                className={`p-2 rounded-lg text-sm font-medium transition-colors ${
+                  formData.group === 'B' 
+                    ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                B类 学习
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInputChange('group', 'C')}
+                className={`p-2 rounded-lg text-sm font-medium transition-colors ${
+                  formData.group === 'C' 
+                    ? 'bg-green-100 text-green-800 border border-green-200' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                C类 储蓄
+              </button>
+            </div>
+          </div>
+
+          {/* 子分类选择 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">子分类</label>
+            <select
+              value={formData.category}
+              onChange={(e) => handleInputChange('category', e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="food">🍽️ 餐饮</option>
+              <option value="ent">🎬 娱乐</option>
+              <option value="shop">🛍️ 购物</option>
+              <option value="trans">🚗 交通</option>
+              <option value="book">📚 书籍</option>
+              <option value="course">🎓 课程</option>
+              <option value="save">💰 储蓄</option>
+            </select>
+          </div>
+
+          {/* 金额输入 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">金额 (RM)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={(e) => handleInputChange('amount', e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0.00"
+              required
+            />
+          </div>
+
+          {/* 日期输入 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">日期</label>
+            <input
+              type="date"
+              value={formData.date}
+              onChange={(e) => handleInputChange('date', e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+
+          {/* 备注输入 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>
+            <textarea
+              value={formData.note}
+              onChange={(e) => handleInputChange('note', e.target.value)}
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="可选的备注信息..."
+              rows={3}
+            />
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-blue-500 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? '保存中...' : '保存修改'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
