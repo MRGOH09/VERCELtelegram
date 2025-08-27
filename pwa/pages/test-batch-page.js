@@ -161,6 +161,52 @@ export default function TestBatchPage() {
     setLoading(false)
   }
   
+  // 测试绕过认证的批量记录（解决方案）
+  const testNoAuthBatch = async () => {
+    setLoading(true)
+    setResult(null)
+    
+    try {
+      const response = await fetch('/api/batch-no-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          records: testData.records
+        })
+      })
+      
+      const responseText = await response.text()
+      let responseData = null
+      try {
+        responseData = JSON.parse(responseText)
+      } catch (e) {
+        // JSON解析失败
+      }
+      
+      setResult({
+        method: '🎯 绕过认证批量记录 (解决方案)',
+        totalRecords: testData.records.length,
+        successCount: responseData?.successCount || 0,
+        failCount: responseData?.failCount || 0,
+        response: {
+          status: response.status,
+          ok: response.ok,
+          data: responseData,
+          text: responseText.substring(0, 500)
+        },
+        timestamp: new Date().toISOString()
+      })
+    } catch (error) {
+      setResult({
+        method: '绕过认证批量记录',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      })
+    }
+    
+    setLoading(false)
+  }
+
   // 测试PWA批量记录端点
   const testPWABatch = async () => {
     setLoading(true)
@@ -243,11 +289,19 @@ export default function TestBatchPage() {
           </button>
           
           <button
+            onClick={testNoAuthBatch}
+            disabled={loading}
+            className="block w-full bg-orange-500 text-white px-4 py-2 rounded disabled:opacity-50"
+          >
+            {loading ? '测试中...' : '🎯 测试绕过认证批量记录 (解决方案)'}
+          </button>
+          
+          <button
             onClick={testPWABatch}
             disabled={loading}
             className="block w-full bg-purple-500 text-white px-4 py-2 rounded disabled:opacity-50"
           >
-            {loading ? '测试中...' : '🎯 测试PWA批量端点'}
+            {loading ? '测试中...' : '🔐 测试PWA批量端点 (需要认证)'}
           </button>
         </div>
         
