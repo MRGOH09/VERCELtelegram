@@ -9,16 +9,50 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 步骤0: 检查环境变量
+    console.log('[Simple Test] 步骤0: 检查环境变量')
+    const envCheck = {
+      has_JWT_SECRET: !!process.env.JWT_SECRET,
+      JWT_SECRET_length: process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0,
+      has_SUPABASE_URL: !!process.env.SUPABASE_URL,
+      has_SUPABASE_SERVICE_KEY: !!process.env.SUPABASE_SERVICE_KEY,
+      cookies: req.headers.cookie || 'no cookies',
+      authorization: req.headers.authorization || 'no auth header'
+    }
+    console.log('[Simple Test] 环境变量检查:', envCheck)
+    
     // 步骤1: 认证用户
     console.log('[Simple Test] 步骤1: 开始用户认证')
     const user = await validateJWTToken(req)
     
     if (!user) {
       console.log('[Simple Test] 用户认证失败')
+      
+      // 尝试从cookie中直接获取token进行调试
+      let debugToken = null
+      if (req.headers.cookie) {
+        const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+          const [name, value] = cookie.split('=').map(c => c.trim())
+          acc[name] = value
+          return acc
+        }, {})
+        debugToken = cookies.auth_token || cookies.auth || null
+      }
+      
       return res.json({
         success: false,
         step: 'auth_failed',
-        error: '用户认证失败'
+        error: '用户认证失败',
+        debug: {
+          env: envCheck,
+          has_token: !!debugToken,
+          token_preview: debugToken ? debugToken.substring(0, 20) + '...' : null,
+          cookies_found: req.headers.cookie ? Object.keys(req.headers.cookie.split(';').reduce((acc, cookie) => {
+            const [name] = cookie.split('=').map(c => c.trim())
+            acc[name] = true
+            return acc
+          }, {})) : []
+        }
       })
     }
     

@@ -4,11 +4,13 @@ import Layout from '../components/Layout'
 export default function TestSimple() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [testType, setTestType] = useState('auth') // auth 或 bypass
   
   const testRecord = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/simple-record-test', {
+      const endpoint = testType === 'auth' ? '/api/simple-record-test' : '/api/simple-auth-bypass'
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -42,12 +44,35 @@ export default function TestSimple() {
       <div className="p-4">
         <h1 className="text-2xl font-bold mb-4">🧪 简陋版本测试</h1>
         
+        <div className="mb-4 space-x-4">
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              value="auth"
+              checked={testType === 'auth'}
+              onChange={(e) => setTestType(e.target.value)}
+              className="mr-2"
+            />
+            <span>测试带认证</span>
+          </label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              value="bypass"
+              checked={testType === 'bypass'}
+              onChange={(e) => setTestType(e.target.value)}
+              className="mr-2"
+            />
+            <span>绕过认证测试</span>
+          </label>
+        </div>
+        
         <button
           onClick={testRecord}
           disabled={loading}
           className="bg-blue-500 text-white px-4 py-2 rounded disabled:opacity-50"
         >
-          {loading ? '测试中...' : '🚀 测试记录功能'}
+          {loading ? '测试中...' : `🚀 ${testType === 'auth' ? '测试带认证' : '绕过认证测试'}`}
         </button>
         
         {result && (
