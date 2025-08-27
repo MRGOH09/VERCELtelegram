@@ -3,7 +3,6 @@ import Layout from '../components/Layout'
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'branch' | 'myscore'
-  const [timeframe, setTimeframe] = useState('today') // 'today' | 'week' | 'month'
   const [leaderboardData, setLeaderboardData] = useState({
     allUsers: [],
     branchUsers: [],
@@ -23,7 +22,7 @@ export default function LeaderboardPage() {
     if (activeTab === 'myscore') {
       loadScoreData()
     }
-  }, [timeframe]) // 当时间范围改变时重新加载数据
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'myscore' && scoreData.loading) {
@@ -35,8 +34,8 @@ export default function LeaderboardPage() {
     try {
       setLeaderboardData(prev => ({ ...prev, loading: true }))
 
-      // 调用积分排行榜API，传递时间范围参数
-      const response = await fetch(`/api/pwa/leaderboard?timeframe=${timeframe}`)
+      // 调用积分排行榜API
+      const response = await fetch('/api/pwa/leaderboard')
       const result = await response.json()
 
       if (result.ok) {
@@ -129,16 +128,10 @@ export default function LeaderboardPage() {
                   {/* 积分信息 */}
                   <div className="text-right">
                     <div className="text-lg font-bold text-primary">
-                      {leaderboardData.timeframe?.isMultiDay ? 
-                        `均${branch.avg_score}分/天` : 
-                        `平均${branch.avg_score}分`
-                      }
+                      平均{branch.avg_score}分
                     </div>
                     <div className="text-xs text-gray-500">
-                      {leaderboardData.timeframe?.isMultiDay ? 
-                        `${leaderboardData.timeframe.label}总分${branch.total_score}` : 
-                        `总分${branch.total_score}分`
-                      }
+                      总分{branch.total_score}分
                     </div>
                   </div>
                 </div>
@@ -204,10 +197,7 @@ export default function LeaderboardPage() {
                       {user.total_score || 0}分
                     </div>
                     <div className="text-xs text-gray-500">
-                      {leaderboardData.timeframe?.isMultiDay ? 
-                        `活跃${user.days_active || 0}天` : 
-                        `连续${user.current_streak || 0}天`
-                      }
+                      连续{user.current_streak || 0}天
                     </div>
                   </div>
                 </div>
@@ -320,53 +310,7 @@ export default function LeaderboardPage() {
         {/* 头部标题 */}
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">🏆 积分排行榜</h1>
-          <p className="text-gray-600">
-            {leaderboardData.timeframe?.label || '看看谁是理财达人！'}
-          </p>
-        </div>
-
-        {/* 时间筛选器 */}
-        <div className="bg-white rounded-2xl shadow-lg p-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-medium text-gray-900">⏰ 时间范围</h3>
-            <span className="text-xs text-gray-500">
-              {leaderboardData.timeframe && (
-                `${leaderboardData.timeframe.startDate} ${leaderboardData.timeframe.isMultiDay ? `至 ${leaderboardData.timeframe.endDate}` : ''}`
-              )}
-            </span>
-          </div>
-          <div className="flex bg-gray-100 rounded-xl p-1">
-            <button
-              onClick={() => setTimeframe('today')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                timeframe === 'today'
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-gray-600'
-              }`}
-            >
-              📅 今日
-            </button>
-            <button
-              onClick={() => setTimeframe('week')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                timeframe === 'week'
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-gray-600'
-              }`}
-            >
-              📊 7日
-            </button>
-            <button
-              onClick={() => setTimeframe('month')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors text-sm ${
-                timeframe === 'month'
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-gray-600'
-              }`}
-            >
-              📈 本月
-            </button>
-          </div>
+          <p className="text-gray-600">看看谁是理财达人！</p>
         </div>
 
         {/* 切换标签 */}
@@ -508,8 +452,7 @@ export default function LeaderboardPage() {
                 <p>• 31天: +20分</p>
               </div>
               <p className="text-xs text-blue-600 mt-2 italic">
-                * 排行榜每日2点更新 | 支持今日/7日/本月查看 | 
-                {leaderboardData.timeframe?.isMultiDay ? '多日期按累计积分排序' : '单日按当天积分排序'}
+                * 排行榜每日2点更新，基于当天积分统计
               </p>
             </div>
           </div>
