@@ -267,6 +267,7 @@ async function getHistoryData(userId, params, res) {
       .eq('user_id', userId)
       .eq('is_voided', false)
       .order('ymd', { ascending: false })
+      .order('created_at', { ascending: false })
 
     // 如果指定了月份，添加月份过滤 (模仿Telegram逻辑)
     if (month) {
