@@ -624,10 +624,13 @@ async function addRecord(userId, recordData, res) {
     }
 
     // 构建API请求 - 调用主系统的 record-system
-    // PWA运行在3001端口，主系统在3000端口
+    // 在生产环境下，PWA和主系统在同一个域名，直接使用相对路径
+    // 在开发环境下，需要跨域调用主系统
     const baseURL = process.env.NODE_ENV === 'production' 
-      ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://versalsupabase.vercel.app'
-      : 'http://localhost:3000'
+      ? '' // 生产环境使用相对路径
+      : 'http://localhost:3000' // 开发环境需要主系统在3000端口运行
+
+    console.log(`[addRecord] API调用: ${baseURL}/api/records/record-system`)
 
     const response = await fetch(`${baseURL}/api/records/record-system`, {
       method: 'POST',
@@ -685,10 +688,10 @@ async function batchAddRecords(userId, params, res) {
       })
     }
 
-    // PWA运行在3001端口，主系统在3000端口
+    // 使用与单条记录相同的API路径逻辑
     const baseURL = process.env.NODE_ENV === 'production' 
-      ? process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://versalsupabase.vercel.app'
-      : 'http://localhost:3000'
+      ? '' // 生产环境使用相对路径
+      : 'http://localhost:3000' // 开发环境需要主系统在3000端口运行
 
     const results = []
     const errors = []
