@@ -217,7 +217,7 @@ export default function LeaderboardPage() {
         )}
       </div>
     )
-  )
+  }
 
   if (leaderboardData.loading) {
     return (
