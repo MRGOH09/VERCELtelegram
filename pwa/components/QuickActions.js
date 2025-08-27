@@ -22,10 +22,10 @@ export default function QuickActions({ className = '' }) {
     },
     {
       icon: '🏆',
-      label: '分行排行',
-      description: '实时排名',
+      label: '积分排行',
+      description: '分院竞争',
       color: 'bg-orange-500',
-      action: () => router.push('/branch-rankings')
+      action: () => router.push('/leaderboard')
     },
     {
       icon: '⚙️',

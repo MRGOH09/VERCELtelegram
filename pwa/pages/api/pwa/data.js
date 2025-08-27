@@ -77,9 +77,6 @@ export default async function handler(req, res) {
       case 'update-record':
         return await updateRecord(user.id, params, res)
         
-      case 'branch-rankings':
-        return await getBranchRankings(user.id, params, res)
-        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -994,60 +991,3 @@ async function updateRecord(userId, params, res) {
   }
 }
 
-// 获取分行排行榜
-async function getBranchRankings(userId, params, res) {
-  try {
-    console.log(`[getBranchRankings] 用户 ${userId} 请求分行排行榜`)
-    
-    // 获取当前日期或指定日期
-    const targetDate = params.date ? new Date(params.date) : new Date()
-    const ymd = targetDate.toISOString().slice(0, 10)
-    
-    console.log(`[getBranchRankings] 查询日期: ${ymd}`)
-    
-    // 从leaderboard_daily表获取分行排行榜数据
-    const { data: leaderboard, error } = await supabase
-      .from('leaderboard_daily')
-      .select('branch_top_json')
-      .eq('ymd', ymd)
-      .maybeSingle()
-    
-    if (error) {
-      console.error('[getBranchRankings] 查询排行榜失败:', error)
-      return res.status(500).json({ 
-        error: 'Failed to get branch rankings' 
-      })
-    }
-    
-    const branchRankings = leaderboard?.branch_top_json || []
-    console.log(`[getBranchRankings] 获取到 ${branchRankings.length} 个分行排行数据`)
-    
-    // 按完成率降序排序
-    const sortedRankings = branchRankings
-      .sort((a, b) => (b.rate || 0) - (a.rate || 0))
-      .map((branch, index) => ({
-        rank: index + 1,
-        branch_code: branch.branch_code,
-        done: branch.done || 0,
-        total: branch.total || 0,
-        rate: Number(branch.rate || 0),
-        avg_streak: branch.avg_streak || 0,
-        max_streak: branch.max_streak || 0,
-        max_streak_user: branch.max_streak_user || '无',
-        avg_record_days: branch.avg_record_days || 0
-      }))
-    
-    return res.json({
-      success: true,
-      date: ymd,
-      rankings: sortedRankings,
-      total_branches: sortedRankings.length
-    })
-    
-  } catch (error) {
-    console.error('[getBranchRankings] 错误:', error)
-    return res.status(500).json({ 
-      error: error.message || 'Failed to get branch rankings' 
-    })
-  }
-}

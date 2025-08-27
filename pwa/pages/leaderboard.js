@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 
 export default function LeaderboardPage() {
-  const [activeTab, setActiveTab] = useState('branch') // 'branch' | 'myscore'
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'branch' | 'myscore'
   const [leaderboardData, setLeaderboardData] = useState({
     allUsers: [],
     branchUsers: [],
+    branchRankings: [],
     userBranch: null,
     loading: true
   })
@@ -40,6 +41,7 @@ export default function LeaderboardPage() {
         setLeaderboardData({
           allUsers: result.data.allUsers || [],
           branchUsers: result.data.branchUsers || [],
+          branchRankings: result.data.branchRankings || [],
           userBranch: result.data.userBranch || null,
           loading: false
         })
@@ -74,6 +76,70 @@ export default function LeaderboardPage() {
       setScoreData(prev => ({ ...prev, loading: false }))
     }
   }
+
+  const BranchRankingCard = ({ title, branches }) => (
+    <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+        <span className="mr-2">🏢</span>
+        {title}
+      </h3>
+      
+      {branches.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <div className="text-4xl mb-2">📊</div>
+          <p>暂无分院排行数据</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {branches.map((branch, index) => (
+            <div
+              key={branch.branch_code}
+              className={`flex items-center p-4 rounded-xl transition-colors ${
+                index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200' :
+                index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200' :
+                index === 2 ? 'bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200' :
+                'bg-gray-50'
+              }`}
+            >
+              {/* 排名 */}
+              <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center mr-4">
+                {index === 0 && <span className="text-xl">🥇</span>}
+                {index === 1 && <span className="text-xl">🥈</span>}
+                {index === 2 && <span className="text-xl">🥉</span>}
+                {index > 2 && (
+                  <span className="text-sm font-bold text-gray-600">#{index + 1}</span>
+                )}
+              </div>
+
+              {/* 分院信息 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900 truncate">
+                      {branch.branch_name}分院
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {branch.active_members}/{branch.total_members} 人参与
+                    </p>
+                  </div>
+                  
+                  {/* 积分信息 */}
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-primary">
+                      平均{branch.avg_score}分
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      总分{branch.total_score}分
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 
   const LeaderboardCard = ({ title, users, showBranch = true }) => (
     <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
@@ -248,6 +314,16 @@ export default function LeaderboardPage() {
         {/* 切换标签 */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
           <button
+            onClick={() => setActiveTab('all')}
+            className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
+              activeTab === 'all'
+                ? 'bg-white text-primary shadow-sm'
+                : 'text-gray-600'
+            }`}
+          >
+            🌟 全国分院
+          </button>
+          <button
             onClick={() => setActiveTab('branch')}
             className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
               activeTab === 'branch'
@@ -270,6 +346,13 @@ export default function LeaderboardPage() {
         </div>
 
         {/* 内容区域 */}
+        {activeTab === 'all' && (
+          <BranchRankingCard 
+            title="全国分院排行榜" 
+            branches={leaderboardData.branchRankings} 
+          />
+        )}
+
         {activeTab === 'branch' && (
           <>
             {leaderboardData.userBranch ? (

@@ -277,32 +277,36 @@ export default function AddRecordPage() {
         // 更新localStorage标记
         localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
         
-        // 显示积分奖励信息
-        let scoreMessage = '✅ 打卡成功！'
+        // 使用积分反馈UI显示打卡成功
         if (result.score) {
-          scoreMessage += `\n\n🎯 获得积分：${result.score.total_score}分`
-          scoreMessage += `\n• 基础分：${result.score.base_score}分`
-          scoreMessage += `\n• 连续分：${result.score.streak_score}分`
-          if (result.score.bonus_score > 0) {
-            scoreMessage += `\n• 奖励分：${result.score.bonus_score}分`
-          }
-          scoreMessage += `\n\n🔥 连续打卡：${result.score.current_streak}天`
+          setScoreInfo({
+            totalScore: result.score.total_score,
+            baseScore: result.score.base_score,
+            streakScore: result.score.streak_score,
+            bonusScore: result.score.bonus_score,
+            currentStreak: result.score.current_streak,
+            bonusDetails: result.score.bonus_details || [],
+            scoreMessage: result.scoreMessage || `🎉 打卡获得 ${result.score.total_score} 分！`,
+            streakMessage: result.streakMessage || `连续打卡 ${result.score.current_streak} 天`,
+            achievementMessage: result.achievementMessage
+          })
+          setShowScoreFeedback(true)
           
-          // 添加里程碑成就
-          if (result.score.bonus_details && result.score.bonus_details.length > 0) {
-            const achievements = result.score.bonus_details.map(bonus => bonus.name).join(', ')
-            scoreMessage += `\n\n🎉 恭喜达成里程碑：${achievements}！`
-          }
+          // 6秒后隐藏积分反馈
+          setTimeout(() => {
+            setShowScoreFeedback(false)
+            setScoreInfo(null)
+          }, 6000)
+        } else {
+          // 没有积分信息时显示简单成功提示
+          setCheckInMessage('✅ 打卡成功！')
+          setShowSuccess(true)
+          
+          setTimeout(() => {
+            setShowSuccess(false)
+            setCheckInMessage('')
+          }, 3000)
         }
-        
-        setCheckInMessage(scoreMessage)
-        setShowSuccess(true)
-        
-        // 5秒后隐藏成功提示
-        setTimeout(() => {
-          setShowSuccess(false)
-          setCheckInMessage('')
-        }, 5000)
       }
     } catch (error) {
       console.error('Check In失败:', error)

@@ -99,11 +99,37 @@ export default async function handler(req, res) {
       current_streak: score.current_streak
     }))
 
+    // 7. 获取全国分院排行榜（使用平均分数）
+    const { data: branchRankings, error: branchError } = await supabase
+      .from('branch_scores_daily')
+      .select('*')
+      .eq('ymd', today)
+      .order('avg_score', { ascending: false })
+      .limit(20)
+
+    if (branchError) {
+      console.error('获取分院排行失败:', branchError)
+    }
+
+    console.log(`[leaderboard] 分院排行数据: ${branchRankings?.length || 0} 条记录`)
+
+    // 8. 格式化分院排行数据
+    const formattedBranchRankings = (branchRankings || []).map((branch, index) => ({
+      branch_code: branch.branch_code,
+      branch_name: branch.branch_code, // 分院代码作为名称
+      total_members: branch.total_members,
+      active_members: branch.active_members,
+      total_score: branch.total_score,
+      avg_score: branch.avg_score,
+      rank: index + 1
+    }))
+
     return res.status(200).json({
       ok: true,
       data: {
         allUsers: formattedAllUsers,
         branchUsers: formattedBranchUsers,
+        branchRankings: formattedBranchRankings,
         userBranch: userBranch
       }
     })

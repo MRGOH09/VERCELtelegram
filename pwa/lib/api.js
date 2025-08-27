@@ -162,10 +162,6 @@ class PWAClient {
     return this.call('data', 'delete-record', { recordId }, { useCache: false })
   }
 
-  // 获取分行排行榜
-  async getBranchRankings(date = null) {
-    return this.cachedCall('data', 'branch-rankings', { date }, 2 * 60 * 1000) // 2分钟缓存
-  }
 
   // 修改记录 - Safari强化版
   async updateRecord(recordId, recordData) {
