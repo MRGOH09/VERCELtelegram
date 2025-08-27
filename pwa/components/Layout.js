@@ -102,10 +102,10 @@ function BottomNavigation() {
       active: router.pathname === '/add-record'
     },
     {
-      path: '/scores',
-      icon: '⭐',
-      label: '积分',
-      active: router.pathname === '/scores'
+      path: '/leaderboard',
+      icon: '🏆',
+      label: '排行榜',
+      active: router.pathname === '/leaderboard'
     },
     {
       path: '/history',
@@ -114,10 +114,10 @@ function BottomNavigation() {
       active: router.pathname === '/history'
     },
     {
-      path: '/leaderboard',
-      icon: '🏆',
-      label: '排行榜',
-      active: router.pathname === '/leaderboard'
+      path: '/profile',
+      icon: '👤',
+      label: '我的',
+      active: router.pathname === '/profile'
     }
   ]
   
