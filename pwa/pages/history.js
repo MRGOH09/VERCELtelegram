@@ -28,7 +28,6 @@ export default function HistoryPage() {
   const [hasMore, setHasMore] = useState(true)
   const [editingRecord, setEditingRecord] = useState(null)
   const [toast, setToast] = useState(null)
-  const [debugInfo, setDebugInfo] = useState('')
 
   useEffect(() => {
     // 默认选择当前月份
@@ -58,12 +57,6 @@ export default function HistoryPage() {
     return isIOS || isSafariBrowser || isPWA
   }
 
-  const addDebugInfo = (info) => {
-    const timestamp = new Date().toLocaleTimeString()
-    const safariInfo = isSafari() ? '[Safari]' : '[Other]'
-    setDebugInfo(prev => `${prev}\n${timestamp} ${safariInfo} ${info}`)
-    console.log(`${timestamp} ${safariInfo} ${info}`)
-  }
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -129,23 +122,17 @@ export default function HistoryPage() {
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      // 统一使用强制刷新策略 - 解决所有缓存问题
-      addDebugInfo(`开始删除记录: ${recordId}`)
       showToast('🔄 正在删除...', 'info')
       
       await PWAClient.deleteRecord(recordId)
-      addDebugInfo('删除API成功')
       
       // 多重刷新策略确保成功
       if (isSafari()) {
-        addDebugInfo('Safari/PWA - 使用强制页面刷新')
-        
         // 方法1: 强制无缓存刷新
         try {
           window.location.reload(true)
         } catch (e) {
           // 方法2: 替代刷新方案
-          addDebugInfo('reload()失败，尝试href刷新')
           window.location.href = window.location.href + '?t=' + Date.now()
         }
         return
@@ -180,23 +167,17 @@ export default function HistoryPage() {
       // 关闭编辑模态框
       setEditingRecord(null)
       
-      // 统一使用强制刷新策略
-      addDebugInfo(`开始修改记录: ${recordId}`)
       showToast('🔄 正在修改...', 'info')
       
       await PWAClient.updateRecord(recordId, updatedData)
-      addDebugInfo('修改API成功')
       
       // 多重刷新策略确保成功
       if (isSafari()) {
-        addDebugInfo('Safari/PWA - 使用强制页面刷新')
-        
         // 方法1: 强制无缓存刷新
         try {
           window.location.reload(true)
         } catch (e) {
           // 方法2: 替代刷新方案
-          addDebugInfo('reload()失败，尝试href刷新')
           window.location.href = window.location.href + '?t=' + Date.now()
         }
         return
@@ -263,53 +244,16 @@ export default function HistoryPage() {
 
             <div className="px-4 pb-8 space-y-6">
               
-              {/* 月份选择与刷新按钮 */}
+              {/* 月份选择 */}
               <div className="-mt-16 relative z-10">
                 <ModernCard className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">选择月份</h3>
                     <MonthSelector 
                       selectedMonth={selectedMonth}
                       onMonthChange={handleMonthChange}
                     />
                   </div>
-                  
-                  {/* 紧急刷新区域 - Safari专用 */}
-                  {isSafari() && (
-                    <div className="border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Safari刷新工具</span>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              addDebugInfo('用户手动强制刷新')
-                              window.location.reload(true)
-                            }}
-                            className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
-                          >
-                            🔄 强制刷新
-                          </button>
-                          <button
-                            onClick={() => {
-                              addDebugInfo('用户手动清理缓存并刷新')
-                              // 清理Service Worker缓存
-                              if ('caches' in window) {
-                                caches.keys().then(names => {
-                                  names.forEach(name => caches.delete(name))
-                                  window.location.href = window.location.href + '?clear=' + Date.now()
-                                })
-                              } else {
-                                window.location.href = window.location.href + '?clear=' + Date.now()
-                              }
-                            }}
-                            className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
-                          >
-                            🧹 清理缓存
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </ModernCard>
               </div>
 
@@ -394,21 +338,6 @@ export default function HistoryPage() {
           />
         )}
 
-        {/* Safari调试面板 */}
-        {isSafari() && debugInfo && (
-          <div className="fixed bottom-4 left-4 right-4 bg-black text-green-400 p-4 rounded-lg max-h-48 overflow-y-auto text-xs font-mono z-40">
-            <div className="flex justify-between items-center mb-2">
-              <span className="font-bold">Safari调试信息</span>
-              <button 
-                onClick={() => setDebugInfo('')}
-                className="text-red-400 hover:text-red-300"
-              >
-                清除
-              </button>
-            </div>
-            <pre className="whitespace-pre-wrap">{debugInfo}</pre>
-          </div>
-        )}
       </Layout>
     </WebAppWrapper>
   )
