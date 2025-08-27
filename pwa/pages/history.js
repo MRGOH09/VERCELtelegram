@@ -185,15 +185,21 @@ export default function HistoryPage() {
         }
       }
       
-      // Safari刷新策略: 立即尝试，然后多次重试
-      let success = await safariRefresh(1)
-      
-      if (!success && isSafari()) {
-        addDebugInfo('Safari多次重试刷新')
-        setTimeout(() => safariRefresh(2), 500)
-        setTimeout(() => safariRefresh(3), 1500)
-        setTimeout(() => safariRefresh(4), 3000)
-        showToast('⚠️ Safari正在多次尝试刷新...', 'warning')
+      // Safari简单粗暴解决方案: 直接刷新页面
+      if (isSafari()) {
+        addDebugInfo('Safari检测到，使用页面刷新方案')
+        showToast('✅ 删除成功，Safari正在刷新页面...', 'success')
+        
+        setTimeout(() => {
+          addDebugInfo('执行页面刷新')
+          window.location.reload()
+        }, 1000)
+      } else {
+        // 非Safari继续使用React状态更新
+        let success = await safariRefresh(1)
+        if (!success) {
+          setTimeout(() => safariRefresh(2), 500)
+        }
       }
       
     } catch (error) {
@@ -254,12 +260,19 @@ export default function HistoryPage() {
         }
       }
       
-      // 立即刷新 + Safari多次重试
-      await safariRefresh()
-      
+      // Safari简单粗暴解决方案: 直接刷新页面
       if (isSafari()) {
+        addDebugInfo('Safari检测到，使用页面刷新方案')
+        showToast('✅ 修改成功，Safari正在刷新页面...', 'success')
+        
+        setTimeout(() => {
+          addDebugInfo('执行页面刷新')
+          window.location.reload()
+        }, 1000)
+      } else {
+        // 非Safari使用React状态更新
+        await safariRefresh()
         setTimeout(safariRefresh, 1000)
-        setTimeout(safariRefresh, 2500)
       }
       
     } catch (error) {
