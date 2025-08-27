@@ -77,6 +77,11 @@ export default function AddRecordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   
+  // Check In状态
+  const [isCheckingIn, setIsCheckingIn] = useState(false)
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false)
+  const [checkInMessage, setCheckInMessage] = useState('')
+  
   // 批量记录状态
   const [batchRecords, setBatchRecords] = useState(() => 
     Array.from({ length: 5 }, (_, i) => createEmptyRecord(i))
@@ -222,6 +227,89 @@ export default function AddRecordPage() {
       setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
     }
   }
+  
+  // Check In处理函数
+  const handleCheckIn = async () => {
+    if (hasCheckedInToday) {
+      return
+    }
+    
+    setIsCheckingIn(true)
+    try {
+      // 调用Check In API - 通过records表插入amount=0的记录
+      const result = await PWAClient.addRecord({
+        group: 'CHECK',
+        category: 'daily_checkin', 
+        amount: 0,
+        note: '每日打卡 - 无开销记录',
+        date: new Date().toISOString().slice(0, 10)
+      })
+      
+      if (result.success) {
+        setHasCheckedInToday(true)
+        
+        // 更新localStorage标记
+        localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
+        
+        // 显示积分奖励信息
+        let scoreMessage = '✅ 打卡成功！'
+        if (result.score) {
+          scoreMessage += `\n\n🎯 获得积分：${result.score.total_score}分`
+          scoreMessage += `\n• 基础分：${result.score.base_score}分`
+          scoreMessage += `\n• 连续分：${result.score.streak_score}分`
+          if (result.score.bonus_score > 0) {
+            scoreMessage += `\n• 奖励分：${result.score.bonus_score}分`
+          }
+          scoreMessage += `\n\n🔥 连续打卡：${result.score.current_streak}天`
+          
+          // 添加里程碑成就
+          if (result.score.bonus_details && result.score.bonus_details.length > 0) {
+            const achievements = result.score.bonus_details.map(bonus => bonus.name).join(', ')
+            scoreMessage += `\n\n🎉 恭喜达成里程碑：${achievements}！`
+          }
+        }
+        
+        setCheckInMessage(scoreMessage)
+        setShowSuccess(true)
+        
+        // 5秒后隐藏成功提示
+        setTimeout(() => {
+          setShowSuccess(false)
+          setCheckInMessage('')
+        }, 5000)
+      }
+    } catch (error) {
+      console.error('Check In失败:', error)
+      let errorMessage = '❌ 打卡失败，请重试'
+      if (error.message.includes('already')) {
+        errorMessage = '😊 今天已经打卡过了！'
+        setHasCheckedInToday(true)
+        localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
+      }
+      setCheckInMessage(errorMessage)
+      setTimeout(() => setCheckInMessage(''), 3000)
+    } finally {
+      setIsCheckingIn(false)
+    }
+  }
+  
+  // 检查今日是否已打卡
+  const checkTodayCheckIn = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      // 这里需要调用API检查今日是否有打卡记录
+      // 暂时使用localStorage模拟
+      const lastCheckIn = localStorage.getItem('lastCheckInDate')
+      setHasCheckedInToday(lastCheckIn === today)
+    } catch (error) {
+      console.error('检查打卡状态失败:', error)
+    }
+  }
+  
+  // 页面加载时检查打卡状态
+  useEffect(() => {
+    checkTodayCheckIn()
+  }, [])
 
   const selectedCategoryInfo = selectedCategory ? 
     TELEGRAM_CATEGORIES[selectedGroup].items.find(item => item.code === selectedCategory) : null
@@ -271,16 +359,54 @@ export default function AddRecordPage() {
 
             <div className="px-4 pb-8 space-y-6">
               
+              {/* Check In 按钮 - 置顶显示 */}
+              <div className="-mt-16 relative z-20">
+                <ModernCard className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                        <span className="text-xl">✅</span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">今日打卡</h3>
+                        <p className="text-sm text-gray-600">没有开销也要维持连续记录哦！</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCheckIn}
+                      disabled={isCheckingIn || hasCheckedInToday}
+                      className={`px-6 py-2 rounded-xl font-medium transition-all transform shadow-lg ${
+                        hasCheckedInToday 
+                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                          : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:scale-105'
+                      } ${isCheckingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      {hasCheckedInToday ? '✅ 已打卡' : (isCheckingIn ? '打卡中...' : '立即打卡')}
+                    </button>
+                  </div>
+                </ModernCard>
+              </div>
+              
               {/* 成功提示 */}
               {showSuccess && (
-                <div className="-mt-4 relative z-20">
+                <div className="relative z-20">
                   <ModernCard className="p-4 bg-green-50 border border-green-200 text-center">
                     <div className="text-4xl mb-2">✅</div>
-                    <p className="text-green-800 font-semibold">
-                      {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
-                    </p>
-                    {isBatchMode && (
-                      <p className="text-green-600 text-sm">已保存 {getValidRecordsCount()} 条记录</p>
+                    {checkInMessage ? (
+                      <div className="text-green-800">
+                        <pre className="whitespace-pre-wrap font-semibold text-sm text-left">
+                          {checkInMessage}
+                        </pre>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-green-800 font-semibold">
+                          {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
+                        </p>
+                        {isBatchMode && (
+                          <p className="text-green-600 text-sm">已保存 {getValidRecordsCount()} 条记录</p>
+                        )}
+                      </>
                     )}
                   </ModernCard>
                 </div>

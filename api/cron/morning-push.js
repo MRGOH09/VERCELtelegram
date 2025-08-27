@@ -4,6 +4,7 @@ import {
   personalMorningReports,
   personalMorningReportsWithBranch
 } from '../../lib/cron-utils.js'
+import { computeScoreLeaderboards } from '../../lib/scoring-leaderboard.js'
 import { zh } from '../../lib/i18n.js'
 import { formatTemplate } from '../../lib/helpers.js'
 import { sendBatchMessages } from '../../lib/telegram.js'
@@ -27,8 +28,9 @@ export default async function handler(req, res) {
       totalFailed: 0
     }
     
-    // 1. 计算排行榜
-    await computeLeaderboards(now)
+    // 1. 计算积分排行榜 (替换原有的完成率排行榜)
+    await computeScoreLeaderboards(now)
+    console.log('[morning-push] 积分排行榜计算完成')
     
     // 2. 推送个人理财报告 + 分行排行榜（合并发送）
     console.log('[morning-push] 推送个人理财报告 + 分行排行榜...')

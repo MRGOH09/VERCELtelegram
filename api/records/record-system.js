@@ -3,6 +3,7 @@ import supabase from '../../lib/supabase.js'
 import { zh } from '../../lib/i18n.js'
 import { formatTemplate } from '../../lib/helpers.js'
 import { triggerDailySummaryUpdate } from '../../lib/daily-summary.js'
+import { onUserRecord, onUserCheckIn } from '../../lib/scoring-system.js'
 
 export default async function handler(req, res) {
   // 强制无缓存 - 确保数据写入操作不被缓存
@@ -117,12 +118,45 @@ async function handleCreateRecord(req, res, userId, data) {
 
     // 异步更新daily summary（不阻塞响应）
     triggerDailySummaryUpdate(record.user_id, record.ymd)
-
-    return res.status(200).json({ 
-      ok: true, 
-      record,
-      message: 'Record created successfully'
-    })
+    
+    // 积分系统处理 - 区分打卡和记录
+    try {
+      let scoreResult = null
+      const recordDate = new Date(record.ymd + 'T00:00:00')
+      
+      // 检查是否是Check In记录（amount=0 且 category='daily_checkin'）
+      if (record.amount === 0 && record.category_code === 'daily_checkin') {
+        scoreResult = await onUserCheckIn(record.user_id, recordDate)
+        console.log(`[积分系统] 用户${record.user_id} 打卡获得${scoreResult.total_score}分`)
+      } else {
+        scoreResult = await onUserRecord(record.user_id, recordDate)
+        console.log(`[积分系统] 用户${record.user_id} 记录获得${scoreResult.total_score}分`)
+      }
+      
+      // 将积分信息附加到响应中
+      return res.status(200).json({ 
+        ok: true, 
+        record,
+        score: scoreResult ? {
+          total_score: scoreResult.total_score,
+          base_score: scoreResult.base_score,
+          streak_score: scoreResult.streak_score,
+          bonus_score: scoreResult.bonus_score,
+          current_streak: scoreResult.current_streak,
+          bonus_details: scoreResult.bonus_details
+        } : null,
+        message: 'Record created successfully'
+      })
+    } catch (scoreError) {
+      console.error('[积分系统] 计算失败，但记录已保存:', scoreError)
+      // 即使积分计算失败，记录仍然成功保存
+      return res.status(200).json({ 
+        ok: true, 
+        record,
+        score: null,
+        message: 'Record created successfully (score calculation failed)'
+      })
+    }
     
   } catch (e) {
     console.error('[record-system] 创建记录失败:', e)

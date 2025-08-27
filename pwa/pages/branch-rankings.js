@@ -66,11 +66,11 @@ export default function BranchRankingsPage() {
     return `#${rank}`
   }
 
-  // 获取完成率颜色
-  const getRateColor = (rate) => {
-    if (rate >= 90) return 'text-green-600 bg-green-50'
-    if (rate >= 70) return 'text-blue-600 bg-blue-50'
-    if (rate >= 50) return 'text-yellow-600 bg-yellow-50'
+  // 获取积分颜色
+  const getScoreColor = (score) => {
+    if (score >= 10) return 'text-green-600 bg-green-50'
+    if (score >= 7) return 'text-blue-600 bg-blue-50'
+    if (score >= 4) return 'text-yellow-600 bg-yellow-50'
     return 'text-red-600 bg-red-50'
   }
 
@@ -88,7 +88,7 @@ export default function BranchRankingsPage() {
   }
 
   return (
-    <Layout title="分行排行榜 - Learner Club">
+    <Layout title="分行积分排行榜 - Learner Club">
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
           
@@ -96,10 +96,10 @@ export default function BranchRankingsPage() {
             title={
               <>
                 <span>🏆</span>
-                <span>分行排行榜</span>
+                <span>分行积分排行榜</span>
               </>
             }
-            subtitle="各分行记账完成率实时排名"
+            subtitle="各分行积分竞赛实时排名"
             onBack={() => router.back()}
           />
 
@@ -130,15 +130,15 @@ export default function BranchRankingsPage() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">
-                      {Math.round(rankings.reduce((sum, r) => sum + r.rate, 0) / rankings.length)}%
+                      {Math.round(rankings.reduce((sum, r) => sum + (r.avg_score || r.rate || 0), 0) / rankings.length * 10) / 10}
                     </div>
-                    <div className="text-sm text-gray-600">平均完成率</div>
+                    <div className="text-sm text-gray-600">平均积分</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-orange-600">
-                      {rankings.find(r => r.rank === 1)?.rate || 0}%
+                      {rankings.find(r => r.rank === 1)?.avg_score || rankings.find(r => r.rank === 1)?.rate || 0}
                     </div>
-                    <div className="text-sm text-gray-600">最高完成率</div>
+                    <div className="text-sm text-gray-600">最高积分</div>
                   </div>
                 </div>
               </ModernCard>
@@ -190,11 +190,11 @@ export default function BranchRankingsPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`text-2xl font-bold px-3 py-1 rounded-lg ${getRateColor(branch.rate)}`}>
-                          {branch.rate.toFixed(1)}%
+                        <div className={`text-2xl font-bold px-3 py-1 rounded-lg ${getScoreColor(branch.avg_score || branch.rate || 0)}`}>
+                          {(branch.avg_score || branch.rate || 0).toFixed(1)}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                          完成率
+                          平均积分
                         </div>
                       </div>
                     </div>
@@ -206,12 +206,13 @@ export default function BranchRankingsPage() {
             {/* 说明 */}
             <ModernCard className="p-4 bg-blue-50 border-blue-200">
               <div className="text-sm text-blue-800">
-                <p className="font-semibold mb-2">📖 排行榜说明</p>
+                <p className="font-semibold mb-2">📖 积分排行榜说明</p>
                 <ul className="space-y-1">
-                  <li>• 完成率 = 当日有记录人数 ÷ 分行总人数</li>
-                  <li>• 数据每日18:00自动更新</li>
-                  <li>• 平均记录天数基于用户历史记录统计</li>
-                  <li>• 连续记录天数为用户当前连续记账天数</li>
+                  <li>• 基础分：每日记录或打卡获得1分</li>
+                  <li>• 连续分：连续记录获得1分</li>
+                  <li>• 奖励分：达成里程碑获得奖励(3天+2分，5天+3分...)</li>
+                  <li>• 分行积分 = 分行总积分 ÷ 分行总人数</li>
+                  <li>• 数据每日上午10:00自动更新</li>
                 </ul>
               </div>
             </ModernCard>

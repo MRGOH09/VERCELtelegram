@@ -3,6 +3,7 @@ import { messages } from '../lib/i18n.js'
 import { sendTelegramMessage, assertTelegramSecret, parsePercentageInput, parseAmountInput, normalizePhoneE164, validateEmail, formatTemplate, answerCallbackQuery, editMessageText } from '../lib/helpers.js'
 import { getOrCreateUserByTelegram, getState, setState, clearState, getStepDescription } from '../lib/state.js'
 import { triggerDailySummaryUpdate } from '../lib/daily-summary.js'
+import { onUserCheckIn } from '../lib/scoring-system.js'
 
 const GROUP_CATEGORIES = {
   A: [
@@ -636,6 +637,12 @@ export default async function handler(req, res) {
       const userId = await getOrCreateUserByTelegram(from, chatId)
       await setState(userId, 'record', 'choose_group', {})
       await sendTelegramMessage(chatId, messages.record.choose_group, { reply_markup: groupKeyboard() })
+      return res.status(200).json({ ok: true })
+    }
+
+    if (text.startsWith('/checkin')) {
+      const userId = await getOrCreateUserByTelegram(from, chatId)
+      await handleCheckInCommand(chatId, userId, from)
       return res.status(200).json({ ok: true })
     }
 
@@ -2458,6 +2465,81 @@ async function executeAdminTest(chatId, action, adminId, req) {
   } catch (e) {
     console.error('[admin-test] 执行测试失败:', e)
     await sendTelegramMessage(chatId, `❌ 测试执行失败\n\n错误信息：${e.message}\n\n请检查系统配置或稍后重试。`)
+  }
+}
+
+// 处理 /checkin 命令
+async function handleCheckInCommand(chatId, userId, from) {
+  try {
+    console.log(`[CheckIn] 用户 ${from.username || from.first_name} (${userId}) 请求打卡`)
+    
+    // 检查今日是否已打卡
+    const today = new Date().toISOString().slice(0, 10)
+    const { data: existingCheckIn } = await supabase
+      .from('user_daily_scores')
+      .select('total_score, current_streak, bonus_details')
+      .eq('user_id', userId)
+      .eq('ymd', today)
+      .maybeSingle()
+    
+    if (existingCheckIn) {
+      // 已经打卡过了
+      const milestoneText = existingCheckIn.bonus_details && existingCheckIn.bonus_details.length > 0
+        ? `\n🎉 今日里程碑：${existingCheckIn.bonus_details.map(b => b.name).join(', ')}`
+        : ''
+      
+      const message = formatTemplate(messages.checkin.already_checked, {
+        total_score: existingCheckIn.total_score,
+        streak: existingCheckIn.current_streak
+      }) + milestoneText
+      
+      await sendTelegramMessage(chatId, message)
+      return
+    }
+    
+    // 执行打卡积分计算
+    const scoreResult = await onUserCheckIn(userId, new Date())
+    
+    // 生成里程碑成就消息
+    let milestoneMessage = ''
+    if (scoreResult.bonus_details && scoreResult.bonus_details.length > 0) {
+      const achievements = scoreResult.bonus_details.map(bonus => 
+        formatTemplate(messages.checkin.milestone_achievement, {
+          milestone_name: bonus.name
+        })
+      ).join('')
+      milestoneMessage = achievements
+    }
+    
+    // 发送成功消息
+    const successMessage = formatTemplate(messages.checkin.success, {
+      total_score: scoreResult.total_score,
+      base_score: scoreResult.base_score,
+      streak_score: scoreResult.streak_score, 
+      bonus_score: scoreResult.bonus_score,
+      streak: scoreResult.current_streak,
+      milestone_message: milestoneMessage
+    })
+    
+    await sendTelegramMessage(chatId, successMessage)
+    
+    // 同时在records表中创建打卡记录 (amount=0)
+    await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: 'CHECK',
+        category_code: 'daily_checkin',
+        amount: 0,
+        note: '每日打卡',
+        ymd: today
+      }])
+    
+    console.log(`[CheckIn] 用户 ${userId} 打卡成功，获得 ${scoreResult.total_score} 分`)
+    
+  } catch (error) {
+    console.error('[CheckIn] 处理失败:', error)
+    await sendTelegramMessage(chatId, '❌ 打卡失败，请稍后重试。\n\n如果问题持续，请联系管理员。')
   }
 }
 
