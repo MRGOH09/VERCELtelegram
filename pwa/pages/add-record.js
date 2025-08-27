@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import ModernCard from '../components/ModernCard'
 import { SmoothTransition } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
+import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency } from '../lib/api'
 
 // 与Telegram系统完全一致的分类系统
@@ -210,44 +211,22 @@ export default function AddRecordPage() {
   return (
     <WebAppWrapper>
       <Layout title="记账 - Learner Club">
-        {/* LEARNER CLUB 品牌标语 */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
-          <div className="flex items-center justify-center space-x-2">
-            <span className="text-2xl">🎯</span>
-            <div>
-              <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
-              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
-            </div>
-            <span className="text-2xl">📚</span>
-          </div>
-        </div>
+        <BrandHeader />
         
         <SmoothTransition>
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
             
-            {/* 头部 */}
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => router.back()}
-                    className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30 transition-colors"
-                  >
-                    <span className="text-xl">←</span>
-                  </button>
-                  <div>
-                    <h1 className="text-2xl font-bold flex items-center space-x-2">
-                      <span>💰</span>
-                      <span>LEARNER记账系统</span>
-                    </h1>
-                    <p className="text-blue-100 text-sm">
-                      {isBatchMode ? '表格式批量输入 · 高效记录每笔支出' : '精准记录 · 掌控财务未来'}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* 模式切换按钮 */}
-                <div className="flex bg-white/20 rounded-xl p-1 mt-4">
+            <PageHeader
+              title={
+                <>
+                  <span>💰</span>
+                  <span>LEARNER记账系统</span>
+                </>
+              }
+              subtitle={isBatchMode ? '表格式批量输入 · 高效记录每笔支出' : '精准记录 · 掌控财务未来'}
+              onBack={() => router.back()}
+              rightButton={
+                <div className="flex bg-white/20 rounded-xl p-1">
                   <button
                     onClick={() => setIsBatchMode(false)}
                     className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
@@ -269,8 +248,8 @@ export default function AddRecordPage() {
                     📋 批量记录
                   </button>
                 </div>
-              </div>
-            </div>
+              }
+            />
 
             <div className="px-4 pb-8 space-y-6">
               

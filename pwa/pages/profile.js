@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import ModernCard, { DataCard } from '../components/ModernCard'
 import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
+import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency, formatDate } from '../lib/api'
 
 export default function ProfilePage() {
@@ -95,22 +96,12 @@ export default function ProfilePage() {
   return (
     <WebAppWrapper>
       <Layout title="个人中心 - Learner Club">
+      <BrandHeader />
+      
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-          
-          {/* LEARNER CLUB 品牌标语 */}
-          <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
-            <div className="flex items-center justify-center space-x-2">
-              <span className="text-2xl">🎯</span>
-              <div>
-                <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
-                <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
-              </div>
-              <span className="text-2xl">📚</span>
-            </div>
-          </div>
 
-          {/* 现代化个人信息头部 */}
+          {/* 用户个人信息头部 */}
           <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-6 pt-6 pb-24 relative overflow-hidden">
             {/* 装饰性元素 */}
             <div className="absolute top-0 right-0 opacity-10">
