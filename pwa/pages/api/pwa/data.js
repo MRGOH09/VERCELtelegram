@@ -678,11 +678,35 @@ async function addRecord(userId, recordData, res) {
 
     const result = await response.json()
     
-    return res.json({
+    // 构建响应，包含积分信息
+    const responseData = {
       success: true,
       message: '记录添加成功',
       record: result.record
-    })
+    }
+    
+    // 如果主系统返回了积分信息，包含在响应中
+    if (result.score) {
+      responseData.score = result.score
+      // 增强积分消息
+      if (result.score.total_score > 0) {
+        const scoreDetails = []
+        if (result.score.base_score > 0) scoreDetails.push(`基础${result.score.base_score}分`)
+        if (result.score.streak_score > 0) scoreDetails.push(`连续${result.score.streak_score}分`)
+        if (result.score.bonus_score > 0) scoreDetails.push(`奖励${result.score.bonus_score}分`)
+        
+        responseData.scoreMessage = `🎉 获得 ${result.score.total_score} 分！(${scoreDetails.join(' + ')})`
+        responseData.streakMessage = `连续记录 ${result.score.current_streak} 天`
+        
+        // 里程碑成就提示
+        if (result.score.bonus_details && result.score.bonus_details.length > 0) {
+          const achievements = result.score.bonus_details.map(bonus => bonus.name).join('、')
+          responseData.achievementMessage = `🏆 达成成就：${achievements}！`
+        }
+      }
+    }
+    
+    return res.json(responseData)
 
   } catch (error) {
     console.error('[addRecord] 错误:', error)

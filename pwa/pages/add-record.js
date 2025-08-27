@@ -77,6 +77,10 @@ export default function AddRecordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   
+  // 积分反馈状态
+  const [scoreInfo, setScoreInfo] = useState(null)
+  const [showScoreFeedback, setShowScoreFeedback] = useState(false)
+  
   // Check In状态
   const [isCheckingIn, setIsCheckingIn] = useState(false)
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false)
@@ -126,20 +130,42 @@ export default function AddRecordPage() {
         date: new Date().toISOString().split('T')[0] // YYYY-MM-DD
       }
 
-      await PWAClient.call('data', 'add-record', recordData)
+      const response = await PWAClient.call('data', 'add-record', recordData)
 
-      // 显示成功状态
-      setShowSuccess(true)
+      // 处理积分反馈
+      if (response && response.score) {
+        setScoreInfo({
+          totalScore: response.score.total_score,
+          baseScore: response.score.base_score,
+          streakScore: response.score.streak_score,
+          bonusScore: response.score.bonus_score,
+          currentStreak: response.score.current_streak,
+          bonusDetails: response.score.bonus_details || [],
+          scoreMessage: response.scoreMessage,
+          streakMessage: response.streakMessage,
+          achievementMessage: response.achievementMessage
+        })
+        setShowScoreFeedback(true)
+        
+        // 6秒后隐藏积分反馈（比普通成功提示长一些）
+        setTimeout(() => {
+          setShowScoreFeedback(false)
+          setScoreInfo(null)
+        }, 6000)
+      } else {
+        // 显示普通成功状态
+        setShowSuccess(true)
+        
+        // 2秒后隐藏成功提示
+        setTimeout(() => {
+          setShowSuccess(false)
+        }, 2000)
+      }
       
       // 重置表单
       setSelectedCategory('')
       setAmount('')
       setNote('')
-      
-      // 2秒后隐藏成功提示
-      setTimeout(() => {
-        setShowSuccess(false)
-      }, 2000)
 
     } catch (error) {
       console.error('添加记录失败:', error)
@@ -387,6 +413,50 @@ export default function AddRecordPage() {
                 </ModernCard>
               </div>
               
+              {/* 积分反馈提示 */}
+              {showScoreFeedback && scoreInfo && (
+                <div className="relative z-20">
+                  <ModernCard className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 text-center">
+                    <div className="text-5xl mb-3">🎉</div>
+                    <div className="text-orange-800">
+                      <h3 className="font-bold text-lg mb-2">{scoreInfo.scoreMessage}</h3>
+                      <p className="text-sm mb-3">{scoreInfo.streakMessage}</p>
+                      
+                      {/* 积分详情 */}
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        {scoreInfo.baseScore > 0 && (
+                          <div className="bg-white rounded-lg p-2">
+                            <div className="text-xs text-green-600">基础分</div>
+                            <div className="font-bold text-green-700">{scoreInfo.baseScore}</div>
+                          </div>
+                        )}
+                        {scoreInfo.streakScore > 0 && (
+                          <div className="bg-white rounded-lg p-2">
+                            <div className="text-xs text-blue-600">连续分</div>
+                            <div className="font-bold text-blue-700">{scoreInfo.streakScore}</div>
+                          </div>
+                        )}
+                        {scoreInfo.bonusScore > 0 && (
+                          <div className="bg-white rounded-lg p-2">
+                            <div className="text-xs text-orange-600">奖励分</div>
+                            <div className="font-bold text-orange-700">{scoreInfo.bonusScore}</div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 成就提示 */}
+                      {scoreInfo.achievementMessage && (
+                        <div className="bg-yellow-100 rounded-lg p-3 border border-yellow-300">
+                          <p className="text-yellow-800 font-semibold text-sm">
+                            {scoreInfo.achievementMessage}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </ModernCard>
+                </div>
+              )}
+
               {/* 成功提示 */}
               {showSuccess && (
                 <div className="relative z-20">

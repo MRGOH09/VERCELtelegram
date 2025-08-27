@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 
 export default function LeaderboardPage() {
-  const [activeTab, setActiveTab] = useState('all') // 'all' | 'branch' | 'myscore'
+  const [activeTab, setActiveTab] = useState('branch') // 'branch' | 'myscore'
   const [leaderboardData, setLeaderboardData] = useState({
     allUsers: [],
     branchUsers: [],
@@ -248,16 +248,6 @@ export default function LeaderboardPage() {
         {/* 切换标签 */}
         <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
           <button
-            onClick={() => setActiveTab('all')}
-            className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
-              activeTab === 'all'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            🌟 全部用户
-          </button>
-          <button
             onClick={() => setActiveTab('branch')}
             className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
               activeTab === 'branch'
@@ -280,14 +270,6 @@ export default function LeaderboardPage() {
         </div>
 
         {/* 内容区域 */}
-        {activeTab === 'all' && (
-          <LeaderboardCard 
-            title="全分院积分排行" 
-            users={leaderboardData.allUsers} 
-            showBranch={true}
-          />
-        )}
-
         {activeTab === 'branch' && (
           <>
             {leaderboardData.userBranch ? (
@@ -369,10 +351,22 @@ export default function LeaderboardPage() {
           <div className="flex items-start">
             <span className="text-blue-500 mr-2">💡</span>
             <div className="text-sm text-blue-700">
-              <p className="font-medium mb-1">积分规则：</p>
-              <p>• 每日记录/打卡：2分（基础1分+连续1分）</p>
-              <p>• 连续里程碑：3天+2分，5天+3分，10天+5分...</p>
-              <p>• 分院排名按平均积分计算，鼓励全员参与！</p>
+              <p className="font-medium mb-2">📋 积分规则详解：</p>
+              <div className="space-y-1 mb-3">
+                <p>• <strong>基础分</strong>：每次记录开销获得 1分</p>
+                <p>• <strong>连续分</strong>：连续记录获得 1分（中断重新计算）</p>
+                <p>• <strong>每日总分</strong>：基础分 + 连续分 + 里程碑奖励分</p>
+              </div>
+              <p className="font-medium mb-1">🏆 里程碑奖励：</p>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <p>• 3天: +2分</p>
+                <p>• 5天: +3分</p>
+                <p>• 10天: +5分</p>
+                <p>• 15天: +8分</p>
+                <p>• 21天: +12分</p>
+                <p>• 31天: +20分</p>
+              </div>
+              <p className="text-xs text-blue-600 mt-2 italic">* 分院排名每日2点更新，基于当天积分统计</p>
             </div>
           </div>
         </div>
