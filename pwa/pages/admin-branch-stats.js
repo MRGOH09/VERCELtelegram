@@ -234,7 +234,6 @@ export default function AdminBranchStats() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">排名</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">分院</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">人数</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">占比</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">进度</th>
                       </tr>
                     </thead>
@@ -274,11 +273,6 @@ export default function AdminBranchStats() {
                                   style={{ color: config.color }}
                                 >
                                   {branch.count}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="text-lg font-semibold text-gray-900">
-                                  {totalPercentage.toFixed(1)}%
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap w-32">

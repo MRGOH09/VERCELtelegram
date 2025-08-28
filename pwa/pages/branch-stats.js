@@ -139,7 +139,7 @@ export default function BranchStats() {
                           ></div>
                         </div>
                         <p className="text-xs text-gray-500 mt-1 text-center">
-                          {percentage.toFixed(1)}% 占比
+                          进度条
                         </p>
                       </div>
                     </div>
