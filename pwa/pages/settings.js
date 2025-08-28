@@ -13,6 +13,11 @@ export default function SettingsPage() {
   const [pushSupported, setPushSupported] = useState(false)
   const [pushStatus, setPushStatus] = useState('检查中...')
   const [testingPush, setTestingPush] = useState(false)
+  
+  // 个人资料相关状态
+  const [userData, setUserData] = useState(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
+  const [profileMessage, setProfileMessage] = useState('')
 
   useEffect(() => {
     checkAuthAndInitialize()
@@ -27,9 +32,81 @@ export default function SettingsPage() {
       }
       
       await initializePushSettings()
+      await loadUserProfile()
     } catch (error) {
       console.error('认证检查失败:', error)
       router.replace('/login')
+    }
+  }
+
+  const loadUserProfile = async () => {
+    try {
+      setLoadingProfile(true)
+      
+      const response = await fetch('/api/pwa/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'profile' })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setUserData(result)
+        setProfileMessage('个人资料已加载')
+      } else {
+        throw new Error(`加载失败: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('加载个人资料失败:', error)
+      setProfileMessage('个人资料加载失败')
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  const updateField = async (field, value, tableName = 'user_profile', fieldName = null) => {
+    setProfileMessage(`正在更新 ${field}...`)
+    
+    try {
+      // 映射字段名到数据库字段
+      const fieldMapping = {
+        '显示名称': 'display_name',
+        '电话': 'phone_e164', 
+        '邮箱': 'email',
+        '月收入': 'monthly_income',
+        'A类百分比': 'a_pct',
+        '旅游预算': 'travel_budget_annual',
+        '年度医疗保险': 'annual_medical_insurance',
+        '年度车险': 'annual_car_insurance'
+      }
+      
+      const dbField = fieldName || fieldMapping[field] || field
+      
+      // 调用更新API
+      const response = await fetch('/api/pwa/test-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          action: 'update_field',
+          tableName: tableName,
+          fieldName: dbField,
+          value: value
+        })
+      })
+
+      const result = await response.json()
+      
+      if (response.ok && result.ok) {
+        setProfileMessage(`✅ ${field} 已更新为: ${value}`)
+        // 1秒后重新加载数据以显示更新结果
+        setTimeout(loadUserProfile, 1000)
+      } else {
+        setProfileMessage(`❌ 更新失败: ${result.error || '未知错误'}`)
+      }
+    } catch (error) {
+      setProfileMessage(`❌ 更新错误: ${error.message}`)
     }
   }
 
@@ -320,6 +397,248 @@ export default function SettingsPage() {
                   </div>
                 </ModernCard>
               </div>
+
+              {/* 个人资料设置 */}
+              <ModernCard className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                      <span className="text-2xl">👤</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">个人资料</h3>
+                      <p className="text-sm text-gray-600">管理你的个人信息和财务设置</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={loadUserProfile}
+                    disabled={loadingProfile}
+                    className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingProfile ? '加载中...' : '刷新'}
+                  </button>
+                </div>
+                
+                {profileMessage && (
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                    {profileMessage}
+                  </div>
+                )}
+
+                {userData && (
+                  <div className="space-y-4">
+                    
+                    {/* 基本信息 */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-blue-900 mb-3">基本信息</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">显示名称</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text"
+                              id="display_name"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.display_name || ''}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('display_name').value
+                                updateField('显示名称', value)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">电话</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text"
+                              id="phone_e164"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.phone || ''}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('phone_e164').value
+                                updateField('电话', value)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">邮箱</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="email"
+                            id="email"
+                            className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                            defaultValue={userData.profile?.email || ''}
+                          />
+                          <button
+                            onClick={() => {
+                              const value = document.getElementById('email').value
+                              updateField('邮箱', value)
+                            }}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                          >
+                            保存
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 财务设置 */}
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-green-900 mb-3">财务设置</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">月收入 (RM)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number"
+                              id="monthly_income"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.income || 0}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('monthly_income').value
+                                updateField('月收入', parseFloat(value) || 0)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">A类支出百分比 (%)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number"
+                              id="a_pct"
+                              min="0" max="100"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.a_pct || 0}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('a_pct').value
+                                updateField('A类百分比', parseInt(value) || 0)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">年度旅游预算 (RM)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number"
+                              id="travel_budget_annual"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.travel_budget || 0}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('travel_budget_annual').value
+                                updateField('旅游预算', parseFloat(value) || 0)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            月度分摊: RM {((userData.profile?.travel_budget || 0) / 12).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 保险设置 */}
+                    <div className="bg-orange-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-orange-900 mb-3">保险设置</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">年度医疗保险 (RM)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number"
+                              id="annual_medical_insurance"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.annual_medical_insurance || 0}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('annual_medical_insurance').value
+                                updateField('年度医疗保险', parseFloat(value) || 0)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            月度分摊: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">年度车险 (RM)</label>
+                          <div className="flex gap-2">
+                            <input 
+                              type="number"
+                              id="annual_car_insurance"
+                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              defaultValue={userData.profile?.annual_car_insurance || 0}
+                            />
+                            <button
+                              onClick={() => {
+                                const value = document.getElementById('annual_car_insurance').value
+                                updateField('年度车险', parseFloat(value) || 0)
+                              }}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            >
+                              保存
+                            </button>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            月度分摊: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 自动计算说明 */}
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h4 className="font-semibold text-blue-800 mb-2">💡 自动计算说明</h4>
+                      <div className="text-sm text-blue-700 space-y-1">
+                        <p><strong>EPF (固定24%)</strong>: RM {((userData.profile?.income || 0) * 0.24).toFixed(2)}/月</p>
+                        <p><strong>旅游基金</strong>: RM {((userData.profile?.travel_budget || 0) / 12).toFixed(2)}/月</p>
+                        <p><strong>医疗保险</strong>: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}/月</p>
+                        <p><strong>车险</strong>: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}/月</p>
+                        <p className="text-xs mt-2">这些金额会自动分摊到每月的相应分类中</p>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+              </ModernCard>
 
               {/* 应用信息 */}
               <ModernCard className="p-6">
