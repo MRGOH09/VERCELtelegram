@@ -27,23 +27,45 @@ export default async function handler(req, res) {
     // 1. 获取今日日期
     const today = new Date().toISOString().split('T')[0]
 
-    // 2. 获取全部用户历史总积分排行（完整排行榜）
-    // 先获取所有用户的历史积分记录
+    // 2. 获取全部用户历史总积分排行（完整排行榜） - 修复JOIN问题
+    // 分别查询，然后合并数据（避免表关系问题）
     const { data: allScores, error: allError } = await supabase
       .from('user_daily_scores')
-      .select(`
-        user_id,
-        total_score,
-        current_streak,
-        users!inner(id, name, branch_code),
-        user_profile(display_name)
-      `)
+      .select('*')
+    
+    if (allError) {
+      console.error('获取积分记录失败:', allError)
+      return res.status(500).json({ ok: false, error: '获取积分记录失败' })
+    }
+    
+    // 获取相关用户信息
+    const userIds = [...new Set(allScores?.map(s => s.user_id) || [])]
+    
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, name, branch_code')
+      .in('id', userIds)
+    
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('user_profile')
+      .select('user_id, display_name')
+      .in('user_id', userIds)
+    
+    // 合并数据
+    const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
+    const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || [])
+    
+    const mergedScores = allScores?.map(score => ({
+      ...score,
+      users: usersMap.get(score.user_id),
+      user_profile: profilesMap.get(score.user_id)
+    })) || []
     
     // 按用户汇总总积分
     const userTotalScores = new Map()
     
-    if (allScores) {
-      allScores.forEach(score => {
+    if (mergedScores) {
+      mergedScores.forEach(score => {
         const userId = score.user_id
         if (!userTotalScores.has(userId)) {
           userTotalScores.set(userId, {
@@ -64,11 +86,7 @@ export default async function handler(req, res) {
     const allUsersScores = Array.from(userTotalScores.values())
       .sort((a, b) => b.total_score - a.total_score)
 
-    if (allError) {
-      console.error('获取全部用户排行失败:', allError)
-    }
-
-    console.log(`[leaderboard] 今日积分数据: ${allUsersScores?.length || 0} 条记录`)
+    console.log(`[leaderboard] 积分数据: ${allUsersScores?.length || 0} 条用户记录`)
 
     // 3. 获取同分院用户排行（如果用户有分院）
     let branchUsers = []

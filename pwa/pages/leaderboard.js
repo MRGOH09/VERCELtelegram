@@ -197,7 +197,7 @@ export default function LeaderboardPage() {
                       {user.total_score || 0}分
                     </div>
                     <div className="text-xs text-gray-500">
-                      连续{user.current_streak || 0}天
+                      连续{user.max_streak || 0}天
                     </div>
                   </div>
                 </div>

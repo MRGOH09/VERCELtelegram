@@ -23,25 +23,71 @@ export default async function handler(req, res) {
 
     console.log(`[test-branch-debug] 用户 ${userId} 分院: ${userBranch}`)
 
-    // 1. 获取所有用户的历史积分记录
+    // 0. 先检查表是否存在和基本统计
+    const { count: totalCount, error: countError } = await supabase
+      .from('user_daily_scores')
+      .select('*', { count: 'exact', head: true })
+    
+    console.log(`[test-branch-debug] user_daily_scores表总记录数: ${totalCount || 0}`, countError)
+
+    // 1. 首先检查user_daily_scores表是否有任何数据
+    const { data: rawScores, error: rawError } = await supabase
+      .from('user_daily_scores')
+      .select('*')
+      .limit(10)
+    
+    console.log(`[test-branch-debug] 原始积分表数据: ${rawScores?.length || 0} 条`, rawError)
+    if (rawScores?.length > 0) {
+      console.log(`[test-branch-debug] 示例数据:`, rawScores[0])
+    }
+
+    // 2. 获取所有用户的历史积分记录 - 修复JOIN关系
+    // 问题：user_daily_scores和user_profile之间没有直接关系
+    // 解决：通过users表作为中介，或者分别查询后合并
+    
+    // 方法1：只从user_daily_scores获取数据，然后单独查询用户信息
     const { data: allScores, error: allError } = await supabase
       .from('user_daily_scores')
-      .select(`
-        user_id,
-        total_score,
-        current_streak,
-        ymd,
-        users!inner(id, name, branch_code),
-        user_profile(display_name)
-      `)
+      .select('*')
+    
+    console.log(`[test-branch-debug] 原始积分数据查询成功: ${allScores?.length || 0} 条`)
+    
+    // 获取所有相关用户的信息
+    const userIds = [...new Set(allScores?.map(s => s.user_id) || [])]
+    console.log(`[test-branch-debug] 需要查询的用户ID: ${userIds.length} 个`)
+    
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, name, branch_code')
+      .in('id', userIds)
+    
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('user_profile')
+      .select('user_id, display_name')
+      .in('user_id', userIds)
+    
+    console.log(`[test-branch-debug] 用户数据: ${usersData?.length || 0} 个`)
+    console.log(`[test-branch-debug] 用户资料: ${profilesData?.length || 0} 个`)
+    
+    // 合并数据
+    const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
+    const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || [])
+    
+    const mergedScores = allScores?.map(score => ({
+      ...score,
+      users: usersMap.get(score.user_id),
+      user_profile: profilesMap.get(score.user_id)
+    })) || []
+    
+    console.log(`[test-branch-debug] 合并后数据: ${mergedScores.length} 条`)
 
     console.log(`[test-branch-debug] 原始积分记录: ${allScores?.length || 0} 条`)
 
-    // 2. 按用户汇总历史总积分
+    // 3. 按用户汇总历史总积分 - 使用合并后的数据
     const userTotalScores = new Map()
     
-    if (allScores) {
-      allScores.forEach(score => {
+    if (mergedScores) {
+      mergedScores.forEach(score => {
         const scoreUserId = score.user_id
         if (!userTotalScores.has(scoreUserId)) {
           userTotalScores.set(scoreUserId, {
@@ -138,7 +184,24 @@ export default async function handler(req, res) {
       debug: {
         userId,
         userBranch,
-        allScores: allScores?.length || 0,
+        // 表统计信息
+        totalRecordsCount: totalCount || 0,
+        countError: countError?.message || null,
+        // 原始数据检查
+        rawScoresCount: rawScores?.length || 0,
+        rawScoresSample: rawScores?.[0] || null,
+        rawError: rawError?.message || null,
+        // 分离查询结果
+        allScoresCount: allScores?.length || 0,
+        usersDataCount: usersData?.length || 0,
+        profilesDataCount: profilesData?.length || 0,
+        mergedScoresCount: mergedScores?.length || 0,
+        queryErrors: {
+          allScores: allError?.message || null,
+          users: usersError?.message || null,
+          profiles: profilesError?.message || null
+        },
+        // 计算结果
         userScores: allUsersScores.slice(0, 10), // 前10名用户
         allBranchUsers: allBranchUsers?.length || 0,
         branchStats: branchStatsObject,
