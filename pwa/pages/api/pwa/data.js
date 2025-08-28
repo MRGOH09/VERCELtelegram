@@ -384,7 +384,9 @@ async function getProfileData(userId, res) {
         email: profile?.email,
         income: profile?.monthly_income || 0,
         a_pct: profile?.a_pct || 0,
-        travel_budget: profile?.travel_budget_annual || 0
+        travel_budget: profile?.travel_budget_annual || 0,
+        annual_medical_insurance: profile?.annual_medical_insurance || 0,
+        annual_car_insurance: profile?.annual_car_insurance || 0
       },
       stats: {
         record_days: uniqueDays,
