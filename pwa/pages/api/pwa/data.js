@@ -1092,18 +1092,21 @@ async function calculateCheckInScore(userId, ymd) {
     // 2. 计算连续天数
     const currentStreak = await calculateCurrentStreakPWA(userId, ymd)
     
-    // 3. 连续分计算 - 每连续1天额外1分
-    const streakScore = Math.max(0, currentStreak - 1)
+    // 3. 连续分计算 - 连续记录获得1分 (固定1分，不累加)
+    const streakScore = currentStreak > 1 ? 1 : 0
     
     // 4. 里程碑奖励计算
     const bonusDetails = []
     let bonusScore = 0
     
-    // 检查里程碑 (简化版本，只检查常见里程碑)
+    // 使用正确的里程碑配置 (与数据库一致)
     const milestones = [
-      { streak_days: 7, bonus_score: 5, milestone_name: '坚持一周' },
-      { streak_days: 30, bonus_score: 20, milestone_name: '坚持一月' },
-      { streak_days: 100, bonus_score: 50, milestone_name: '坚持百日' }
+      { streak_days: 3, bonus_score: 2, milestone_name: '坚持三天' },
+      { streak_days: 5, bonus_score: 3, milestone_name: '持续五天' },
+      { streak_days: 10, bonus_score: 5, milestone_name: '稳定十天' },
+      { streak_days: 15, bonus_score: 8, milestone_name: '半月坚持' },
+      { streak_days: 21, bonus_score: 12, milestone_name: '三周习惯' },
+      { streak_days: 31, bonus_score: 20, milestone_name: '月度冠军' }
     ]
     
     for (const milestone of milestones) {
