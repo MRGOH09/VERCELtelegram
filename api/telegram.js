@@ -2528,7 +2528,7 @@ async function handleCheckInCommand(chatId, userId, from) {
       .from('records')
       .insert([{
         user_id: userId,
-        category_group: 'CHECK',
+        category_group: 'A',
         category_code: 'daily_checkin',
         amount: 0,
         note: '每日打卡',
