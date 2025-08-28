@@ -1028,9 +1028,8 @@ async function handleCheckIn(userId, res) {
       })
     }
     
-    // 2. 执行积分计算 - 导入scoring-system
-    const { onUserCheckIn } = await import('../../../lib/scoring-system.js')
-    const scoreResult = await onUserCheckIn(userId, new Date())
+    // 2. 执行积分计算 - PWA内置简化版本
+    const scoreResult = await calculateCheckInScore(userId, today)
     
     console.log(`[handleCheckIn] 积分计算结果:`, scoreResult)
     
@@ -1079,6 +1078,50 @@ async function handleCheckIn(userId, res) {
         stack: error.stack
       }
     })
+  }
+}
+
+// PWA内置简化积分计算
+async function calculateCheckInScore(userId, ymd) {
+  try {
+    console.log(`[calculateCheckInScore] 计算用户 ${userId} 在 ${ymd} 的打卡积分`)
+    
+    // 简化积分计算 - 每次打卡固定1分
+    const baseScore = 1
+    const streakScore = 0  // PWA版本不计算连续分
+    const bonusScore = 0   // PWA版本不计算奖励分
+    const totalScore = baseScore + streakScore + bonusScore
+    
+    const scoreData = {
+      user_id: userId,
+      ymd: ymd,
+      base_score: baseScore,
+      streak_score: streakScore,
+      bonus_score: bonusScore,
+      total_score: totalScore,
+      current_streak: 0,  // 不计算连续天数
+      record_type: 'checkin',
+      bonus_details: []   // 无奖励明细
+    }
+    
+    // 保存积分记录到user_daily_scores表
+    const { data: savedScore, error } = await supabase
+      .from('user_daily_scores')
+      .insert(scoreData)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('[calculateCheckInScore] 保存积分失败:', error)
+      throw error
+    }
+    
+    console.log(`[calculateCheckInScore] 积分计算完成: ${totalScore}分`)
+    return savedScore
+    
+  } catch (error) {
+    console.error('[calculateCheckInScore] 积分计算失败:', error)
+    throw error
   }
 }
 
