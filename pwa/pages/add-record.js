@@ -262,14 +262,23 @@ export default function AddRecordPage() {
     
     setIsCheckingIn(true)
     try {
-      // 调用Check In API - 通过records表插入amount=0的记录
-      const result = await PWAClient.addRecord({
-        group: 'CHECK',
-        category: 'daily_checkin', 
-        amount: 0,
-        note: '每日打卡 - 无开销记录',
-        date: new Date().toISOString().slice(0, 10)
+      // 调用专用的Check In API
+      const response = await fetch('/api/pwa/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'checkin'
+        })
       })
+
+      const result = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(result.error || '打卡失败')
+      }
       
       if (result.success) {
         setHasCheckedInToday(true)
@@ -326,13 +335,40 @@ export default function AddRecordPage() {
   // 检查今日是否已打卡
   const checkTodayCheckIn = async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      // 这里需要调用API检查今日是否有打卡记录
-      // 暂时使用localStorage模拟
-      const lastCheckIn = localStorage.getItem('lastCheckInDate')
-      setHasCheckedInToday(lastCheckIn === today)
+      const response = await fetch('/api/pwa/data', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'check-checkin-status'
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setHasCheckedInToday(result.hasCheckedIn)
+        console.log(`[checkTodayCheckIn] 今日打卡状态: ${result.hasCheckedIn}`)
+        
+        // 同步更新localStorage（用于离线状态参考）
+        if (result.hasCheckedIn) {
+          localStorage.setItem('lastCheckInDate', result.today)
+        }
+      } else {
+        console.error('检查打卡状态失败:', result.error)
+        // 降级到localStorage检查
+        const today = new Date().toISOString().slice(0, 10)
+        const lastCheckIn = localStorage.getItem('lastCheckInDate')
+        setHasCheckedInToday(lastCheckIn === today)
+      }
     } catch (error) {
       console.error('检查打卡状态失败:', error)
+      // 降级到localStorage检查
+      const today = new Date().toISOString().slice(0, 10)
+      const lastCheckIn = localStorage.getItem('lastCheckInDate')
+      setHasCheckedInToday(lastCheckIn === today)
     }
   }
   

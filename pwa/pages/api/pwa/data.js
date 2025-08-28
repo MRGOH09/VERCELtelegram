@@ -77,6 +77,12 @@ export default async function handler(req, res) {
       case 'update-record':
         return await updateRecord(user.id, params, res)
         
+      case 'checkin':
+        return await handleCheckIn(user.id, res)
+        
+      case 'check-checkin-status':
+        return await checkCheckInStatus(user.id, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -987,6 +993,140 @@ async function updateRecord(userId, params, res) {
     console.error('[updateRecord] 错误:', error)
     return res.status(500).json({ 
       error: error.message || 'Failed to update record' 
+    })
+  }
+}
+
+// 处理用户打卡
+async function handleCheckIn(userId, res) {
+  try {
+    console.log(`[handleCheckIn] 用户 ${userId} 发起打卡`)
+    
+    const today = formatYMD(new Date())
+    
+    // 检查今日是否已经打卡
+    const { data: existingCheckin } = await supabase
+      .from('records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ymd', today)
+      .eq('category_group', 'CHECK')
+      .eq('category_code', 'daily_checkin')
+      .maybeSingle()
+      
+    if (existingCheckin) {
+      return res.status(400).json({
+        error: '今日已经打卡过了！',
+        hasCheckedIn: true
+      })
+    }
+    
+    // 插入打卡记录
+    const { data: checkinRecord, error: insertError } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: 'CHECK',
+        category_code: 'daily_checkin',
+        amount: 0,
+        note: '每日打卡',
+        ymd: today
+      }])
+      .select()
+      .single()
+      
+    if (insertError) {
+      console.error('[handleCheckIn] 插入打卡记录失败:', insertError)
+      return res.status(500).json({
+        error: '打卡失败，请重试'
+      })
+    }
+    
+    console.log(`[handleCheckIn] 打卡记录插入成功:`, checkinRecord)
+    
+    // 触发积分计算
+    let scoreResult = null
+    try {
+      // 动态导入积分系统
+      const { onUserCheckIn } = await import('../../../lib/scoring-system')
+      scoreResult = await onUserCheckIn(userId, new Date())
+      console.log(`[handleCheckIn] 积分计算完成:`, scoreResult)
+    } catch (scoreError) {
+      console.error('[handleCheckIn] 积分计算失败:', scoreError)
+      // 不影响打卡成功，积分计算失败只记录日志
+    }
+    
+    const responseData = {
+      success: true,
+      message: '打卡成功！',
+      record: checkinRecord,
+      hasCheckedIn: true
+    }
+    
+    // 如果有积分信息，添加到响应中
+    if (scoreResult) {
+      responseData.score = scoreResult
+      
+      // 构建积分消息
+      if (scoreResult.total_score > 0) {
+        const scoreDetails = []
+        if (scoreResult.base_score > 0) scoreDetails.push(`基础${scoreResult.base_score}分`)
+        if (scoreResult.streak_score > 0) scoreDetails.push(`连续${scoreResult.streak_score}分`) 
+        if (scoreResult.bonus_score > 0) scoreDetails.push(`奖励${scoreResult.bonus_score}分`)
+        
+        responseData.scoreMessage = `🎉 打卡获得 ${scoreResult.total_score} 分！(${scoreDetails.join(' + ')})`
+        responseData.streakMessage = `连续打卡 ${scoreResult.current_streak} 天`
+        
+        // 里程碑成就提示
+        if (scoreResult.bonus_details && scoreResult.bonus_details.length > 0) {
+          const achievements = scoreResult.bonus_details.map(bonus => bonus.name).join('、')
+          responseData.achievementMessage = `🏆 达成成就：${achievements}！`
+        }
+      }
+    }
+    
+    return res.json(responseData)
+    
+  } catch (error) {
+    console.error('[handleCheckIn] 错误:', error)
+    return res.status(500).json({
+      error: error.message || '打卡失败'
+    })
+  }
+}
+
+// 检查用户今日打卡状态
+async function checkCheckInStatus(userId, res) {
+  try {
+    console.log(`[checkCheckInStatus] 检查用户 ${userId} 今日打卡状态`)
+    
+    const today = formatYMD(new Date())
+    
+    // 查询今日打卡记录
+    const { data: checkinRecord } = await supabase
+      .from('records')
+      .select('id, created_at')
+      .eq('user_id', userId)
+      .eq('ymd', today)
+      .eq('category_group', 'CHECK')
+      .eq('category_code', 'daily_checkin')
+      .maybeSingle()
+      
+    const hasCheckedIn = !!checkinRecord
+    
+    console.log(`[checkCheckInStatus] 用户 ${userId} 今日打卡状态: ${hasCheckedIn}`)
+    
+    return res.json({
+      success: true,
+      hasCheckedIn,
+      checkinTime: checkinRecord?.created_at || null,
+      today
+    })
+    
+  } catch (error) {
+    console.error('[checkCheckInStatus] 错误:', error)
+    return res.status(500).json({
+      error: error.message || '检查打卡状态失败'
     })
   }
 }
