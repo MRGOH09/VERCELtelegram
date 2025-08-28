@@ -33,14 +33,47 @@ export default function SimpleSettings() {
     setLoading(false)
   }
 
-  const updateField = async (field, value) => {
-    setMessage('更新中...')
+  const updateField = async (field, value, tableName = 'user_profile', fieldName = null) => {
+    setMessage(`正在更新 ${field}...`)
     
-    // 这里先简单模拟更新，实际可以调用更新API
-    setMessage(`✅ ${field} 已更新为: ${value}`)
-    
-    // 重新加载数据
-    setTimeout(loadUserData, 1000)
+    try {
+      // 映射字段名到数据库字段
+      const fieldMapping = {
+        '显示名称': 'display_name',
+        '电话': 'phone_e164', 
+        '邮箱': 'email',
+        '月收入': 'monthly_income',
+        'A类百分比': 'a_pct',
+        '旅游预算': 'travel_budget_annual'
+      }
+      
+      const dbField = fieldName || fieldMapping[field] || field
+      
+      // 调用更新API
+      const response = await fetch('/api/pwa/test-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          action: 'update_field',
+          tableName: tableName,
+          fieldName: dbField,
+          value: value
+        })
+      })
+
+      const result = await response.json()
+      
+      if (response.ok && result.ok) {
+        setMessage(`✅ ${field} 已更新为: ${value}`)
+        // 1秒后重新加载数据以显示更新结果
+        setTimeout(loadUserData, 1000)
+      } else {
+        setMessage(`❌ 更新失败: ${result.error || '未知错误'}`)
+      }
+    } catch (error) {
+      setMessage(`❌ 更新错误: ${error.message}`)
+    }
   }
 
   return (
@@ -113,64 +146,130 @@ export default function SimpleSettings() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600">显示名称</label>
-                      <input 
-                        type="text"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.display_name || ''}
-                        onBlur={(e) => updateField('显示名称', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          id="display_name"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.display_name || ''}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('display_name').value
+                            updateField('显示名称', value)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">电话</label>
-                      <input 
-                        type="text"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.phone || ''}
-                        onBlur={(e) => updateField('电话', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="text"
+                          id="phone_e164"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.phone || ''}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('phone_e164').value
+                            updateField('电话', value)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600">邮箱</label>
-                      <input 
-                        type="email"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.email || ''}
-                        onBlur={(e) => updateField('邮箱', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="email"
+                          id="email"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.email || ''}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('email').value
+                            updateField('邮箱', value)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">月收入</label>
-                      <input 
-                        type="number"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.income || 0}
-                        onBlur={(e) => updateField('月收入', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          id="monthly_income"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.income || 0}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('monthly_income').value
+                            updateField('月收入', parseFloat(value) || 0)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-600">A类支出百分比 (%)</label>
-                      <input 
-                        type="number"
-                        min="0" max="100"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.a_pct || 0}
-                        onBlur={(e) => updateField('A类百分比', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          id="a_pct"
+                          min="0" max="100"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.a_pct || 0}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('a_pct').value
+                            updateField('A类百分比', parseInt(value) || 0)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-600">年度旅游预算</label>
-                      <input 
-                        type="number"
-                        className="mt-1 w-full p-2 border border-gray-300 rounded-lg"
-                        defaultValue={userData.profile?.travel_budget || 0}
-                        onBlur={(e) => updateField('旅游预算', e.target.value)}
-                      />
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          id="travel_budget_annual"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.travel_budget || 0}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('travel_budget_annual').value
+                            updateField('旅游预算', parseFloat(value) || 0)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
                     </div>
                   </div>
 
