@@ -24,12 +24,22 @@ export default function AdminSecretUserManagement() {
   // 检查认证并加载数据
   const checkAuthAndLoad = async () => {
     addLog('🔍 检查Telegram认证状态...', 'info')
+    
+    // 先检查是否有JWT token
+    const token = localStorage.getItem('jwt_token')
+    if (!token) {
+      setAuthError('请先通过Telegram登录PWA系统')
+      addLog('❌ 未找到登录凭证，请先登录', 'error')
+      return
+    }
+    
     try {
       await loadUsers() // 直接尝试加载，API会验证Telegram认证
       setIsAuthenticated(true)
+      addLog('✅ 管理员认证成功', 'success')
     } catch (error) {
-      setAuthError('需要Telegram认证才能访问此页面')
-      addLog('❌ 认证失败：需要Telegram登录', 'error')
+      setAuthError('需要管理员Telegram账户才能访问')
+      addLog('❌ 认证失败：非管理员账户或登录已过期', 'error')
     }
   }
 
@@ -38,11 +48,14 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog('📋 正在加载用户列表...', 'info')
     
+    const token = localStorage.getItem('jwt_token')
+    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'list_users' })
@@ -67,11 +80,14 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog(`🔍 正在获取用户详细信息: ${userId.slice(-6)}...`, 'info')
     
+    const token = localStorage.getItem('jwt_token')
+    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'get_user_details', userId })
@@ -104,11 +120,14 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog(`🗑️ 正在删除用户: ${userId.slice(-6)}...`, 'warning')
     
+    const token = localStorage.getItem('jwt_token')
+    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'delete_user', userId })
@@ -155,12 +174,22 @@ export default function AdminSecretUserManagement() {
               {authError && <span className="block text-red-400 mt-2">{authError}</span>}
             </p>
             
+            <div className="bg-yellow-800 bg-opacity-20 border border-yellow-600 rounded-lg p-4 mb-4">
+              <p className="text-yellow-300 text-sm">
+                📌 <strong>登录步骤：</strong><br/>
+                1. 点击下方"Telegram登录"按钮<br/>
+                2. 使用你的Telegram账户(1790847152)登录<br/>
+                3. 登录成功后返回此页面<br/>
+                4. 点击"重新检查认证"
+              </p>
+            </div>
+            
             <div className="space-y-4">
               <a
                 href="/login"
                 className="block w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg text-center transition-colors"
               >
-                🔓 Telegram登录
+                🔓 去Telegram登录页面
               </a>
               
               <button
