@@ -1098,7 +1098,6 @@ async function calculateCheckInScore(userId, ymd) {
       base_score: baseScore,
       streak_score: streakScore,
       bonus_score: bonusScore,
-      total_score: totalScore,
       current_streak: 0,  // 不计算连续天数
       record_type: 'checkin',
       bonus_details: []   // 无奖励明细
