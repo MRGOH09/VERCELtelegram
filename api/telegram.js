@@ -73,7 +73,7 @@ function generateHistoryButtons(row, grpName, catLabel) {
 }
 
 const BRANCH_CODES = [
-  'PJY','BLS','OTK','PU','UKT','TLK','M2','BP','MTK','HQ','VIVA','STL','SRD','PDMR','KK'
+  'PJY','BLS','OTK','PU','UKT','TLK','M2','BP','MTK','HQ','VIVA','STL','SRD','PDMR','KK','小天使'
 ]
 
 // 格式化分类明细
