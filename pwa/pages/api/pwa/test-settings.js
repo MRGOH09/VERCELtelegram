@@ -1,44 +1,10 @@
-import jwt from 'jsonwebtoken'
 import { createClient } from '@supabase/supabase-js'
+import { validateJWTToken } from '../../../lib/auth'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 )
-
-// 验证JWT token
-function verifyToken(req) {
-  try {
-    const authHeader = req.headers.authorization
-    const cookieToken = req.cookies?.auth_token
-    const token = authHeader?.replace('Bearer ', '') || cookieToken
-    
-    console.log('[test-settings] 检查token:', {
-      hasAuthHeader: !!authHeader,
-      hasCookieToken: !!cookieToken,
-      tokenExists: !!token,
-      jwtSecret: !!process.env.JWT_SECRET
-    })
-    
-    if (!token) {
-      console.log('[test-settings] 未找到token')
-      return null
-    }
-    
-    if (!process.env.JWT_SECRET) {
-      console.error('[test-settings] JWT_SECRET未设置')
-      return null
-    }
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    console.log('[test-settings] Token验证成功:', decoded)
-    return decoded
-  } catch (error) {
-    console.error('[test-settings] Token验证失败:', error.message)
-    console.error('[test-settings] Token内容:', token?.substring(0, 50) + '...')
-    return null
-  }
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -46,14 +12,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 验证用户身份
-    const userPayload = verifyToken(req)
-    if (!userPayload) {
+    // 验证用户身份 - 使用统一的JWT验证
+    const user = await validateJWTToken(req)
+    if (!user) {
+      console.log('[test-settings] JWT验证失败')
       return res.status(401).json({ ok: false, error: 'Unauthorized' })
     }
 
     const { action, tableName, fieldName, value } = req.body
-    const userId = userPayload.user_id
+    const userId = user.id
 
     console.log(`[test-settings] 用户 ${userId} 请求: ${action}`)
 

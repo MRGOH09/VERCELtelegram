@@ -24,13 +24,18 @@ export default function TestSettingsDebug() {
         body: JSON.stringify({ action: 'check-auth' })
       })
 
+      addLog(`📊 API响应状态: ${response.status} ${response.statusText}`, 'info')
+
       const result = await response.json()
       setTestResults(prev => ({ ...prev, auth: result }))
       
-      if (result.authenticated) {
-        addLog(`✅ JWT认证成功: ${result.user?.name}`, 'success')
+      if (response.status === 401) {
+        addLog(`❌ JWT认证失败 (401 Unauthorized)`, 'error')
+        addLog(`💡 解决方案: 请先访问 /login 通过Telegram登录`, 'warning')
+      } else if (result.authenticated) {
+        addLog(`✅ JWT认证成功: ${result.user?.name} (分行: ${result.user?.branch})`, 'success')
       } else {
-        addLog(`❌ JWT认证失败`, 'error')
+        addLog(`❌ JWT认证失败: 响应显示未认证`, 'error')
       }
     } catch (error) {
       addLog(`❌ 认证测试失败: ${error.message}`, 'error')
@@ -71,12 +76,30 @@ export default function TestSettingsDebug() {
     addLog('🔧 检查环境变量...', 'info')
     
     const envVars = {
-      hasJWT: typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : 'N/A',
-      cookies: typeof document !== 'undefined' ? document.cookie : 'N/A'
+      hasJWT_localStorage: typeof window !== 'undefined' ? !!localStorage.getItem('jwt_token') : false,
+      JWT_value_preview: typeof window !== 'undefined' ? localStorage.getItem('jwt_token')?.substring(0, 20) + '...' : 'N/A',
+      cookies_raw: typeof document !== 'undefined' ? document.cookie : 'N/A',
+      has_auth_token_cookie: typeof document !== 'undefined' ? document.cookie.includes('auth_token') : false,
+      has_auth_cookie: typeof document !== 'undefined' ? document.cookie.includes('auth=') : false,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
     }
     
     setTestResults(prev => ({ ...prev, environment: envVars }))
-    addLog(`📋 环境信息已收集`, 'info')
+    
+    if (envVars.hasJWT_localStorage) {
+      addLog(`✅ 找到localStorage JWT token`, 'success')
+    } else {
+      addLog(`❌ localStorage中无JWT token`, 'error')
+    }
+    
+    if (envVars.has_auth_token_cookie || envVars.has_auth_cookie) {
+      addLog(`✅ 找到认证cookie`, 'success')
+    } else {
+      addLog(`❌ 无认证cookie`, 'error')
+      addLog(`💡 需要先通过Telegram登录: /login`, 'warning')
+    }
+    
+    addLog(`📋 环境信息检查完成`, 'info')
   }
 
   // 测试现有的profile API
