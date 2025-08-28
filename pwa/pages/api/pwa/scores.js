@@ -49,8 +49,13 @@ export default async function handler(req, res) {
     let thisMonthScore = 0
     let todayScore = 0
 
-    // 获取最新的连续天数（从最近的记录）
-    if (dailyScores && dailyScores.length > 0) {
+    // 获取最新的连续天数（优先今日记录，备选最近记录）
+    const todayRecord = dailyScores?.find(score => score.ymd === today)
+    if (todayRecord) {
+      // 如果今天有记录，使用今天的连续天数
+      currentStreak = todayRecord.current_streak || 0
+    } else if (dailyScores && dailyScores.length > 0) {
+      // 如果今天没记录，使用最近的连续天数
       currentStreak = dailyScores[0].current_streak || 0
     }
 
