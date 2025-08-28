@@ -44,7 +44,9 @@ export default function SimpleSettings() {
         '邮箱': 'email',
         '月收入': 'monthly_income',
         'A类百分比': 'a_pct',
-        '旅游预算': 'travel_budget_annual'
+        '旅游预算': 'travel_budget_annual',
+        '年度医疗保险': 'annual_medical_insurance',
+        '年度车险': 'annual_car_insurance'
       }
       
       const dbField = fieldName || fieldMapping[field] || field
@@ -270,6 +272,66 @@ export default function SimpleSettings() {
                           保存
                         </button>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">年度医疗保险 (RM)</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          id="annual_medical_insurance"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.annual_medical_insurance || 0}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('annual_medical_insurance').value
+                            updateField('年度医疗保险', parseFloat(value) || 0)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        月度分摊: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600">年度车险 (RM)</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="number"
+                          id="annual_car_insurance"
+                          className="mt-1 flex-1 p-2 border border-gray-300 rounded-lg focus:border-blue-500"
+                          defaultValue={userData.profile?.annual_car_insurance || 0}
+                        />
+                        <button
+                          onClick={() => {
+                            const value = document.getElementById('annual_car_insurance').value
+                            updateField('年度车险', parseFloat(value) || 0)
+                          }}
+                          className="mt-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          保存
+                        </button>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        月度分摊: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg mt-4">
+                    <h3 className="font-semibold text-blue-800 mb-2">💡 自动计算说明</h3>
+                    <div className="text-sm text-blue-700 space-y-1">
+                      <p><strong>EPF (固定24%)</strong>: RM {((userData.profile?.income || 0) * 0.24).toFixed(2)}/月</p>
+                      <p><strong>旅游基金</strong>: RM {((userData.profile?.travel_budget || 0) / 12).toFixed(2)}/月</p>
+                      <p><strong>医疗保险</strong>: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}/月</p>
+                      <p><strong>车险</strong>: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}/月</p>
+                      <p className="text-xs mt-2">这些金额会自动分摊到每月的相应分类中</p>
                     </div>
                   </div>
 
