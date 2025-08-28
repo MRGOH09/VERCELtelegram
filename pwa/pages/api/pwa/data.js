@@ -1081,16 +1081,41 @@ async function handleCheckIn(userId, res) {
   }
 }
 
-// PWA内置简化积分计算
+// PWA内置积分计算 - 完全模仿Telegram逻辑
 async function calculateCheckInScore(userId, ymd) {
   try {
     console.log(`[calculateCheckInScore] 计算用户 ${userId} 在 ${ymd} 的打卡积分`)
     
-    // 简化积分计算 - 每次打卡固定1分
+    // 1. 计算基础分
     const baseScore = 1
-    const streakScore = 0  // PWA版本不计算连续分
-    const bonusScore = 0   // PWA版本不计算奖励分
-    const totalScore = baseScore + streakScore + bonusScore
+    
+    // 2. 计算连续天数
+    const currentStreak = await calculateCurrentStreakPWA(userId, ymd)
+    
+    // 3. 连续分计算 - 每连续1天额外1分
+    const streakScore = Math.max(0, currentStreak - 1)
+    
+    // 4. 里程碑奖励计算
+    const bonusDetails = []
+    let bonusScore = 0
+    
+    // 检查里程碑 (简化版本，只检查常见里程碑)
+    const milestones = [
+      { streak_days: 7, bonus_score: 5, milestone_name: '坚持一周' },
+      { streak_days: 30, bonus_score: 20, milestone_name: '坚持一月' },
+      { streak_days: 100, bonus_score: 50, milestone_name: '坚持百日' }
+    ]
+    
+    for (const milestone of milestones) {
+      if (currentStreak === milestone.streak_days) {
+        bonusDetails.push({
+          score: milestone.bonus_score,
+          name: milestone.milestone_name
+        })
+        bonusScore += milestone.bonus_score
+        console.log(`[PWA积分] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+      }
+    }
     
     const scoreData = {
       user_id: userId,
@@ -1098,9 +1123,9 @@ async function calculateCheckInScore(userId, ymd) {
       base_score: baseScore,
       streak_score: streakScore,
       bonus_score: bonusScore,
-      current_streak: 0,  // 不计算连续天数
+      current_streak: currentStreak,
       record_type: 'checkin',
-      bonus_details: []   // 无奖励明细
+      bonus_details: bonusDetails
     }
     
     // 保存积分记录到user_daily_scores表
@@ -1121,6 +1146,49 @@ async function calculateCheckInScore(userId, ymd) {
   } catch (error) {
     console.error('[calculateCheckInScore] 积分计算失败:', error)
     throw error
+  }
+}
+
+// PWA内置连续天数计算 - 模仿主系统逻辑
+async function calculateCurrentStreakPWA(userId, todayYmd) {
+  try {
+    const today = new Date(todayYmd)
+    const yesterday = new Date(today.getTime() - 86400000)
+    const yesterdayYmd = yesterday.toISOString().slice(0, 10)
+    
+    console.log(`[PWA连续计算] 用户${userId} 今天${todayYmd} 昨天${yesterdayYmd}`)
+    
+    // 查询用户最近的积分记录(按日期降序)
+    const { data: recentScores } = await supabase
+      .from('user_daily_scores')
+      .select('ymd, current_streak')
+      .eq('user_id', userId)
+      .lt('ymd', todayYmd)  // 小于今天的记录
+      .order('ymd', { ascending: false })
+      .limit(1)
+    
+    // 如果没有历史记录，今天是第1天
+    if (!recentScores || recentScores.length === 0) {
+      console.log('[PWA连续计算] 无历史记录，今天是第1天')
+      return 1
+    }
+    
+    const lastRecord = recentScores[0]
+    console.log(`[PWA连续计算] 最近记录: ${lastRecord.ymd}, 连续${lastRecord.current_streak}天`)
+    
+    // 如果昨天有记录，连续天数+1
+    if (lastRecord.ymd === yesterdayYmd) {
+      const newStreak = lastRecord.current_streak + 1
+      console.log(`[PWA连续计算] 昨天有记录，连续天数: ${lastRecord.current_streak} + 1 = ${newStreak}`)
+      return newStreak
+    } else {
+      // 如果昨天没记录，重新开始，今天是第1天
+      console.log('[PWA连续计算] 昨天无记录，重新开始，今天是第1天')
+      return 1
+    }
+  } catch (error) {
+    console.error('[PWA连续计算] 失败:', error)
+    return 1  // 出错时返回1天
   }
 }
 
