@@ -1004,57 +1004,56 @@ async function handleCheckIn(userId, res) {
     
     const today = formatYMD(new Date())
     
-    // 检查今日是否已经打卡
-    const { data: existingCheckin } = await supabase
-      .from('records')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('ymd', today)
-      .eq('category_group', 'CHECK')
-      .eq('category_code', 'daily_checkin')
-      .maybeSingle()
-      
-    if (existingCheckin) {
-      return res.status(400).json({
-        error: '今日已经打卡过了！',
-        hasCheckedIn: true
+    // 直接调用主系统的record-system API处理打卡
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://verceteleg.vercel.app' // 主系统域名
+      : 'http://localhost:3000'
+    
+    console.log(`[handleCheckIn] 调用主系统API: ${baseURL}/api/records/record-system`)
+    
+    const response = await fetch(`${baseURL}/api/records/record-system`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'PWA-CheckIn-Client'
+      },
+      body: JSON.stringify({
+        action: 'create',
+        userId: userId,
+        data: {
+          category_group: 'CHECK',
+          category_code: 'daily_checkin',
+          amount: 0,
+          note: '每日打卡',
+          ymd: today
+        }
       })
-    }
-    
-    // 插入打卡记录
-    const { data: checkinRecord, error: insertError } = await supabase
-      .from('records')
-      .insert([{
-        user_id: userId,
-        category_group: 'CHECK',
-        category_code: 'daily_checkin',
-        amount: 0,
-        note: '每日打卡',
-        ymd: today
-      }])
-      .select()
-      .single()
-      
-    if (insertError) {
-      console.error('[handleCheckIn] 插入打卡记录失败:', insertError)
-      return res.status(500).json({
-        error: '打卡失败，请重试'
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => 'Unknown error')
+      console.error(`[handleCheckIn] 主系统API调用失败:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
       })
+      
+      // 如果是重复打卡错误，返回特定信息
+      if (errorData.includes('already') || errorData.includes('duplicate')) {
+        return res.status(400).json({
+          error: '今日已经打卡过了！',
+          hasCheckedIn: true
+        })
+      }
+      
+      throw new Error(`打卡失败: ${response.status} ${response.statusText}`)
     }
+
+    const result = await response.json()
+    const scoreResult = result.score
+    const checkinRecord = result.record
     
-    console.log(`[handleCheckIn] 打卡记录插入成功:`, checkinRecord)
-    
-    // 触发积分计算
-    let scoreResult = null
-    try {
-      // 动态导入积分系统
-      const { onUserCheckIn } = await import('../../../lib/scoring-system')
-      scoreResult = await onUserCheckIn(userId, new Date())
-      console.log(`[handleCheckIn] 积分计算完成:`, scoreResult)
-    } catch (scoreError) {
-      console.error('[handleCheckIn] 积分计算失败:', scoreError)
-      // 不影响打卡成功，积分计算失败只记录日志
-    }
+    console.log(`[handleCheckIn] 主系统打卡成功:`, { record: checkinRecord, score: scoreResult })
     
     const responseData = {
       success: true,
