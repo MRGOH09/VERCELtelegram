@@ -3,6 +3,7 @@ import Head from 'next/head'
 
 export default function BranchStats() {
   const [stats, setStats] = useState([])
+  const [targetProgress, setTargetProgress] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
 
@@ -32,6 +33,7 @@ export default function BranchStats() {
       if (response.ok) {
         const data = await response.json()
         setStats(data.stats)
+        setTargetProgress(data.targetProgress)
         setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
       }
     } catch (error) {
@@ -79,13 +81,62 @@ export default function BranchStats() {
             </div>
           ) : (
             <>
-              {/* 总计卡片 */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 text-center">
-                <h2 className="text-lg font-semibold text-gray-800 mb-2">📊 总报名人数</h2>
-                <div className="text-4xl font-bold text-blue-600 animate-pulse">
-                  {stats.reduce((sum, branch) => sum + branch.count, 0)}
+              {/* 目标完成度卡片 */}
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl shadow-lg p-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                  <div>
+                    <h3 className="text-sm opacity-90 mb-2">📊 目标报名人数</h3>
+                    <div className="text-3xl font-bold">
+                      {targetProgress?.totalTarget || 0}
+                    </div>
+                    <p className="text-xs opacity-75 mt-1">总目标</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm opacity-90 mb-2">🎯 当前完成度</h3>
+                    <div className="text-3xl font-bold">
+                      {targetProgress?.overallCompletion || 0}%
+                    </div>
+                    <p className="text-xs opacity-75 mt-1">
+                      {targetProgress?.targetBranchesActual || 0}/{targetProgress?.totalTarget || 0}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm opacity-90 mb-2">
+                      {targetProgress?.isTargetMet ? '✅ 目标达成' : '⏳ 还需报名'}
+                    </h3>
+                    <div className={`text-3xl font-bold ${targetProgress?.isTargetMet ? 'text-green-200' : 'text-yellow-200'}`}>
+                      {targetProgress?.isTargetMet ? '🎉' : targetProgress?.remaining || 0}
+                    </div>
+                    <p className="text-xs opacity-75 mt-1">
+                      {targetProgress?.isTargetMet ? '超过80%目标' : '达到80%目标'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-gray-500 text-sm mt-1">人已加入LEARNER CLUB</p>
+                
+                {/* 进度条 */}
+                <div className="mt-6">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>整体进度</span>
+                    <span>{targetProgress?.overallCompletion || 0}%</span>
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-3">
+                    <div
+                      className={`h-3 rounded-full transition-all duration-2000 ${
+                        targetProgress?.isTargetMet ? 'bg-green-400' : 'bg-yellow-400'
+                      }`}
+                      style={{ 
+                        width: `${Math.min(100, targetProgress?.overallCompletion || 0)}%`
+                      }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between text-xs mt-1 opacity-75">
+                    <span>0%</span>
+                    <span className="text-yellow-200">80% 目标</span>
+                    <span>100%</span>
+                  </div>
+                </div>
               </div>
 
               {/* 分院统计网格 */}
@@ -150,26 +201,38 @@ export default function BranchStats() {
                           ))}
                         </div>
 
-                        {/* 活跃度指示 */}
-                        <div className="mt-4 text-sm">
-                          {branch.count >= 50 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              🔥 超活跃
-                            </span>
-                          )}
-                          {branch.count >= 20 && branch.count < 50 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              ⚡ 活跃
-                            </span>
-                          )}
-                          {branch.count >= 5 && branch.count < 20 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              🌱 成长中
-                            </span>
-                          )}
-                          {branch.count < 5 && branch.count > 0 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              🆕 新起步
+                        {/* 目标完成度指示 */}
+                        <div className="mt-4 text-sm space-y-2">
+                          {branch.isTargetBranch ? (
+                            <>
+                              <div className="text-xs text-gray-600">
+                                目标: {branch.target} 人
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="h-2 rounded-full transition-all duration-1000"
+                                  style={{ 
+                                    backgroundColor: parseFloat(branch.completion) >= 100 ? '#10B981' : 
+                                                   parseFloat(branch.completion) >= 80 ? '#F59E0B' : config.color,
+                                    width: `${Math.min(100, parseFloat(branch.completion) || 0)}%`
+                                  }}
+                                ></div>
+                              </div>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                parseFloat(branch.completion) >= 100 ? 'bg-green-100 text-green-800' :
+                                parseFloat(branch.completion) >= 80 ? 'bg-yellow-100 text-yellow-800' :
+                                parseFloat(branch.completion) >= 50 ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {parseFloat(branch.completion) >= 100 ? '✅ 已完成' :
+                                 parseFloat(branch.completion) >= 80 ? '🎯 接近目标' :
+                                 parseFloat(branch.completion) >= 50 ? '🌱 进行中' : '📈 起步中'}
+                                <span className="ml-1">({branch.completion}%)</span>
+                              </span>
+                            </>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              {branch.branch_code === '小天使' ? '👼 特别分院' : '🔍 其他分院'}
                             </span>
                           )}
                         </div>
