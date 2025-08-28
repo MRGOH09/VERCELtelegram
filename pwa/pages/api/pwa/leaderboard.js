@@ -27,8 +27,9 @@ export default async function handler(req, res) {
     // 1. 获取今日日期
     const today = new Date().toISOString().split('T')[0]
 
-    // 2. 获取全部用户今日积分排行（前20名）
-    const { data: allUsersScores, error: allError } = await supabase
+    // 2. 获取全部用户历史总积分排行（完整排行榜）
+    // 先获取所有用户的历史积分记录
+    const { data: allScores, error: allError } = await supabase
       .from('user_daily_scores')
       .select(`
         user_id,
@@ -37,9 +38,31 @@ export default async function handler(req, res) {
         users!inner(id, name, branch_code),
         user_profile(display_name)
       `)
-      .eq('ymd', today)
-      .order('total_score', { ascending: false })
-      .limit(20)
+    
+    // 按用户汇总总积分
+    const userTotalScores = new Map()
+    
+    if (allScores) {
+      allScores.forEach(score => {
+        const userId = score.user_id
+        if (!userTotalScores.has(userId)) {
+          userTotalScores.set(userId, {
+            user_id: userId,
+            total_score: 0,
+            max_streak: 0,
+            users: score.users,
+            user_profile: score.user_profile
+          })
+        }
+        const userTotal = userTotalScores.get(userId)
+        userTotal.total_score += score.total_score || 0
+        userTotal.max_streak = Math.max(userTotal.max_streak, score.current_streak || 0)
+      })
+    }
+    
+    // 转换为数组并排序
+    const allUsersScores = Array.from(userTotalScores.values())
+      .sort((a, b) => b.total_score - a.total_score)
 
     if (allError) {
       console.error('获取全部用户排行失败:', allError)
@@ -53,46 +76,32 @@ export default async function handler(req, res) {
     if (userBranch) {
       console.log(`[leaderboard] 查询 ${userBranch} 分院排行`)
 
-      // 获取同分院用户排行
-      const { data: branchScores, error: branchError } = await supabase
-        .from('user_daily_scores')
-        .select(`
-          user_id,
-          total_score,
-          current_streak,
-          users!inner(id, name, branch_code),
-          user_profile(display_name)
-        `)
-        .eq('ymd', today)
-        .eq('users.branch_code', userBranch)
-        .order('total_score', { ascending: false })
-        .limit(10)
-
-      if (branchError) {
-        console.error('获取分院排行失败:', branchError)
-      } else {
-        branchUsers = branchScores || []
-        console.log(`[leaderboard] ${userBranch} 分院有 ${branchUsers.length} 个用户参与积分`)
-      }
+      // 获取同分院用户历史总积分排行
+      branchUsers = allUsersScores.filter(user => 
+        user.users?.branch_code === userBranch
+      )
+      console.log(`[leaderboard] ${userBranch} 分院有 ${branchUsers.length} 个用户参与积分`)
     }
 
     // 5. 格式化全部用户数据
-    const formattedAllUsers = (allUsersScores || []).map(score => ({
+    const formattedAllUsers = (allUsersScores || []).map((score, index) => ({
       user_id: score.user_id,
       name: score.users?.name,
       display_name: score.user_profile?.display_name,
-      branch_name: score.users?.branch_code,  // 修复：从users获取分院
+      branch_name: score.users?.branch_code,
       total_score: score.total_score,
-      current_streak: score.current_streak
+      max_streak: score.max_streak,
+      rank: index + 1
     }))
 
     // 6. 格式化分院用户数据
-    const formattedBranchUsers = branchUsers.map(score => ({
+    const formattedBranchUsers = branchUsers.map((score, index) => ({
       user_id: score.user_id,
       name: score.users?.name,
       display_name: score.user_profile?.display_name,
       total_score: score.total_score,
-      current_streak: score.current_streak
+      max_streak: score.max_streak,
+      rank: index + 1
     }))
 
     // 7. 实时计算全国分院排行榜
