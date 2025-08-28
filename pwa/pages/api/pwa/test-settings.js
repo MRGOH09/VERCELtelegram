@@ -13,8 +13,20 @@ function verifyToken(req) {
     const cookieToken = req.cookies?.auth_token
     const token = authHeader?.replace('Bearer ', '') || cookieToken
     
+    console.log('[test-settings] 检查token:', {
+      hasAuthHeader: !!authHeader,
+      hasCookieToken: !!cookieToken,
+      tokenExists: !!token,
+      jwtSecret: !!process.env.JWT_SECRET
+    })
+    
     if (!token) {
       console.log('[test-settings] 未找到token')
+      return null
+    }
+    
+    if (!process.env.JWT_SECRET) {
+      console.error('[test-settings] JWT_SECRET未设置')
       return null
     }
     
@@ -23,6 +35,7 @@ function verifyToken(req) {
     return decoded
   } catch (error) {
     console.error('[test-settings] Token验证失败:', error.message)
+    console.error('[test-settings] Token内容:', token?.substring(0, 50) + '...')
     return null
   }
 }
@@ -50,6 +63,10 @@ export default async function handler(req, res) {
       
       case 'update_field':
         return await updateField(res, userId, tableName, fieldName, value)
+      
+      case 'test_db':
+        // 测试数据库连接
+        return await testDatabaseConnection(res)
       
       default:
         return res.status(400).json({ ok: false, error: 'Invalid action' })
@@ -222,6 +239,41 @@ async function updateField(res, userId, tableName, fieldName, value) {
     return res.status(500).json({
       ok: false,
       error: `更新字段失败: ${error.message}`
+    })
+  }
+}
+
+// 测试数据库连接
+async function testDatabaseConnection(res) {
+  console.log('[test-settings] 测试数据库连接')
+  
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('count(*)')
+      .limit(1)
+    
+    if (error) {
+      console.error('[test-settings] 数据库连接失败:', error)
+      return res.status(500).json({
+        ok: false,
+        error: '数据库连接失败',
+        details: error
+      })
+    }
+    
+    return res.status(200).json({
+      ok: true,
+      message: '数据库连接正常',
+      data: data
+    })
+    
+  } catch (error) {
+    console.error('[test-settings] 数据库测试异常:', error)
+    return res.status(500).json({
+      ok: false,
+      error: '数据库测试异常',
+      details: error.message
     })
   }
 }
