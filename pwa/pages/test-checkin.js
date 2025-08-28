@@ -140,6 +140,11 @@ export default function TestCheckIn() {
         
       } else {
         addLog(`❌ 打卡失败: ${result.error}`, 'error')
+        
+        // 显示调试信息
+        if (result.debug) {
+          addLog(`🔍 调试信息: ${JSON.stringify(result.debug, null, 2)}`, 'error')
+        }
       }
       
     } catch (error) {
@@ -150,32 +155,36 @@ export default function TestCheckIn() {
     }
   }
 
-  // 测试主系统连接
-  const testMainSystem = async () => {
-    addLog('🌐 测试主系统连接...', 'info')
+  // 测试数据库权限
+  const testDatabasePermissions = async () => {
+    addLog('🗄️ 测试数据库权限...', 'info')
     setIsLoading(true)
     
     try {
-      const baseURL = 'https://verceteleg.vercel.app'
-      const response = await fetch(`${baseURL}/api/records/record-system`, {
+      // 测试读取records表
+      const response = await fetch('/api/pwa/data', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'PWA-Test-Client'
         },
+        credentials: 'include',
         body: JSON.stringify({
-          action: 'list',
-          userId: 'test-user-id'
+          action: 'history',
+          limit: 1
         })
       })
 
-      addLog(`主系统响应状态: ${response.status}`, response.ok ? 'success' : 'error')
+      const result = await response.json()
       
-      const responseText = await response.text()
-      addLog(`主系统响应: ${responseText.substring(0, 200)}...`, 'info')
+      addLog(`数据库读取测试: ${response.status}`, response.ok ? 'success' : 'error')
+      addLog(`数据库响应: ${JSON.stringify(result, null, 2)}`, 'info')
+      
+      if (result.records) {
+        addLog(`✅ 数据库连接正常 - 找到 ${result.records.length} 条记录`, 'success')
+      }
       
     } catch (error) {
-      addLog(`❌ 主系统连接失败: ${error.message}`, 'error')
+      addLog(`❌ 数据库连接失败: ${error.message}`, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -226,11 +235,11 @@ export default function TestCheckIn() {
               </button>
               
               <button 
-                onClick={testMainSystem}
+                onClick={testDatabasePermissions}
                 disabled={isLoading}
                 className="bg-purple-500 hover:bg-purple-600 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                {isLoading ? '测试中...' : '🌐 测试主系统'}
+                {isLoading ? '测试中...' : '🗄️ 测试数据库'}
               </button>
             </div>
             
@@ -299,7 +308,7 @@ export default function TestCheckIn() {
               <li>首先点击"测试认证"确认用户已登录</li>
               <li>点击"检查状态"查看今日打卡状态</li>
               <li>点击"执行打卡"进行实际打卡操作</li>
-              <li>点击"测试主系统"检查与主系统的连接</li>
+              <li>点击"测试数据库"检查数据库连接和权限</li>
               <li>查看调试日志了解详细的请求响应过程</li>
             </ol>
           </div>

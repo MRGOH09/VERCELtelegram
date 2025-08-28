@@ -1028,12 +1028,19 @@ async function handleCheckIn(userId, res) {
       if (insertError.message && insertError.message.includes('duplicate')) {
         return res.status(400).json({
           error: '今日已经打卡过了！',
-          hasCheckedIn: true
+          hasCheckedIn: true,
+          debug: insertError
         })
       }
       
       return res.status(500).json({
-        error: '打卡失败，请重试'
+        error: '打卡失败，请重试',
+        debug: {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        }
       })
     }
     
@@ -1070,6 +1077,8 @@ async function handleCheckIn(userId, res) {
         if (!scoreError) {
           scoreResult = newScore
           console.log(`[handleCheckIn] PWA积分计算完成:`, scoreResult)
+        } else {
+          console.error(`[handleCheckIn] PWA积分插入失败:`, scoreError)
         }
       } else {
         scoreResult = existingScore
