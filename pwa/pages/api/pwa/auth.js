@@ -7,7 +7,7 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' })
     }
     
-    const { id, first_name, username, photo_url, auth_date, hash } = req.query
+    const { id, first_name, username, photo_url, auth_date, hash, returnTo } = req.query
     
     console.log(`[PWA Auth] 收到认证请求: telegram_id=${id}, name=${first_name}`)
     console.log(`[PWA Auth] 环境变量检查:`, {
@@ -66,10 +66,12 @@ export default async function handler(req, res) {
     
     console.log(`[PWA Auth] Cookie options: ${cookieOptions}`)
     
-    console.log(`[PWA Auth] Cookie设置成功，重定向到首页`)
+    // 决定重定向目标
+    const redirectTo = returnTo || '/'
+    console.log(`[PWA Auth] Cookie设置成功，重定向到: ${redirectTo}`)
     
-    // 重定向到PWA首页
-    return res.redirect('/')
+    // 重定向到指定页面或首页
+    return res.redirect(redirectTo)
     
   } catch (error) {
     console.error('[PWA Auth] 认证错误:', error)

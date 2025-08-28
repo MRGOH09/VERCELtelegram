@@ -186,7 +186,7 @@ export default function AdminSecretUserManagement() {
             
             <div className="space-y-4">
               <a
-                href="/login"
+                href="/login?returnTo=/admin-secret-user-management"
                 className="block w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg text-center transition-colors"
               >
                 🔓 去Telegram登录页面

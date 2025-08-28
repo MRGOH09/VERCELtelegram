@@ -49,6 +49,13 @@ export default function LoginPage() {
       
       console.log('开始Telegram认证...', authParams)
       
+      // 检查是否有returnTo参数，如果有就添加到auth URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const returnTo = urlParams.get('returnTo')
+      if (returnTo && !params.has('returnTo')) {
+        params.append('returnTo', returnTo)
+      }
+      
       // 构造认证URL并跳转
       const authUrl = `/api/pwa/auth?${params.toString()}`
       window.location.href = authUrl
@@ -63,7 +70,17 @@ export default function LoginPage() {
     try {
       const result = await PWAClient.checkAuth()
       if (result.authenticated) {
-        router.replace('/')
+        // 检查是否有returnTo参数
+        const urlParams = new URLSearchParams(window.location.search)
+        const returnTo = urlParams.get('returnTo')
+        
+        if (returnTo) {
+          // 如果有returnTo，跳转到指定页面
+          router.replace(returnTo)
+        } else {
+          // 否则跳转到主页
+          router.replace('/')
+        }
         return
       }
     } catch (error) {
@@ -174,7 +191,13 @@ export default function LoginPage() {
                     {/* Telegram App登录按钮 */}
                     <div className="text-center">
                       <a
-                        href={`https://t.me/LeanerClubEXEbot?start=webapp_login`}
+                        href={(() => {
+                          const urlParams = new URLSearchParams(window.location.search)
+                          const returnTo = urlParams.get('returnTo')
+                          const baseUrl = `https://t.me/LeanerClubEXEbot?start=webapp_login`
+                          // 如果有returnTo参数，可以考虑编码后传递给bot
+                          return baseUrl
+                        })()}
                         className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-lg text-base font-medium hover:bg-blue-600 transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
                       >
                         <span className="text-xl mr-3">📱</span>
