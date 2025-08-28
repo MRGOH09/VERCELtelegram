@@ -20,6 +20,9 @@ export default async function handler(req, res) {
     }
 
     const userId = user.id
+    const userBranch = user.branch_code // 直接从认证用户获取分院信息
+
+    console.log(`[leaderboard] 用户 ${userId} 分院: ${userBranch}`)
 
     // 1. 获取今日日期
     const today = new Date().toISOString().split('T')[0]
@@ -44,40 +47,32 @@ export default async function handler(req, res) {
 
     console.log(`[leaderboard] 今日积分数据: ${allUsersScores?.length || 0} 条记录`)
 
-    // 3. 获取用户的分院信息
-    let userBranch = null
+    // 3. 获取同分院用户排行（如果用户有分院）
     let branchUsers = []
 
-    if (userId) {
-      const { data: userInfo } = await supabase
-        .from('users')
-        .select('branch_code')
-        .eq('id', userId)
-        .single()
+    if (userBranch) {
+      console.log(`[leaderboard] 查询 ${userBranch} 分院排行`)
 
-      if (userInfo?.branch_code) {
-        userBranch = userInfo.branch_code
+      // 获取同分院用户排行
+      const { data: branchScores, error: branchError } = await supabase
+        .from('user_daily_scores')
+        .select(`
+          user_id,
+          total_score,
+          current_streak,
+          users!inner(id, name, branch_code),
+          user_profile(display_name)
+        `)
+        .eq('ymd', today)
+        .eq('users.branch_code', userBranch)
+        .order('total_score', { ascending: false })
+        .limit(10)
 
-        // 4. 获取同分院用户排行
-        const { data: branchScores, error: branchError } = await supabase
-          .from('user_daily_scores')
-          .select(`
-            user_id,
-            total_score,
-            current_streak,
-            users!inner(id, name, branch_code),
-            user_profile(display_name)
-          `)
-          .eq('ymd', today)
-          .eq('users.branch_code', userBranch)
-          .order('total_score', { ascending: false })
-          .limit(10)
-
-        if (branchError) {
-          console.error('获取分院排行失败:', branchError)
-        } else {
-          branchUsers = branchScores || []
-        }
+      if (branchError) {
+        console.error('获取分院排行失败:', branchError)
+      } else {
+        branchUsers = branchScores || []
+        console.log(`[leaderboard] ${userBranch} 分院有 ${branchUsers.length} 个用户参与积分`)
       }
     }
 
@@ -110,10 +105,6 @@ export default async function handler(req, res) {
 
     if (branchRankError) {
       console.error('获取分院排行失败:', branchRankError)
-    }
-
-    if (branchError) {
-      console.error('获取分院排行失败:', branchError)
     }
 
     console.log(`[leaderboard] 分院排行数据: ${branchRankings?.length || 0} 条记录`)
