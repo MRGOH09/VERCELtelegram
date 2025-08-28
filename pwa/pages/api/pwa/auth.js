@@ -66,12 +66,12 @@ export default async function handler(req, res) {
     
     console.log(`[PWA Auth] Cookie options: ${cookieOptions}`)
     
-    // 决定重定向目标
-    const redirectTo = returnTo || '/'
-    console.log(`[PWA Auth] Cookie设置成功，重定向到: ${redirectTo}`)
+    // 重定向到callback页面，传递token和returnTo
+    const callbackUrl = `/auth-callback?token=${encodeURIComponent(token)}&returnTo=${encodeURIComponent(returnTo || '/')}`
+    console.log(`[PWA Auth] Cookie设置成功，重定向到callback页面`)
     
-    // 重定向到指定页面或首页
-    return res.redirect(redirectTo)
+    // 重定向到callback页面处理token保存
+    return res.redirect(callbackUrl)
     
   } catch (error) {
     console.error('[PWA Auth] 认证错误:', error)

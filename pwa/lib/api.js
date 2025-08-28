@@ -22,12 +22,21 @@ class PWAClient {
     }
     
     try {
+      // 从localStorage获取JWT token
+      const token = typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null
+      
+      const headers = { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      
       const response = await fetch(`${this.getBaseURL()}/api/pwa/${endpoint}`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify({ action, ...params })
       })
@@ -104,6 +113,14 @@ class PWAClient {
   // 检查认证状态 (30秒缓存)
   async checkAuth() {
     try {
+      // 先检查localStorage中是否有token
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('jwt_token')
+        if (!token) {
+          return { authenticated: false }
+        }
+      }
+      
       return await this.call('data', 'check-auth', {}, { 
         useCache: true, 
         cacheTTL: 30 * 1000,
