@@ -9,37 +9,21 @@ export default function AdminSecretUserManagement() {
   const [isLoading, setIsLoading] = useState(false)
   const [logs, setLogs] = useState([])
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authError, setAuthError] = useState('')
+  const [password, setPassword] = useState('')
 
   const addLog = (message, type = 'info') => {
     const timestamp = new Date().toLocaleTimeString()
     setLogs(prev => [...prev, { message, type, timestamp }])
   }
 
-  // 页面加载时自动验证
-  useEffect(() => {
-    checkAuthAndLoad()
-  }, [])
-
-  // 检查认证并加载数据
-  const checkAuthAndLoad = async () => {
-    addLog('🔍 检查Telegram认证状态...', 'info')
-    
-    // 先检查是否有JWT token
-    const token = localStorage.getItem('jwt_token')
-    if (!token) {
-      setAuthError('请先通过Telegram登录PWA系统')
-      addLog('❌ 未找到登录凭证，请先登录', 'error')
-      return
-    }
-    
-    try {
-      await loadUsers() // 直接尝试加载，API会验证Telegram认证
+  // 简单的密码验证
+  const authenticateWithPassword = async () => {
+    if (password === 'AUSTIN2025') {
       setIsAuthenticated(true)
-      addLog('✅ 管理员认证成功', 'success')
-    } catch (error) {
-      setAuthError('需要管理员Telegram账户才能访问')
-      addLog('❌ 认证失败：非管理员账户或登录已过期', 'error')
+      addLog('✅ 密码正确，认证成功', 'success')
+      await loadUsers()
+    } else {
+      addLog('❌ 密码错误', 'error')
     }
   }
 
@@ -48,14 +32,12 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog('📋 正在加载用户列表...', 'info')
     
-    const token = localStorage.getItem('jwt_token')
-    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'x-admin-password': 'AUSTIN2025'
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'list_users' })
@@ -80,14 +62,12 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog(`🔍 正在获取用户详细信息: ${userId.slice(-6)}...`, 'info')
     
-    const token = localStorage.getItem('jwt_token')
-    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'x-admin-password': 'AUSTIN2025'
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'get_user_details', userId })
@@ -120,14 +100,12 @@ export default function AdminSecretUserManagement() {
     setIsLoading(true)
     addLog(`🗑️ 正在删除用户: ${userId.slice(-6)}...`, 'warning')
     
-    const token = localStorage.getItem('jwt_token')
-    
     try {
       const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
+          'x-admin-password': 'AUSTIN2025'
         },
         credentials: 'include',
         body: JSON.stringify({ action: 'delete_user', userId })
@@ -163,41 +141,30 @@ export default function AdminSecretUserManagement() {
     return (
       <>
         <Head>
-          <title>Access Denied - 404</title>
+          <title>Access Denied</title>
         </Head>
         
         <div className="min-h-screen bg-gray-900 flex items-center justify-center">
           <div className="bg-gray-800 p-8 rounded-lg shadow-lg max-w-md w-full">
             <h1 className="text-2xl font-bold text-red-400 mb-4">🔒 管理员访问</h1>
-            <p className="text-gray-300 mb-6">
-              需要Telegram管理员身份验证
-              {authError && <span className="block text-red-400 mt-2">{authError}</span>}
-            </p>
-            
-            <div className="bg-yellow-800 bg-opacity-20 border border-yellow-600 rounded-lg p-4 mb-4">
-              <p className="text-yellow-300 text-sm">
-                📌 <strong>登录步骤：</strong><br/>
-                1. 点击下方"Telegram登录"按钮<br/>
-                2. 使用你的Telegram账户(1790847152)登录<br/>
-                3. 登录成功后返回此页面<br/>
-                4. 点击"重新检查认证"
-              </p>
-            </div>
+            <p className="text-gray-300 mb-6">输入管理员密码</p>
             
             <div className="space-y-4">
-              <a
-                href="/login?returnTo=/admin-secret-user-management"
-                className="block w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg text-center transition-colors"
-              >
-                🔓 去Telegram登录页面
-              </a>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && authenticateWithPassword()}
+                placeholder="管理员密码"
+                className="w-full p-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:border-blue-500 focus:outline-none"
+              />
               
               <button
-                onClick={checkAuthAndLoad}
+                onClick={authenticateWithPassword}
                 disabled={isLoading}
-                className="w-full bg-gray-600 hover:bg-gray-700 disabled:bg-gray-500 text-white p-3 rounded-lg transition-colors"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-500 text-white p-3 rounded-lg transition-colors"
               >
-                {isLoading ? '检查中...' : '🔄 重新检查认证'}
+                {isLoading ? '验证中...' : '🔓 验证访问'}
               </button>
             </div>
 

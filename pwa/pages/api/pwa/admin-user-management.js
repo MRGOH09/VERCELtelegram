@@ -5,37 +5,18 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-import { validateJWTToken } from '../../../lib/auth.js'
-
-// 管理员Telegram ID - 只有你能访问
-const ADMIN_TELEGRAM_IDS = [
-  '1790847152' // 你的Telegram ID
-]
+// 简单的密码验证
+const ADMIN_PASSWORD = 'AUSTIN2025'
 
 // 验证管理员权限
-async function verifyAdminAccess(req) {
-  try {
-    // 使用JWT验证获取用户信息
-    const user = await validateJWTToken(req)
-    if (!user) {
-      console.log('[admin-user-management] JWT验证失败')
-      return false
-    }
-
-    // 检查是否为管理员Telegram ID
-    const isAdmin = ADMIN_TELEGRAM_IDS.includes(user.telegram_id?.toString())
-    if (!isAdmin) {
-      console.log(`[admin-user-management] 非管理员用户尝试访问: ${user.telegram_id}`)
-      return false
-    }
-
-    console.log(`[admin-user-management] 管理员权限验证通过: ${user.name} (${user.telegram_id})`)
-    return { isValid: true, adminUser: user }
-    
-  } catch (error) {
-    console.error('[admin-user-management] 权限验证错误:', error)
-    return false
+function verifyAdminAccess(req) {
+  const password = req.headers['x-admin-password']
+  if (password === ADMIN_PASSWORD) {
+    console.log('[admin-user-management] 管理员密码验证通过')
+    return { isValid: true }
   }
+  console.log('[admin-user-management] 密码错误')
+  return false
 }
 
 export default async function handler(req, res) {
@@ -45,9 +26,9 @@ export default async function handler(req, res) {
 
   try {
     // 验证管理员访问权限
-    const adminAuth = await verifyAdminAccess(req)
+    const adminAuth = verifyAdminAccess(req)
     if (!adminAuth || !adminAuth.isValid) {
-      return res.status(403).json({ ok: false, error: 'Access denied - Admin authentication required' })
+      return res.status(403).json({ ok: false, error: 'Access denied - Wrong password' })
     }
 
     const { action, userId } = req.body
