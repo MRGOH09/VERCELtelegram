@@ -33,6 +33,8 @@ export default async function handler(req, res) {
 
     const { action, userId } = req.body
 
+    const { userIds } = req.body
+
     switch (action) {
       case 'list_users':
         return await listUsers(res)
@@ -42,6 +44,9 @@ export default async function handler(req, res) {
       
       case 'delete_user':
         return await deleteUser(res, userId)
+      
+      case 'batch_delete_users':
+        return await batchDeleteUsers(res, userIds)
       
       default:
         return res.status(400).json({ ok: false, error: 'Invalid action' })
@@ -276,6 +281,137 @@ async function deleteUser(res, userId) {
       ok: false,
       error: `删除失败: ${error.message}`,
       partialStats: deleteStats
+    })
+  }
+}
+
+// 批量删除用户及其所有数据
+async function batchDeleteUsers(res, userIds) {
+  if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ ok: false, error: '缺少用户ID列表' })
+  }
+
+  console.log(`[admin-user-management] 开始批量删除用户: ${userIds.length} 个`)
+
+  const totalStats = {}
+  let deletedCount = 0
+  const errors = []
+
+  try {
+    // 逐个删除用户，确保每个删除操作的完整性
+    for (let i = 0; i < userIds.length; i++) {
+      const userId = userIds[i]
+      console.log(`[admin-user-management] 正在删除用户 ${i + 1}/${userIds.length}: ${userId}`)
+
+      try {
+        // 验证用户存在
+        const { data: user } = await supabase
+          .from('users')
+          .select('id, name')
+          .eq('id', userId)
+          .single()
+
+        if (!user) {
+          errors.push(`用户 ${userId} 不存在`)
+          continue
+        }
+
+        // 执行删除操作 - 使用相同的删除顺序
+        
+        // 1. 删除推送订阅
+        const { count: subscriptionsDeleted } = await supabase
+          .from('push_subscriptions')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.push_subscriptions = (totalStats.push_subscriptions || 0) + (subscriptionsDeleted || 0)
+
+        // 2. 删除积分记录
+        const { count: scoresDeleted } = await supabase
+          .from('user_daily_scores')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.user_daily_scores = (totalStats.user_daily_scores || 0) + (scoresDeleted || 0)
+
+        // 3. 删除消费记录
+        const { count: recordsDeleted } = await supabase
+          .from('records')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.records = (totalStats.records || 0) + (recordsDeleted || 0)
+
+        // 4. 删除月度预算
+        const { count: budgetsDeleted } = await supabase
+          .from('user_month_budget')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.user_month_budget = (totalStats.user_month_budget || 0) + (budgetsDeleted || 0)
+
+        // 5. 删除提醒队列
+        const { count: remindersDeleted } = await supabase
+          .from('daily_reminder_queue')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.daily_reminder_queue = (totalStats.daily_reminder_queue || 0) + (remindersDeleted || 0)
+
+        // 6. 删除用户资料
+        const { count: profileDeleted } = await supabase
+          .from('user_profile')
+          .delete({ count: 'exact' })
+          .eq('user_id', userId)
+        totalStats.user_profile = (totalStats.user_profile || 0) + (profileDeleted || 0)
+
+        // 7. 最后删除用户主记录
+        const { count: userDeleted, error: userDeleteError } = await supabase
+          .from('users')
+          .delete({ count: 'exact' })
+          .eq('id', userId)
+
+        if (userDeleteError) {
+          errors.push(`删除用户 ${userId} 主记录失败: ${userDeleteError.message}`)
+          continue
+        }
+        
+        totalStats.users = (totalStats.users || 0) + (userDeleted || 0)
+        deletedCount++
+
+        console.log(`[admin-user-management] 用户 ${userId} 删除成功`)
+
+      } catch (error) {
+        console.error(`[admin-user-management] 删除用户 ${userId} 失败:`, error)
+        errors.push(`删除用户 ${userId} 失败: ${error.message}`)
+      }
+    }
+
+    console.log(`[admin-user-management] 批量删除完成: 成功 ${deletedCount}/${userIds.length}`, totalStats)
+
+    const response = {
+      ok: true,
+      message: `批量删除完成`,
+      data: {
+        requestedCount: userIds.length,
+        deletedCount: deletedCount,
+        totalStats: totalStats,
+        errors: errors
+      }
+    }
+
+    if (errors.length > 0) {
+      response.warning = `部分删除失败: ${errors.length} 个错误`
+    }
+
+    return res.status(200).json(response)
+
+  } catch (error) {
+    console.error(`[admin-user-management] 批量删除失败:`, error)
+    return res.status(500).json({
+      ok: false,
+      error: `批量删除失败: ${error.message}`,
+      data: {
+        requestedCount: userIds.length,
+        deletedCount: deletedCount,
+        totalStats: totalStats,
+        errors: errors
+      }
     })
   }
 }
