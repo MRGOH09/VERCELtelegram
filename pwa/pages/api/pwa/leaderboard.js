@@ -95,19 +95,68 @@ export default async function handler(req, res) {
       current_streak: score.current_streak
     }))
 
-    // 7. 获取全国分院排行榜（使用平均分数）
-    const { data: branchRankings, error: branchRankError } = await supabase
-      .from('branch_scores_daily')
-      .select('*')
+    // 7. 实时计算全国分院排行榜
+    console.log(`[leaderboard] 开始实时计算分院排行榜`)
+    
+    // 获取所有有分行的用户
+    const { data: allBranchUsers } = await supabase
+      .from('users')
+      .select('id, branch_code')
+      .not('branch_code', 'is', null)
+    
+    // 获取今日所有用户积分
+    const { data: todayScores } = await supabase
+      .from('user_daily_scores')
+      .select('user_id, total_score')
       .eq('ymd', today)
-      .order('avg_score', { ascending: false })
-      .limit(20)
-
-    if (branchRankError) {
-      console.error('获取分院排行失败:', branchRankError)
+    
+    // 按分行统计积分
+    const branchStatsMap = new Map()
+    
+    // 初始化分行统计
+    if (allBranchUsers) {
+      allBranchUsers.forEach(user => {
+        if (!branchStatsMap.has(user.branch_code)) {
+          branchStatsMap.set(user.branch_code, {
+            branch_code: user.branch_code,
+            total_members: 0,
+            active_members: 0,
+            total_score: 0,
+            avg_score: 0
+          })
+        }
+        branchStatsMap.get(user.branch_code).total_members++
+      })
     }
-
-    console.log(`[leaderboard] 分院排行数据: ${branchRankings?.length || 0} 条记录`)
+    
+    // 统计今日积分
+    const scoreMap = new Map((todayScores || []).map(s => [s.user_id, s.total_score]))
+    
+    if (allBranchUsers) {
+      allBranchUsers.forEach(user => {
+        const score = scoreMap.get(user.id) || 0
+        const stats = branchStatsMap.get(user.branch_code)
+        if (stats) {
+          if (score > 0) {
+            stats.active_members++
+            stats.total_score += score
+          }
+        }
+      })
+    }
+    
+    // 计算平均分并排序
+    const branchRankings = Array.from(branchStatsMap.values())
+      .map(branch => ({
+        ...branch,
+        avg_score: branch.total_members > 0 
+          ? Math.round((branch.total_score / branch.total_members) * 100) / 100 
+          : 0
+      }))
+      .sort((a, b) => b.avg_score - a.avg_score)
+      .slice(0, 20)
+    
+    console.log(`[leaderboard] 实时分院排行数据: ${branchRankings.length} 条记录`)
 
     // 8. 格式化分院排行数据
     const formattedBranchRankings = (branchRankings || []).map((branch, index) => ({
