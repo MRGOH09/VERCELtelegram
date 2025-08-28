@@ -1004,56 +1004,81 @@ async function handleCheckIn(userId, res) {
     
     const today = formatYMD(new Date())
     
-    // 直接调用主系统的record-system API处理打卡
-    const baseURL = process.env.NODE_ENV === 'production' 
-      ? 'https://verceteleg.vercel.app' // 主系统域名
-      : 'http://localhost:3000'
+    // 直接在PWA中处理打卡记录和积分计算
+    console.log(`[handleCheckIn] PWA直接处理打卡记录`)
     
-    console.log(`[handleCheckIn] 调用主系统API: ${baseURL}/api/records/record-system`)
-    
-    const response = await fetch(`${baseURL}/api/records/record-system`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'User-Agent': 'PWA-CheckIn-Client'
-      },
-      body: JSON.stringify({
-        action: 'create',
-        userId: userId,
-        data: {
-          category_group: 'CHECK',
-          category_code: 'daily_checkin',
-          amount: 0,
-          note: '每日打卡',
-          ymd: today
-        }
-      })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.text().catch(() => 'Unknown error')
-      console.error(`[handleCheckIn] 主系统API调用失败:`, {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
-      })
+    // 插入打卡记录
+    const { data: checkinRecord, error: insertError } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: 'CHECK',
+        category_code: 'daily_checkin',
+        amount: 0,
+        note: '每日打卡 - PWA',
+        ymd: today
+      }])
+      .select()
+      .single()
       
-      // 如果是重复打卡错误，返回特定信息
-      if (errorData.includes('already') || errorData.includes('duplicate')) {
+    if (insertError) {
+      console.error('[handleCheckIn] 插入打卡记录失败:', insertError)
+      
+      // 检查是否是重复插入错误
+      if (insertError.message && insertError.message.includes('duplicate')) {
         return res.status(400).json({
           error: '今日已经打卡过了！',
           hasCheckedIn: true
         })
       }
       
-      throw new Error(`打卡失败: ${response.status} ${response.statusText}`)
+      return res.status(500).json({
+        error: '打卡失败，请重试'
+      })
     }
-
-    const result = await response.json()
-    const scoreResult = result.score
-    const checkinRecord = result.record
     
-    console.log(`[handleCheckIn] 主系统打卡成功:`, { record: checkinRecord, score: scoreResult })
+    console.log(`[handleCheckIn] 打卡记录插入成功:`, checkinRecord)
+    
+    // PWA简化积分计算：每次打卡固定1分
+    let scoreResult = null
+    try {
+      // 检查今日是否已有积分记录
+      const { data: existingScore } = await supabase
+        .from('user_daily_scores')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('ymd', today)
+        .maybeSingle()
+      
+      if (!existingScore) {
+        // 插入积分记录
+        const { data: newScore, error: scoreError } = await supabase
+          .from('user_daily_scores')
+          .insert([{
+            user_id: userId,
+            ymd: today,
+            base_score: 1,
+            streak_score: 0,
+            bonus_score: 0,
+            current_streak: 0,
+            record_type: 'checkin',
+            bonus_details: []
+          }])
+          .select()
+          .single()
+          
+        if (!scoreError) {
+          scoreResult = newScore
+          console.log(`[handleCheckIn] PWA积分计算完成:`, scoreResult)
+        }
+      } else {
+        scoreResult = existingScore
+        console.log(`[handleCheckIn] 今日已有积分记录:`, scoreResult)
+      }
+    } catch (scoreError) {
+      console.error('[handleCheckIn] PWA积分计算失败:', scoreError)
+      // 不影响打卡成功，积分计算失败只记录日志
+    }
     
     const responseData = {
       success: true,
@@ -1066,22 +1091,16 @@ async function handleCheckIn(userId, res) {
     if (scoreResult) {
       responseData.score = scoreResult
       
-      // 构建积分消息
-      if (scoreResult.total_score > 0) {
-        const scoreDetails = []
-        if (scoreResult.base_score > 0) scoreDetails.push(`基础${scoreResult.base_score}分`)
-        if (scoreResult.streak_score > 0) scoreDetails.push(`连续${scoreResult.streak_score}分`) 
-        if (scoreResult.bonus_score > 0) scoreDetails.push(`奖励${scoreResult.bonus_score}分`)
-        
-        responseData.scoreMessage = `🎉 打卡获得 ${scoreResult.total_score} 分！(${scoreDetails.join(' + ')})`
-        responseData.streakMessage = `连续打卡 ${scoreResult.current_streak} 天`
-        
-        // 里程碑成就提示
-        if (scoreResult.bonus_details && scoreResult.bonus_details.length > 0) {
-          const achievements = scoreResult.bonus_details.map(bonus => bonus.name).join('、')
-          responseData.achievementMessage = `🏆 达成成就：${achievements}！`
-        }
-      }
+      // 构建积分消息（简化版）
+      const totalScore = scoreResult.total_score || scoreResult.base_score || 1
+      responseData.scoreMessage = `🎉 打卡获得 ${totalScore} 分！`
+      responseData.streakMessage = `今日打卡完成`
+      
+      console.log(`[handleCheckIn] 积分反馈构建完成: ${totalScore}分`)
+    } else {
+      // 没有积分信息时的备用消息
+      responseData.scoreMessage = `🎉 打卡成功！`
+      responseData.streakMessage = `今日打卡完成`
     }
     
     return res.json(responseData)
