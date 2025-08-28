@@ -104,7 +104,7 @@ export default async function handler(req, res) {
       rank: index + 1
     }))
 
-    // 7. 实时计算全国分院排行榜
+    // 7. 实时计算全国分院排行榜（基于历史总积分）
     console.log(`[leaderboard] 开始实时计算分院排行榜`)
     
     // 获取所有有分行的用户
@@ -112,12 +112,6 @@ export default async function handler(req, res) {
       .from('users')
       .select('id, branch_code')
       .not('branch_code', 'is', null)
-    
-    // 获取今日所有用户积分
-    const { data: todayScores } = await supabase
-      .from('user_daily_scores')
-      .select('user_id, total_score')
-      .eq('ymd', today)
     
     // 按分行统计积分
     const branchStatsMap = new Map()
@@ -138,18 +132,18 @@ export default async function handler(req, res) {
       })
     }
     
-    // 统计今日积分
-    const scoreMap = new Map((todayScores || []).map(s => [s.user_id, s.total_score]))
+    // 统计历史总积分（使用已计算的allUsersScores）
+    const userTotalScoreMap = new Map(allUsersScores.map(user => [user.user_id, user.total_score]))
     
     if (allBranchUsers) {
       allBranchUsers.forEach(user => {
-        const score = scoreMap.get(user.id) || 0
+        const totalScore = userTotalScoreMap.get(user.id) || 0
         const stats = branchStatsMap.get(user.branch_code)
         if (stats) {
-          if (score > 0) {
+          if (totalScore > 0) {
             stats.active_members++
-            stats.total_score += score
           }
+          stats.total_score += totalScore
         }
       })
     }
