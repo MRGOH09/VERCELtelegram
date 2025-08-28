@@ -42,9 +42,10 @@ export default function BranchStats() {
   }
 
   useEffect(() => {
+    // 页面打开立即加载实时数据
     loadStats()
-    // 每30秒自动刷新
-    const interval = setInterval(loadStats, 30000)
+    // 每15秒自动刷新，确保实时性
+    const interval = setInterval(loadStats, 15000)
     return () => clearInterval(interval)
   }, [])
 
@@ -116,31 +117,62 @@ export default function BranchStats() {
                       </div>
 
                       {/* 数据区域 */}
-                      <div className="p-4">
-                        <div className="text-center mb-4">
+                      <div className="p-6 text-center">
+                        {/* 大号数字显示 */}
+                        <div className="mb-4">
                           <div 
-                            className="text-3xl font-bold animate-bounce"
-                            style={{ color: config.color }}
+                            className="text-6xl font-bold mb-2 transform transition-all duration-1000"
+                            style={{ 
+                              color: config.color,
+                              textShadow: `0 0 20px ${config.color}40`,
+                              animation: `countUp 2s ease-out ${index * 0.3}s forwards`
+                            }}
+                            data-target={branch.count}
                           >
                             {branch.count}
                           </div>
-                          <p className="text-gray-600 text-sm">注册用户</p>
+                          <p className="text-gray-600 font-medium">注册用户</p>
                         </div>
 
-                        {/* 进度条 */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="h-2 rounded-full transition-all duration-1000 ease-out"
-                            style={{ 
-                              backgroundColor: config.color,
-                              width: `${percentage}%`,
-                              animation: `grow 1.5s ease-out ${index * 0.2}s forwards`
-                            }}
-                          ></div>
+                        {/* 视觉指示器 - 圆点大小表示规模 */}
+                        <div className="flex justify-center items-center space-x-2 mt-4">
+                          {[...Array(Math.min(5, Math.ceil(branch.count / 10) || 1))].map((_, i) => (
+                            <div
+                              key={i}
+                              className="rounded-full animate-pulse"
+                              style={{
+                                backgroundColor: config.color,
+                                width: `${8 + i * 2}px`,
+                                height: `${8 + i * 2}px`,
+                                animationDelay: `${i * 0.2}s`
+                              }}
+                            ></div>
+                          ))}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 text-center">
-                          进度条
-                        </p>
+
+                        {/* 活跃度指示 */}
+                        <div className="mt-4 text-sm">
+                          {branch.count >= 50 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              🔥 超活跃
+                            </span>
+                          )}
+                          {branch.count >= 20 && branch.count < 50 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              ⚡ 活跃
+                            </span>
+                          )}
+                          {branch.count >= 5 && branch.count < 20 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              🌱 成长中
+                            </span>
+                          )}
+                          {branch.count < 5 && branch.count > 0 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              🆕 新起步
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
@@ -190,9 +222,14 @@ export default function BranchStats() {
             }
           }
 
-          @keyframes grow {
+          @keyframes countUp {
             from {
-              width: 0%;
+              transform: scale(0.5);
+              opacity: 0;
+            }
+            to {
+              transform: scale(1);
+              opacity: 1;
             }
           }
 

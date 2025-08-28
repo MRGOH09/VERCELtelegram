@@ -234,7 +234,7 @@ export default function AdminBranchStats() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">排名</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">分院</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">人数</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">进度</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -275,15 +275,33 @@ export default function AdminBranchStats() {
                                   {branch.count}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap w-32">
-                                <div className="w-full bg-gray-200 rounded-full h-3">
-                                  <div
-                                    className="h-3 rounded-full transition-all duration-1000"
-                                    style={{ 
-                                      backgroundColor: config.color,
-                                      width: `${percentage}%`
-                                    }}
-                                  ></div>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-center">
+                                  {branch.count >= 50 && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      🔥 超活跃 ({branch.count})
+                                    </span>
+                                  )}
+                                  {branch.count >= 20 && branch.count < 50 && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      ⚡ 活跃 ({branch.count})
+                                    </span>
+                                  )}
+                                  {branch.count >= 5 && branch.count < 20 && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      🌱 成长中 ({branch.count})
+                                    </span>
+                                  )}
+                                  {branch.count < 5 && branch.count > 0 && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                      🆕 新起步 ({branch.count})
+                                    </span>
+                                  )}
+                                  {branch.count === 0 && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      ⏸️ 未启动 (0)
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                             </tr>
