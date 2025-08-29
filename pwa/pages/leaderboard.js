@@ -34,8 +34,22 @@ export default function LeaderboardPage() {
     try {
       setLeaderboardData(prev => ({ ...prev, loading: true }))
 
-      // 调用积分排行榜API
-      const response = await fetch('/api/pwa/leaderboard')
+      // 调用积分排行榜API - 添加认证headers和cookies
+      const token = localStorage.getItem('jwt_token')
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('/api/pwa/leaderboard', {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      })
       const result = await response.json()
 
       if (result.ok) {
@@ -60,8 +74,22 @@ export default function LeaderboardPage() {
     try {
       setScoreData(prev => ({ ...prev, loading: true }))
 
-      // 调用积分历史API
-      const response = await fetch('/api/pwa/scores')
+      // 调用积分历史API - 添加认证headers和cookies
+      const token = localStorage.getItem('jwt_token')
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const response = await fetch('/api/pwa/scores', {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      })
       const result = await response.json()
 
       if (result.ok) {
