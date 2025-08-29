@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import jwt from 'jsonwebtoken'
 
 export default function AuthCallback() {
   const router = useRouter()
@@ -16,20 +15,7 @@ export default function AuthCallback() {
         if (token) {
           // 保存token到localStorage
           localStorage.setItem('jwt_token', token)
-          
-          // 解码token获取用户信息
-          try {
-            const decoded = jwt.decode(token)
-            if (decoded) {
-              localStorage.setItem('user_info', JSON.stringify({
-                telegram_id: decoded.telegram_id,
-                user_id: decoded.user_id,
-                name: decoded.name
-              }))
-            }
-          } catch (e) {
-            console.error('Token解码失败:', e)
-          }
+          console.log('JWT token 已保存到 localStorage')
           
           // 跳转到目标页面
           router.replace(returnTo)
