@@ -8,10 +8,10 @@
 2. 创建新项目或选择现有项目
 3. 项目名称建议：`learner-club-pwa`
 
-### 2. 启用Google+ API
+### 2. 启用Google Identity API
 
 1. 在控制台中，转到"API和服务" > "库"
-2. 搜索"Google+ API"
+2. 搜索"Google Identity API" 或 "Google Sign-In API"
 3. 点击启用
 
 ### 3. 创建OAuth 2.0凭据
