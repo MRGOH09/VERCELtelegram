@@ -7,12 +7,38 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
   try {
-    // 验证JWT Token
+    // POST请求：检查email是否存在用户
+    if (req.method === 'POST') {
+      const { email } = req.body
+      
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' })
+      }
+      
+      console.log(`[Auth Check] 检查email是否存在: ${email}`)
+      
+      // 查询用户是否存在
+      const { data: profileData, error } = await supabase
+        .from('user_profile')
+        .select('email, user_id')
+        .eq('email', email)
+        .single()
+      
+      const userExists = !error && profileData
+      
+      console.log(`[Auth Check] Email ${email} 存在: ${userExists}`)
+      
+      return res.status(200).json({
+        userExists
+      })
+    }
+    
+    // GET请求：验证JWT Token（原有逻辑）
     const user = await validateJWTToken(req)
     
     if (!user) {

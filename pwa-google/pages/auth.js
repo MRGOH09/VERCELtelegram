@@ -58,8 +58,8 @@ export default function AuthPage() {
           // 切换到完成注册步骤
           setMode('complete-registration')
         } else {
-          // 登录模式直接跳转
-          router.push('/')
+          // 登录模式 - 检查用户是否已在系统中存在
+          checkUserExists(session.user.email)
         }
       }
     })
@@ -79,6 +79,49 @@ export default function AuthPage() {
       console.log('Not authenticated:', error)
     } finally {
       setChecking(false)
+    }
+  }
+  
+  // 检查用户是否已在系统中存在
+  const checkUserExists = async (email) => {
+    try {
+      console.log(`检查用户是否存在: ${email}`)
+      
+      // 调用API检查用户是否存在
+      const response = await fetch('/api/pwa/auth-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+      })
+      
+      if (!response.ok) {
+        throw new Error('检查用户状态失败')
+      }
+      
+      const result = await response.json()
+      
+      if (result.userExists) {
+        console.log('用户已存在，允许登录')
+        // 用户存在，跳转到首页
+        router.push('/')
+      } else {
+        console.log('用户不存在，提示需要注册')
+        // 用户不存在，先登出，然后提示注册
+        await supabase.auth.signOut()
+        localStorage.removeItem('jwt_token')
+        localStorage.removeItem('user_info')
+        
+        // 显示错误信息并切换到注册模式
+        setError('此Google账号尚未注册，请先完成注册流程')
+        setMode('register')
+        setLoading(false)
+      }
+    } catch (error) {
+      console.error('检查用户存在失败:', error)
+      setError('登录检查失败，请重试')
+      setLoading(false)
     }
   }
   
@@ -349,6 +392,13 @@ export default function AuthPage() {
                   {error && (
                     <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                       <p className="text-sm text-red-600">{error}</p>
+                      {error.includes('尚未注册') && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-xs text-blue-700">
+                            💡 请切换到"注册"模式，使用相同的Google账号完成注册流程
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -356,17 +406,17 @@ export default function AuthPage() {
                 <div className="text-xs text-gray-500">
                   {mode === 'register' ? (
                     <>
-                      <p className="mb-1">注册后需要填写额外信息</p>
+                      <p className="mb-1">新用户注册后需要填写额外信息</p>
                       <p>已有账号？<button 
-                        onClick={() => setMode('login')}
+                        onClick={() => {setMode('login'); setError(null)}}
                         className="text-blue-600 hover:underline"
                       >立即登录</button></p>
                     </>
                   ) : (
                     <>
-                      <p className="mb-1">安全快速的Google认证</p>
-                      <p>还没有账号？<button 
-                        onClick={() => setMode('register')}
+                      <p className="mb-1">请确认您的Google账号已经注册过</p>
+                      <p>首次使用？<button 
+                        onClick={() => {setMode('register'); setError(null)}}
                         className="text-blue-600 hover:underline"
                       >立即注册</button></p>
                     </>
