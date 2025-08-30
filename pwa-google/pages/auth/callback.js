@@ -6,6 +6,7 @@ export default function AuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
+    // 确保使用ANON_KEY，不是SERVICE_KEY
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -40,79 +41,31 @@ export default function AuthCallback() {
 
         // 处理Implicit Flow（token在hash中）
         if (accessToken && refreshToken) {
-          console.log('[CALLBACK] 处理Implicit Flow token回调')
+          console.log('[CALLBACK] 检测到Implicit Flow token')
           console.log('[CALLBACK] Access Token:', accessToken.substring(0, 20) + '...')
           console.log('[CALLBACK] Refresh Token:', refreshToken.substring(0, 20) + '...')
           
-          const expiresAt = parseInt(hashParams.get('expires_at'))
-          const tokenType = hashParams.get('token_type') || 'bearer'
+          // 不在这里处理会话，直接带着hash跳转到目标页面
+          // 让目标页面的Supabase客户端自动处理hash中的token
           
-          // 手动设置Supabase会话
-          const sessionData = {
-            access_token: accessToken,
-            refresh_token: refreshToken,
-            expires_at: expiresAt,
-            token_type: tokenType,
-            user: null // Supabase会自动解析
-          }
-          
-          console.log('[CALLBACK] 设置Supabase会话...')
-          
-          try {
-            const { data, error } = await supabase.auth.setSession(sessionData)
-            
-            if (error) {
-              console.error('[CALLBACK] setSession失败:', error)
-              console.log('[CALLBACK] 尝试替代方案：使用Supabase自动处理hash...')
-              
-              // 让Supabase自动处理URL hash
-              const { data: hashData, error: hashError } = await supabase.auth.getSessionFromUrl()
-              
-              if (hashError) {
-                console.error('[CALLBACK] getSessionFromUrl也失败:', hashError)
-                throw hashError
-              }
-              
-              if (hashData.session) {
-                console.log('[CALLBACK] ✅ 使用getSessionFromUrl成功建立会话!')
-                console.log('[CALLBACK] 用户信息:', {
-                  id: hashData.session.user.id,
-                  email: hashData.session.user.email,
-                  name: hashData.session.user.user_metadata?.name || hashData.session.user.user_metadata?.full_name
-                })
-              } else {
-                throw new Error('无法从URL建立会话')
-              }
-            } else {
-              console.log('[CALLBACK] ✅ setSession成功建立会话!')
-              console.log('[CALLBACK] 用户信息:', {
-                id: data.session?.user.id,
-                email: data.session?.user.email,
-                name: data.session?.user.user_metadata?.name || data.session?.user.user_metadata?.full_name
-              })
-            }
-          } catch (sessionError) {
-            console.error('[CALLBACK] 会话建立完全失败:', sessionError)
-            // 继续执行跳转，让目标页面自行处理认证
-          }
-          
-          // 验证会话
-          const { data: { session: savedSession } } = await supabase.auth.getSession()
-          console.log('[CALLBACK] 验证保存的会话:', !!savedSession)
-          
-          // 处理跳转逻辑
           const urlParams = new URLSearchParams(window.location.search)
           const mode = urlParams.get('mode') || 'login'
           const next = urlParams.get('next')
           
           console.log('[CALLBACK] 跳转参数:', { mode, next })
+          console.log('[CALLBACK] 直接跳转，让目标页面处理token...')
+          
+          // 保留hash中的token信息进行跳转
+          const hashString = window.location.hash
           
           if (mode === 'test' && next) {
-            console.log('[CALLBACK] 测试模式，跳转到:', next)
-            router.push(next)
+            console.log('[CALLBACK] 测试模式，带hash跳转到:', next + hashString)
+            // 使用window.location直接跳转，保留hash
+            window.location.href = next + hashString
           } else {
-            console.log('[CALLBACK] 正常模式，跳转到:', `/auth?mode=${mode}`)
-            router.push(`/auth?mode=${mode}`)
+            console.log('[CALLBACK] 正常模式，带hash跳转到:', `/auth?mode=${mode}` + hashString)
+            // 使用window.location直接跳转，保留hash
+            window.location.href = `/auth?mode=${mode}` + hashString
           }
           
           return
