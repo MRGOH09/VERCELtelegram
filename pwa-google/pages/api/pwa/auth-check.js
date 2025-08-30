@@ -1,4 +1,3 @@
-import { validateJWTToken } from '../../../lib/auth'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -38,10 +37,20 @@ export default async function handler(req, res) {
       })
     }
     
-    // GET请求：验证JWT Token（原有逻辑）
-    const user = await validateJWTToken(req)
+    // GET请求：使用Supabase原生认证检查
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(200).json({ 
+        authenticated: false 
+      })
+    }
     
-    if (!user) {
+    const token = authHeader.replace('Bearer ', '')
+    
+    // 使用Supabase验证token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
       return res.status(200).json({ 
         authenticated: false 
       })

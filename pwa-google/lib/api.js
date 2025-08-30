@@ -22,8 +22,17 @@ class PWAClient {
     }
     
     try {
-      // 从localStorage获取JWT token
-      const token = typeof window !== 'undefined' ? localStorage.getItem('jwt_token') : null
+      // 获取Supabase session token
+      let token = null
+      if (typeof window !== 'undefined') {
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        )
+        const { data: { session } } = await supabase.auth.getSession()
+        token = session?.access_token
+      }
       
       const headers = { 
         'Content-Type': 'application/json',
@@ -110,15 +119,28 @@ class PWAClient {
     return this.cachedCall('data', 'history', { limit: 10, offset: 0 }, 2 * 60 * 1000)
   }
   
-  // 检查认证状态 (30秒缓存)
+  // 检查认证状态 - 使用Supabase认证
   async checkAuth() {
     try {
-      // 直接调用auth-check端点（GET请求）
+      // 获取Supabase session
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        return { authenticated: false }
+      }
+      
+      // 调用auth-check端点验证用户信息
       const response = await fetch(`${this.getBaseURL()}/api/pwa/auth-check`, {
         method: 'GET',
-        credentials: 'include',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         }
       })
       

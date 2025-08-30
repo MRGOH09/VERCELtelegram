@@ -1,4 +1,3 @@
-import { validateJWTToken } from '../../../lib/auth'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -12,10 +11,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 验证用户身份
-    const user = await validateJWTToken(req)
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' })
+    // 使用Supabase验证用户身份
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized - Missing token' })
+    }
+    
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized - Invalid token' })
     }
 
     console.log(`[Complete Registration] 用户 ${user.id} 开始完成注册`)

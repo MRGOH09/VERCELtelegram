@@ -50,15 +50,13 @@ export default function AuthPage() {
       if (event === 'SIGNED_IN' && session) {
         console.log('用户登录成功:', session.user)
         
-        // 保存基本信息到localStorage
-        localStorage.setItem('jwt_token', session.access_token)
-        localStorage.setItem('user_info', JSON.stringify({
+        // Supabase会自动管理session，无需手动保存到localStorage
+        console.log('Supabase session已建立，用户信息：', {
           id: session.user.id,
           email: session.user.email,
           name: session.user.user_metadata.name || session.user.user_metadata.full_name,
-          picture: session.user.user_metadata.picture || session.user.user_metadata.avatar_url,
-          provider: 'google'
-        }))
+          picture: session.user.user_metadata.picture || session.user.user_metadata.avatar_url
+        })
         
         // 如果是注册模式，需要完成额外信息
         if (mode === 'register') {
@@ -119,8 +117,6 @@ export default function AuthPage() {
         console.log('用户不存在，提示需要注册')
         // 用户不存在，先登出，然后提示注册
         await supabase.auth.signOut()
-        localStorage.removeItem('jwt_token')
-        localStorage.removeItem('user_info')
         
         // 显示错误信息并切换到注册模式
         console.log('设置错误信息并切换到注册模式')
