@@ -10,12 +10,34 @@ export default function TestAuthFlow() {
 
   const addLog = (message) => {
     const timestamp = new Date().toLocaleTimeString()
-    setLogs(prev => [...prev, `[${timestamp}] ${message}`])
+    const newLog = `[${timestamp}] ${message}`
+    setLogs(prev => {
+      const updatedLogs = [...prev, newLog]
+      // 保存日志到localStorage
+      localStorage.setItem('test-auth-logs', JSON.stringify(updatedLogs))
+      return updatedLogs
+    })
     console.log(`[TEST] ${message}`)
   }
 
   useEffect(() => {
-    addLog('页面加载完成')
+    // 从localStorage恢复之前的日志
+    const savedLogs = localStorage.getItem('test-auth-logs')
+    if (savedLogs) {
+      const parsedLogs = JSON.parse(savedLogs)
+      setLogs(parsedLogs)
+      addLog('📁 恢复之前的日志记录')
+    } else {
+      addLog('页面加载完成')
+    }
+    
+    // 检查是否是OAuth回调
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.has('code')) {
+      addLog('🔄 检测到OAuth回调，处理中...')
+      // 清除URL参数以避免重复处理
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
     
     // 监听认证状态
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -85,6 +107,7 @@ export default function TestAuthFlow() {
 
   const clearLogs = () => {
     setLogs([])
+    localStorage.removeItem('test-auth-logs')
   }
 
   return (
