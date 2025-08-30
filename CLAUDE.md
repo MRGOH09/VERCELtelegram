@@ -82,113 +82,27 @@
 - **错误处理**: 提供详细的错误信息和调试日志
 - **格式一致性**: 保持消息格式与现有功能一致
 
-## 🐛 重要调试经验 (v2.2更新)
+## 📚 扩展文档
+- 🐛 **调试问题**: 参考 [调试指南](./docs/DEBUGGING_GUIDE.md)
+- ❓ **常见问题**: 查看 [问题手册](./docs/COMMON_ISSUES.md)  
+- 🏗️ **架构决策**: 阅读 [设计记录](./docs/ARCHITECTURE_NOTES.md)
 
-### WhatsApp提醒队列系统设计经验 (2025-08-25)
-
-**场景**: 需要每日自动识别未记录用户并生成WhatsApp提醒队列
-
-**设计决策**:
-- **重用原则**: 利用现有daily-settlement cron，避免新增cron任务
-- **零维护策略**: 每天覆盖旧数据，不积累历史记录
-- **KISS原则**: 简单的数据型消息模板，避免复杂逻辑
-- **架构一致性**: 集成到现有GAS同步系统，保持数据流一致
-
-**技术实现**:
-- 数据表: `daily_reminder_queue` - 包含phone_e164和完整消息文本
-- 查询策略: 基于昨天records表的NOT EXISTS查询
-- 消息生成: 数据驱动的个性化模板（天数统计）
-- 同步策略: daily级别同步（24小时），full_replace策略
-
-**关键经验**:
-- 新功能优先考虑在现有cron中扩展，而非独立cron
-- Google Sheets作为中间层便于调试和监控WhatsApp发送状态
-- 电话号码脱敏处理确保隐私安全（high sensitive level）
-
-## 🐛 重要调试经验 (v2.2更新)
-
-### 数据库Schema一致性检查
-- **问题**: 字段位置错误查询（如`user_profile.branch_code`实际在`users`表）
-- **解决**: 使用Linux思维系统性检查所有相关查询
-- **预防**: 每次修改前确认字段所在表的准确性
-
-### JOIN查询最佳实践
-- **推荐**: 使用`user_profile.users(branch_code)`进行关联查询
-- **避免**: 复杂的嵌套JOIN，优先使用分步查询
-- **调试**: 添加详细日志追踪JOIN结果的数据结构
-
-### 数据类型匹配问题
-- **注意**: `chat_id`可能是number/bigint/string类型
-- **解决**: 在Map查找时添加类型检查和转换
-- **日志**: 记录数据类型信息便于调试匹配问题
-
-### UPSERT vs UPDATE选择
-- **UPSERT**: 仅用于确实需要"不存在则创建"的场景
-- **UPDATE**: 用于更新已知存在的记录，避免意外覆盖
-- **分行设置**: 使用UPDATE避免重置现有配置
-
-### PWA与Telegram数据一致性 (v2.2新增)
-- **分类去重**: 实现与Telegram `/my`命令相同的mergedCategories逻辑
-- **预算计算**: 优先使用user_month_budget，备选user_profile百分比计算
-- **分类映射**: 统一使用category_code (food/shop/ent) 而非英文全称
-- **React Hook**: 使用useState而非React.useState避免导入错误
-- **品牌一致性**: PWA界面必须体现LEARNER CLUB理念和标语
-
-## 🔍 Linux思维调试方法
-
-### 系统性问题定位
-1. **grep搜索**: 查找所有相关代码位置
-2. **数据流追踪**: 从数据源到最终显示的完整链路
-3. **分层验证**: 数据库→业务逻辑→用户界面逐层检查
-4. **KISS原则**: 优先选择最简单可行的解决方案
-
-### 调试日志策略
-```javascript
-// 数据查询日志
-console.log(`[Function] 查询参数:`, queryParams)
-console.log(`[Function] 查询结果:`, queryResult)
-
-// 数据类型检查日志  
-console.log(`[Function] 数据类型: ${typeof data}, 值: ${data}`)
-
-// 映射过程日志
-console.log(`[Function] 映射前:`, sourceMap.entries())
-console.log(`[Function] 映射后:`, targetMap.entries())
-```
-
-### 问题分类和优先级
-1. **Critical**: 核心功能完全失效（如分行无法设置）
-2. **High**: 功能异常但有备选方案（如排行榜显示问题）
-3. **Medium**: 用户体验问题（如提示文本不准确）
-4. **Low**: 非关键优化项
-
-## 📋 代码审查检查清单 (新增)
-
-### 数据库操作检查
-- [ ] 确认字段在正确的表中
-- [ ] JOIN查询语法正确
-- [ ] 数据类型匹配无误
-- [ ] UPSERT/UPDATE选择合适
-
-### 功能逻辑检查
-- [ ] 数据流从源到终的完整性
-- [ ] 错误处理覆盖边界情况
-- [ ] 日志信息足够详细便于调试
-- [ ] 用户体验流程合理
-
-### 性能和维护性
-- [ ] 查询语句高效无冗余
-- [ ] 代码复用现有函数
-- [ ] 变量命名清晰易懂
-- [ ] 注释说明复杂逻辑
+## 🆘 快速解决问题
+遇到问题时，按以下顺序查找：
+1. 检查本文档的相关规则
+2. 查看 [常见问题手册](./docs/COMMON_ISSUES.md) 寻找解决方案
+3. 参考 [调试指南](./docs/DEBUGGING_GUIDE.md) 进行深度排查
+4. 了解 [架构设计原理](./docs/ARCHITECTURE_NOTES.md) 理解背景
 
 ---
-*此文件定义了项目的开发规范，确保代码质量和一致性*
+*此文件定义了项目的核心开发规范，确保代码质量和一致性*
+*v2.4更新：重构文档结构，拆分调试和架构内容到专门文档*
 *v2.3更新：新增PWA增强经验和LEARNER CLUB品牌集成规范*
 *v2.2更新：新增WhatsApp提醒队列系统设计经验*
-*v2.1更新：新增Linux思维调试方法和重要调试经验*
 
 ## 📋 相关文档
-- **PWA增强记录**: `/PWA_ENHANCEMENT_LOG.md` - 详细的PWA改进文档
-- **Git提交历史**: 记录了完整的PWA品牌升级过程  
-- **技术实现**: 分类去重、预算计算、品牌集成的具体实现方式
+- **调试指南**: `./docs/DEBUGGING_GUIDE.md` - 调试方法和经验总结
+- **常见问题**: `./docs/COMMON_ISSUES.md` - 问题模式和解决方案
+- **架构记录**: `./docs/ARCHITECTURE_NOTES.md` - 重要设计决策记录
+- **PWA增强记录**: `./PWA_ENHANCEMENT_LOG.md` - 详细的PWA改进文档
+- **Git提交历史**: 记录了完整的功能开发和品牌升级过程
