@@ -7,7 +7,14 @@ import WebAppWrapper from '../components/WebAppWrapper'
 
 export default function AuthPage() {
   const router = useRouter()
-  const [mode, setMode] = useState('login') // 'login' or 'register'
+  // 从URL参数获取模式，默认为login
+  const [mode, setMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      return urlParams.get('mode') || 'login'
+    }
+    return 'login'
+  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [checking, setChecking] = useState(true)
@@ -59,7 +66,7 @@ export default function AuthPage() {
           setMode('complete-registration')
         } else {
           // 登录模式 - 检查用户是否已在系统中存在
-          console.log('登录模式：开始检查用户是否存在')
+          console.log('登录模式：开始检查用户是否存在', 'mode=', mode)
           checkUserExists(session.user.email)
         }
       }
@@ -139,7 +146,7 @@ export default function AuthPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?mode=${mode}`,
           queryParams: {
             access_type: 'offline',
             prompt: mode === 'register' ? 'consent' : 'select_account',

@@ -40,8 +40,10 @@ export default function AuthCallback() {
               provider: 'google'
             }))
             
-            // 跳转回认证页面让它处理登录/注册逻辑
-            router.push('/auth')
+            // 跳转回认证页面让它处理登录/注册逻辑，保持mode参数
+            const urlParams = new URLSearchParams(window.location.search)
+            const mode = urlParams.get('mode') || 'login'
+            router.push(`/auth?mode=${mode}`)
           }
         } else {
           // 没有code参数，可能是直接访问
