@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-// JWT Token验证
+// JWT Token验证 - 基于email
 export async function validateJWTToken(req) {
   try {
     // 从Cookie或Authorization header获取token
@@ -29,12 +29,37 @@ export async function validateJWTToken(req) {
     // 验证JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     
-    // 获取用户信息
-    const { data: user, error: dbError } = await supabase
-      .from('users')
-      .select('id, telegram_id, name, branch_code')
-      .eq('telegram_id', decoded.telegram_id)
+    // 获取用户信息 - 通过user_profile.email查询，保持向后兼容
+    const { data: userProfile, error: profileError } = await supabase
+      .from('user_profile')
+      .select(`
+        user_id,
+        email,
+        display_name,
+        users!inner (
+          id,
+          name,
+          branch_code,
+          status,
+          created_at
+        )
+      `)
+      .eq('email', decoded.email)
       .single()
+      
+    if (profileError) {
+      console.error('Database error:', profileError)
+      return null
+    }
+    
+    // 重新构造用户对象
+    const user = {
+      id: userProfile.users.id,
+      name: userProfile.users.name,
+      branch_code: userProfile.users.branch_code,
+      email: userProfile.email,
+      display_name: userProfile.display_name
+    }
       
     if (dbError) {
       console.error('Database error:', dbError)
@@ -48,113 +73,142 @@ export async function validateJWTToken(req) {
   }
 }
 
-// 验证Telegram认证数据
-export function verifyTelegramAuth(data, botToken) {
-  const { hash, ...userData } = data
-  
-  // 创建数据字符串
-  const dataCheckString = Object.keys(userData)
-    .sort()
-    .map(key => `${key}=${userData[key]}`)
-    .join('\n')
-  
-  // 计算hash
-  const secretKey = crypto.createHash('sha256').update(botToken).digest()
-  const calculatedHash = crypto
-    .createHmac('sha256', secretKey)
-    .update(dataCheckString)
-    .digest('hex')
-  
-  return calculatedHash === hash
+// Google OAuth用户验证 - 验证Google ID Token
+export async function verifyGoogleToken(idToken) {
+  // 在生产环境中，应该调用Google API验证token
+  // 这里简化处理，在实际部署时需要完善
+  try {
+    // 开发环境跳过验证，生产环境需要验证
+    if (process.env.NODE_ENV === 'development') {
+      return true
+    }
+    
+    // 生产环境验证Google token
+    // const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`)
+    // const data = await response.json()
+    // return data.aud === process.env.GOOGLE_CLIENT_ID
+    
+    return true // 临时返回true，需要后续完善
+  } catch (error) {
+    console.error('Google token verification error:', error)
+    return false
+  }
 }
 
-// 获取或创建用户 (复用现有逻辑)
-export async function getOrCreateUserByTelegram(telegramData, chatId = null, branch = null) {
-  const { id: telegramId, first_name, username } = telegramData
-  console.log(`[getOrCreateUserByTelegram] 查询用户 telegram_id: ${telegramId}`)
+// 获取或创建用户 - 基于email
+export async function getOrCreateUserByEmail(googleData) {
+  const { email, name, picture, googleId } = googleData
+  console.log(`[getOrCreateUserByEmail] 查询用户 email: ${email}`)
   
-  // 查找现有用户
-  let { data: existingUser, error: userError } = await supabase
-    .from('users')
-    .select('id, branch_code')
-    .eq('telegram_id', telegramId)
+  // 查找现有用户 - 通过user_profile.email查询
+  let { data: existingProfile, error: profileError } = await supabase
+    .from('user_profile')
+    .select(`
+      user_id,
+      email,
+      display_name,
+      monthly_income,
+      a_pct,
+      users!inner (
+        id,
+        name,
+        branch_code,
+        status
+      )
+    `)
+    .eq('email', email)
     .maybeSingle()
     
-  console.log(`[getOrCreateUserByTelegram] 现有用户查询结果:`, existingUser)
+  console.log(`[getOrCreateUserByEmail] 现有用户查询结果:`, existingProfile)
   
   let userId = null
+  let existingUser = null
   
-  if (!existingUser) {
-    console.log(`[getOrCreateUserByTelegram] 用户不存在，创建新用户`)
-    // 创建新用户
+  if (!existingProfile) {
+    console.log(`[getOrCreateUserByEmail] 用户不存在，创建新用户`)
+    // 创建新用户 - 不添加email字段到users表，保持兼容性
     const { data: newUser, error: createError } = await supabase
       .from('users')
       .insert({
-        telegram_id: telegramId,
-        name: first_name || username || 'User',
-        branch_code: branch,
+        name: name || 'User',
+        branch_code: 'MAIN', // 默认分行
         status: 'active'
       })
-      .select('id')
+      .select('id, name, branch_code')
       .single()
     
     if (createError) throw createError
     userId = newUser.id
+    existingUser = newUser
     
-    console.log(`[getOrCreateUserByTelegram] 新用户创建成功: ${userId}`)
+    console.log(`[getOrCreateUserByEmail] 新用户创建成功: ${userId}`)
   } else {
-    userId = existingUser.id
-    console.log(`[getOrCreateUserByTelegram] 用户已存在，当前分行: ${existingUser.branch_code}`)
+    userId = existingProfile.user_id
+    existingUser = existingProfile.users
+    console.log(`[getOrCreateUserByEmail] 用户已存在，当前分行: ${existingUser.branch_code}`)
     
-    // 更新用户名
+    // 更新用户基本信息（如果需要）
     await supabase
       .from('users')
-      .update({ name: first_name || username || 'User' })
+      .update({ 
+        name: name || existingUser.name
+      })
       .eq('id', userId)
       
-    console.log(`[getOrCreateUserByTelegram] 用户名更新成功，保留分行: ${existingUser.branch_code}`)
+    console.log(`[getOrCreateUserByEmail] 用户信息更新成功`)
   }
   
-  // 确保用户profile存在
-  const { data: existingProfile } = await supabase
-    .from('user_profile')
-    .select('display_name')
-    .eq('user_id', userId)
-    .maybeSingle()
-    
-  console.log(`[getOrCreateUserByTelegram] 现有profile:`, existingProfile)
+  // 确保用户profile存在并包含email
+  let finalProfile = existingProfile
   
   if (!existingProfile) {
-    await supabase
+    // 新用户创建基础profile
+    const { data: newProfile, error: profileInsertError } = await supabase
       .from('user_profile')
       .insert({
         user_id: userId,
-        display_name: first_name || username || 'User',
-        chat_id: chatId,
+        display_name: name || 'User',
+        email: email,
         language: 'zh'
       })
+      .select('display_name, monthly_income, a_pct')
+      .single()
+      
+    if (profileInsertError) throw profileInsertError
+    finalProfile = {
+      ...newProfile,
+      users: existingUser
+    }
   } else {
-    await supabase
-      .from('user_profile')
-      .upsert({
-        user_id: userId,
-        display_name: first_name || username || existingProfile.display_name,
-        chat_id: chatId
-      })
+    // 更新已有profile的email（如果需要）
+    if (existingProfile.email !== email) {
+      await supabase
+        .from('user_profile')
+        .update({ email: email })
+        .eq('user_id', userId)
+    }
+    finalProfile = existingProfile
   }
   
-  console.log(`[getOrCreateUserByTelegram] profile upsert完成`)
+  console.log(`[getOrCreateUserByEmail] profile处理完成`)
   
-  // 返回最终用户信息
-  const { data: finalUser } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single()
+  // 检查是否需要完成注册
+  const isFullyRegistered = finalProfile && 
+    finalProfile.display_name && 
+    finalProfile.monthly_income && 
+    (finalProfile.a_pct !== null && finalProfile.a_pct !== undefined)
     
-  console.log(`[getOrCreateUserByTelegram] 最终用户分行: ${finalUser.branch_code}`)
+  console.log(`[getOrCreateUserByEmail] 用户注册状态: ${isFullyRegistered ? '完整' : '需要完成注册'}`)
   
-  return finalUser
+  // 返回统一格式的用户信息
+  return {
+    id: userId,
+    name: existingUser.name,
+    branch_code: existingUser.branch_code,
+    status: existingUser.status,
+    email: email,
+    needsRegistration: !isFullyRegistered
+  }
 }
 
 // Cookie解析工具

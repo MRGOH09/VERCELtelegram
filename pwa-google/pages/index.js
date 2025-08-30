@@ -34,13 +34,19 @@ export default function ModernDashboard() {
     try {
       const authResult = await PWAClient.checkAuth()
       if (!authResult.authenticated) {
-        router.replace('/login-supabase')
+        router.replace('/login-google')
+        return
+      }
+      
+      // 检查是否需要完成注册
+      if (authResult.needsRegistration) {
+        router.replace('/register')
         return
       }
       loadDashboard()
     } catch (error) {
       console.error('认证检查失败:', error)
-      router.replace('/login-supabase')
+      router.replace('/login-google')
     }
   }
   

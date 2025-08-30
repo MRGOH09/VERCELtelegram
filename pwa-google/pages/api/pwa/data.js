@@ -32,8 +32,8 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(401).json({ 
         error: 'Unauthorized',
-        message: '请先通过Telegram登录',
-        redirect: '/login'
+        message: '请先登录Google账号',
+        redirect: '/login-google'
       })
     }
     

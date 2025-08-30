@@ -48,8 +48,8 @@ class PWAClient {
         if (response.status === 401 && typeof window !== 'undefined' && !options.skipRedirect) {
           // 避免在登录页重复跳转
           if (!window.location.pathname.includes('/login')) {
-            console.log('用户未认证，跳转到登录页')
-            window.location.href = '/login'
+            console.log('用户未认证，跳转到Google登录页')
+            window.location.href = '/login-google'
             return
           }
         }
@@ -113,20 +113,23 @@ class PWAClient {
   // 检查认证状态 (30秒缓存)
   async checkAuth() {
     try {
-      // 先检查localStorage中是否有token
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('jwt_token')
-        if (!token) {
-          return { authenticated: false }
+      // 直接调用auth-check端点（GET请求）
+      const response = await fetch(`${this.getBaseURL()}/api/pwa/auth-check`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
         }
+      })
+      
+      if (!response.ok) {
+        return { authenticated: false }
       }
       
-      return await this.call('data', 'check-auth', {}, { 
-        useCache: true, 
-        cacheTTL: 30 * 1000,
-        skipRedirect: true 
-      })
+      const data = await response.json()
+      return data
     } catch (error) {
+      console.error('Auth check failed:', error)
       return { authenticated: false }
     }
   }
