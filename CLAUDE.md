@@ -27,6 +27,8 @@
 ## 📁 项目结构规则
 - **API路由**: `/api/` - 主要功能端点
 - **子模块**: `/api/user/`, `/api/cron/`, `/api/records/` - 分类功能
+- **PWA系统**: `/pwa/` (端口3001) - Telegram登录PWA应用
+- **PWA-Google系统**: `/pwa-google/` (端口3002) - Google OAuth独立PWA应用
 - **配置文件**: `vercel.json`, `package.json` - 谨慎修改
 - **Google Apps Script**: `/gas-scripts/` - Google Sheets同步系统
 - **文档**: 保持README和相关文档更新
@@ -43,13 +45,24 @@
 - 重用现有查询模式
 - 保持事务处理一致性
 
-### 前端集成 (PWA)
+### 前端集成 (PWA系统)
 - 保持与现有按钮和界面风格一致
 - 重用现有回调数据格式
 - **PWA品牌标识**: 确保LEARNER CLUB标语和理念融入界面
 - **数据一致性**: PWA与Telegram机器人数据显示必须完全一致
 - **分类映射**: 使用统一的category_code映射 (food→餐饮, shop→购物等)
 - **去重逻辑**: 实现与Telegram `/my`命令一致的分类去重算法
+
+### PWA-Google独立系统
+- **架构隔离**: 完全独立的Next.js应用，避免与主系统冲突
+- **端口分离**: 使用端口3002，与主PWA系统(3001)区分
+- **认证方式**: Google OAuth 2.0，不依赖Telegram
+- **数据复用**: 重用相同的Supabase数据库和表结构
+- **用户映射**: 通过用户名匹配现有用户，或创建新用户记录
+- **API独立**: 使用专用的`/api/pwa/`端点，避免与主API冲突
+- **部署策略**: 独立部署或子路径部署，保持系统隔离
+- **JWT认证**: 自主管理JWT token，30天有效期
+- **品牌一致**: 保持LEARNER CLUB品牌标识和界面风格
 
 ### Google Sheets同步系统
 - 使用clasp自动部署到Google Apps Script
@@ -81,6 +94,9 @@
 - **API调用**: 重用现有端点，避免创建重复功能
 - **错误处理**: 提供详细的错误信息和调试日志
 - **格式一致性**: 保持消息格式与现有功能一致
+- **系统隔离**: PWA-Google系统完全独立，避免与主系统产生冲突
+- **端口管理**: 主系统(API)、PWA(3001)、PWA-Google(3002)端口分离
+- **认证独立**: PWA-Google使用自己的Google OAuth和JWT管理
 
 ## 📚 扩展文档
 - 🐛 **调试问题**: 参考 [调试指南](./docs/DEBUGGING_GUIDE.md)
@@ -96,9 +112,9 @@
 
 ---
 *此文件定义了项目的核心开发规范，确保代码质量和一致性*
+*v2.5更新：新增PWA-Google独立系统开发规范和架构隔离规则*
 *v2.4更新：重构文档结构，拆分调试和架构内容到专门文档*
 *v2.3更新：新增PWA增强经验和LEARNER CLUB品牌集成规范*
-*v2.2更新：新增WhatsApp提醒队列系统设计经验*
 
 ## 📋 相关文档
 - **调试指南**: `./docs/DEBUGGING_GUIDE.md` - 调试方法和经验总结
