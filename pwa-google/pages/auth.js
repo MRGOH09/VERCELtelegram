@@ -41,11 +41,13 @@ export default function AuthPage() {
   ]
   
   useEffect(() => {
+    console.log('[DEBUG] useEffect运行，当前mode:', mode)
     checkAuthStatus()
     
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state change:', event, session)
+      console.log('[DEBUG] 认证状态变化时的mode:', mode)
       
       if (event === 'SIGNED_IN' && session) {
         console.log('用户登录成功:', session.user)
@@ -58,13 +60,19 @@ export default function AuthPage() {
           picture: session.user.user_metadata.picture || session.user.user_metadata.avatar_url
         })
         
+        // 重新从URL读取当前模式，避免状态不同步
+        const currentMode = typeof window !== 'undefined' 
+          ? new URLSearchParams(window.location.search).get('mode') || 'login'
+          : 'login'
+        console.log('[DEBUG] 从URL重新读取的mode:', currentMode)
+        
         // 如果是注册模式，需要完成额外信息
-        if (mode === 'register') {
+        if (currentMode === 'register') {
           // 切换到完成注册步骤
           setMode('complete-registration')
         } else {
           // 登录模式 - 检查用户是否已在系统中存在
-          console.log('登录模式：开始检查用户是否存在', 'mode=', mode)
+          console.log('登录模式：开始检查用户是否存在', 'currentMode=', currentMode)
           checkUserExists(session.user.email)
         }
       }
