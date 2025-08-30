@@ -41,9 +41,36 @@ export default function TestAuthFlow() {
     addLog(`Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? '已配置' : '未配置'}`)
     addLog(`Supabase Key: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已配置' : '未配置'}`)
     
-    // 检查是否是OAuth回调
-    if (urlParams.has('code')) {
-      addLog('🔄 检测到OAuth回调，处理中...')
+    // 检查是否是OAuth回调 - 检查hash fragment
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const hashEntries = Array.from(hashParams.entries())
+    addLog(`Hash参数: ${JSON.stringify(hashEntries)}`)
+    
+    if (hashParams.has('access_token')) {
+      addLog('🔄 检测到OAuth Token回调（Implicit Flow），处理中...')
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const expiresAt = hashParams.get('expires_at')
+      
+      addLog(`Access Token: ${accessToken ? accessToken.substring(0, 50) + '...' : 'null'}`)
+      addLog(`Refresh Token: ${refreshToken ? refreshToken.substring(0, 20) + '...' : 'null'}`)
+      addLog(`Expires At: ${expiresAt}`)
+      
+      // Supabase应该自动处理这些token，检查session
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          addLog(`获取会话失败: ${error.message}`)
+        } else if (session) {
+          addLog(`✅ 会话已建立: ${session.user.email}`)
+        } else {
+          addLog(`❌ 没有活跃会话`)
+        }
+      })
+      
+      // 清除hash参数以避免重复处理
+      window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (urlParams.has('code')) {
+      addLog('🔄 检测到OAuth Code回调（Authorization Code Flow），处理中...')
       const code = urlParams.get('code')
       addLog(`OAuth code: ${code}`)
       
@@ -58,9 +85,9 @@ export default function TestAuthFlow() {
       
       // 清除URL参数以避免重复处理
       window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (urlParams.has('error')) {
-      const error = urlParams.get('error')
-      const errorDescription = urlParams.get('error_description')
+    } else if (urlParams.has('error') || hashParams.has('error')) {
+      const error = urlParams.get('error') || hashParams.get('error')
+      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description')
       addLog(`❌ OAuth错误: ${error}`)
       if (errorDescription) {
         addLog(`错误描述: ${decodeURIComponent(errorDescription)}`)
