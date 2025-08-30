@@ -57,19 +57,44 @@ export default function AuthCallback() {
           }
           
           console.log('[CALLBACK] 设置Supabase会话...')
-          const { data, error } = await supabase.auth.setSession(sessionData)
           
-          if (error) {
-            console.error('[CALLBACK] 设置会话失败:', error)
-            throw error
+          try {
+            const { data, error } = await supabase.auth.setSession(sessionData)
+            
+            if (error) {
+              console.error('[CALLBACK] setSession失败:', error)
+              console.log('[CALLBACK] 尝试替代方案：使用Supabase自动处理hash...')
+              
+              // 让Supabase自动处理URL hash
+              const { data: hashData, error: hashError } = await supabase.auth.getSessionFromUrl()
+              
+              if (hashError) {
+                console.error('[CALLBACK] getSessionFromUrl也失败:', hashError)
+                throw hashError
+              }
+              
+              if (hashData.session) {
+                console.log('[CALLBACK] ✅ 使用getSessionFromUrl成功建立会话!')
+                console.log('[CALLBACK] 用户信息:', {
+                  id: hashData.session.user.id,
+                  email: hashData.session.user.email,
+                  name: hashData.session.user.user_metadata?.name || hashData.session.user.user_metadata?.full_name
+                })
+              } else {
+                throw new Error('无法从URL建立会话')
+              }
+            } else {
+              console.log('[CALLBACK] ✅ setSession成功建立会话!')
+              console.log('[CALLBACK] 用户信息:', {
+                id: data.session?.user.id,
+                email: data.session?.user.email,
+                name: data.session?.user.user_metadata?.name || data.session?.user.user_metadata?.full_name
+              })
+            }
+          } catch (sessionError) {
+            console.error('[CALLBACK] 会话建立完全失败:', sessionError)
+            // 继续执行跳转，让目标页面自行处理认证
           }
-
-          console.log('[CALLBACK] ✅ Implicit Flow会话建立成功!')
-          console.log('[CALLBACK] 用户信息:', {
-            id: data.session?.user.id,
-            email: data.session?.user.email,
-            name: data.session?.user.user_metadata?.name || data.session?.user.user_metadata?.full_name
-          })
           
           // 验证会话
           const { data: { session: savedSession } } = await supabase.auth.getSession()
