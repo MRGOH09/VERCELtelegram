@@ -19,10 +19,18 @@ export default function AuthPage() {
   const [error, setError] = useState(null)
   const [checking, setChecking] = useState(true)
   
-  // Supabase客户端
+  // Supabase客户端 - 配置detectSessionInUrl自动处理token
   const [supabase] = useState(() => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        detectSessionInUrl: true,     // 自动检测并处理URL中的session
+        persistSession: true,          // 持久化session到localStorage
+        autoRefreshToken: true,        // 自动刷新token
+        flowType: 'implicit'           // 明确使用implicit flow
+      }
+    }
   ))
   
   // 表单数据（用于注册后的额外信息）
@@ -42,18 +50,36 @@ export default function AuthPage() {
   
   useEffect(() => {
     console.log('[DEBUG] useEffect运行，当前mode:', mode)
+    console.log('[DEBUG] 当前URL:', window.location.href)
+    
+    // 检查URL中是否有token
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    if (hashParams.has('access_token')) {
+      console.log('[AUTH] 检测到OAuth token在URL hash中，Supabase自动处理中...')
+      
+      // 给Supabase一点时间处理token
+      setTimeout(async () => {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (session) {
+          console.log('[AUTH] ✅ 会话已自动建立成功！')
+        } else if (error) {
+          console.log('[AUTH] ❌ 会话建立失败:', error.message)
+        }
+      }, 500)
+    }
+    
     checkAuthStatus()
     
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session)
+      console.log('[AUTH] 认证状态变化:', event)
       console.log('[DEBUG] 认证状态变化时的mode:', mode)
       
       if (event === 'SIGNED_IN' && session) {
-        console.log('用户登录成功:', session.user)
+        console.log('[AUTH] ✅ 用户登录成功:', session.user.email)
         
         // Supabase会自动管理session，无需手动保存到localStorage
-        console.log('Supabase session已建立，用户信息：', {
+        console.log('[AUTH] Supabase session已建立，用户信息：', {
           id: session.user.id,
           email: session.user.email,
           name: session.user.user_metadata.name || session.user.user_metadata.full_name,
@@ -72,9 +98,17 @@ export default function AuthPage() {
           setMode('complete-registration')
         } else {
           // 登录模式 - 检查用户是否已在系统中存在
-          console.log('登录模式：开始检查用户是否存在', 'currentMode=', currentMode)
+          console.log('[AUTH] 登录模式：开始检查用户是否存在', 'currentMode=', currentMode)
           checkUserExists(session.user.email)
         }
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        console.log('[AUTH] 用户登出')
+      }
+      
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('[AUTH] Token已刷新')
       }
     })
 

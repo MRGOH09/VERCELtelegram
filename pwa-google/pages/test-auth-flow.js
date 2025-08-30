@@ -3,21 +3,20 @@ import { createClient } from '@supabase/supabase-js'
 
 export default function TestAuthFlow() {
   const [logs, setLogs] = useState([])
-  // 重要：在页面加载时就初始化Supabase，让它自动处理hash
-  const [supabase] = useState(() => {
-    const client = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        auth: {
-          detectSessionInUrl: true, // 自动检测URL中的session
-          persistSession: true,     // 持久化session
-          autoRefreshToken: true     // 自动刷新token
-        }
+  
+  // 关键修复：配置detectSessionInUrl让Supabase自动处理hash中的token
+  const [supabase] = useState(() => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        detectSessionInUrl: true,     // 自动检测并处理URL中的session
+        persistSession: true,          // 持久化session到localStorage
+        autoRefreshToken: true,        // 自动刷新token
+        flowType: 'implicit'           // 明确使用implicit flow
       }
-    )
-    return client
-  })
+    }
+  ))
 
   const addLog = (message) => {
     const timestamp = new Date().toLocaleTimeString()
@@ -42,84 +41,35 @@ export default function TestAuthFlow() {
       addLog('页面加载完成')
     }
     
-    // 调试：显示当前URL和参数
+    // 显示当前URL信息用于调试
     addLog(`当前URL: ${window.location.href}`)
-    const urlParams = new URLSearchParams(window.location.search)
-    const allParams = Array.from(urlParams.entries())
-    addLog(`URL参数: ${JSON.stringify(allParams)}`)
     
-    // 检查Supabase环境变量
-    addLog(`Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? '已配置' : '未配置'}`)
-    addLog(`Supabase Key: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已配置' : '未配置'}`)
-    
-    // 检查是否是OAuth回调 - 检查hash fragment
+    // 检查URL中是否有token（用于调试，Supabase会自动处理）
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const hashEntries = Array.from(hashParams.entries())
-    addLog(`Hash参数: ${JSON.stringify(hashEntries)}`)
-    
     if (hashParams.has('access_token')) {
-      addLog('🔄 检测到OAuth Token回调（Implicit Flow）')
-      const accessToken = hashParams.get('access_token')
-      const refreshToken = hashParams.get('refresh_token')
+      addLog('🔄 检测到OAuth token在URL hash中')
+      addLog('⏳ Supabase正在自动处理token...')
       
-      addLog(`Access Token: ${accessToken ? accessToken.substring(0, 50) + '...' : 'null'}`)
-      addLog(`Refresh Token: ${refreshToken ? refreshToken.substring(0, 20) + '...' : 'null'}`)
-      
-      // Supabase应该已经自动处理了hash中的token
-      addLog('📝 Supabase应该已自动处理token，检查会话状态...')
-      
-      // 等待一下让Supabase处理完成，然后检查会话
+      // 给Supabase一点时间处理token，然后检查结果
       setTimeout(async () => {
         const { data: { session }, error } = await supabase.auth.getSession()
-        if (error) {
-          addLog(`❌ 获取会话失败: ${error.message}`)
-        } else if (session) {
-          addLog(`✅ 会话已自动建立!`)
-          addLog(`用户邮箱: ${session.user.email}`)
-          addLog(`用户ID: ${session.user.id}`)
-          addLog(`用户名: ${session.user.user_metadata?.name || session.user.user_metadata?.full_name}`)
-        } else {
-          addLog(`⚠️ 没有找到活跃会话`)
+        if (session) {
+          addLog('✅ 会话已自动建立成功！')
+          addLog(`用户: ${session.user.email}`)
+        } else if (error) {
+          addLog(`❌ 会话建立失败: ${error.message}`)
         }
-      }, 1000)
-      
-      // 清除hash参数以避免重复处理
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (urlParams.has('code')) {
-      addLog('🔄 检测到OAuth Code回调（Authorization Code Flow），处理中...')
-      const code = urlParams.get('code')
-      addLog(`OAuth code: ${code}`)
-      
-      // 手动处理OAuth交换
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (error) {
-          addLog(`OAuth交换失败: ${error.message}`)
-        } else {
-          addLog(`OAuth交换成功: ${data.session?.user?.email}`)
-        }
-      })
-      
-      // 清除URL参数以避免重复处理
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (urlParams.has('error') || hashParams.has('error')) {
-      const error = urlParams.get('error') || hashParams.get('error')
-      const errorDescription = urlParams.get('error_description') || hashParams.get('error_description')
-      addLog(`❌ OAuth错误: ${error}`)
-      if (errorDescription) {
-        addLog(`错误描述: ${decodeURIComponent(errorDescription)}`)
-      }
-    } else {
-      addLog('📍 正常页面加载，无OAuth参数')
+      }, 500)
     }
     
-    // 监听认证状态
+    // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       addLog(`认证状态变化: ${event}`)
       
       if (event === 'SIGNED_IN' && session) {
-        addLog(`用户登录: ${session.user.email}`)
+        addLog(`✅ 用户登录成功: ${session.user.email}`)
         
-        // 测试用户存在性检查
+        // 测试用户存在性检查API
         try {
           addLog('开始检查用户是否存在...')
           const response = await fetch('/api/pwa/auth-check', {
@@ -133,9 +83,9 @@ export default function TestAuthFlow() {
             addLog(`用户存在检查结果: ${JSON.stringify(result)}`)
             
             if (result.userExists) {
-              addLog('✅ 用户存在 - 应该跳转到首页')
+              addLog('✅ 用户存在 - 可以正常使用系统')
             } else {
-              addLog('❌ 用户不存在 - 应该显示注册提示')
+              addLog('❌ 用户不存在 - 需要完成注册')
             }
           } else {
             addLog(`API调用失败: ${response.status}`)
@@ -148,6 +98,10 @@ export default function TestAuthFlow() {
       if (event === 'SIGNED_OUT') {
         addLog('用户登出')
       }
+      
+      if (event === 'TOKEN_REFRESHED') {
+        addLog('Token已刷新')
+      }
     })
 
     return () => subscription?.unsubscribe()
@@ -156,15 +110,10 @@ export default function TestAuthFlow() {
   const handleGoogleLogin = async () => {
     addLog('开始Google OAuth登录...')
     try {
-      const redirectUrl = `${window.location.origin}/test-auth-flow`
-      addLog(`OAuth重定向URL: ${redirectUrl}`)
-      addLog(`当前域名: ${window.location.origin}`)
-      
-      // 使用与auth.js相同的callback路径
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?mode=test&next=/test-auth-flow`,
+          redirectTo: `${window.location.origin}/test-auth-flow`,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
@@ -174,10 +123,9 @@ export default function TestAuthFlow() {
       
       if (error) {
         addLog(`OAuth失败: ${error.message}`)
-        addLog(`错误详情: ${JSON.stringify(error)}`)
       } else {
         addLog('OAuth重定向中...')
-        addLog(`OAuth数据: ${JSON.stringify(data)}`)
+        addLog(`重定向URL: ${data.url}`)
       }
     } catch (error) {
       addLog(`OAuth错误: ${error.message}`)
@@ -186,12 +134,32 @@ export default function TestAuthFlow() {
 
   const handleLogout = async () => {
     addLog('开始登出...')
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      addLog(`登出失败: ${error.message}`)
+    } else {
+      addLog('登出成功')
+    }
   }
 
   const clearLogs = () => {
     setLogs([])
     localStorage.removeItem('test-auth-logs')
+  }
+
+  const checkSession = async () => {
+    addLog('检查当前会话...')
+    const { data: { session }, error } = await supabase.auth.getSession()
+    
+    if (error) {
+      addLog(`获取会话失败: ${error.message}`)
+    } else if (session) {
+      addLog(`✅ 活跃会话存在`)
+      addLog(`用户: ${session.user.email}`)
+      addLog(`会话ID: ${session.access_token.substring(0, 20)}...`)
+    } else {
+      addLog('⚠️ 没有活跃会话')
+    }
   }
 
   return (
@@ -201,6 +169,9 @@ export default function TestAuthFlow() {
       <div style={{ marginBottom: '20px' }}>
         <button onClick={handleGoogleLogin} style={{ marginRight: '10px', padding: '10px' }}>
           🔑 Google登录测试
+        </button>
+        <button onClick={checkSession} style={{ marginRight: '10px', padding: '10px' }}>
+          🔍 检查会话
         </button>
         <button onClick={handleLogout} style={{ marginRight: '10px', padding: '10px' }}>
           🚪 登出测试
@@ -233,9 +204,16 @@ export default function TestAuthFlow() {
         <h4>📖 测试说明：</h4>
         <ul>
           <li>点击"Google登录测试"会触发OAuth流程</li>
+          <li>Supabase会自动处理返回的token（使用detectSessionInUrl）</li>
           <li>登录后会自动检查用户是否在数据库中存在</li>
           <li>所有步骤都会显示在日志中</li>
-          <li>可以清楚看到每一步的执行情况</li>
+        </ul>
+        
+        <h4>✅ 关键配置：</h4>
+        <ul>
+          <li>detectSessionInUrl: true - 自动处理URL中的token</li>
+          <li>flowType: 'implicit' - 使用implicit flow</li>
+          <li>不手动调用setSession - 让Supabase自动管理</li>
         </ul>
       </div>
     </div>
