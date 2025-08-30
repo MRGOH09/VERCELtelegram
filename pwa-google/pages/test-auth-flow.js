@@ -86,7 +86,7 @@ export default function TestAuthFlow() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/test-auth-flow`
+          redirectTo: `${window.location.origin}/auth/callback?mode=test&next=/test-auth-flow`
         }
       })
       

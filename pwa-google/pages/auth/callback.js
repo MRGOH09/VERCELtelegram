@@ -30,20 +30,20 @@ export default function AuthCallback() {
           if (data.session) {
             console.log('OAuth成功，会话已建立:', data.session.user)
             
-            // 保存用户信息到localStorage（兼容现有系统）
-            localStorage.setItem('jwt_token', data.session.access_token)
-            localStorage.setItem('user_info', JSON.stringify({
-              id: data.session.user.id,
-              email: data.session.user.email,
-              name: data.session.user.user_metadata.name || data.session.user.user_metadata.full_name,
-              picture: data.session.user.user_metadata.picture || data.session.user.user_metadata.avatar_url,
-              provider: 'google'
-            }))
+            // Supabase会话已自动保存，不需要手动处理localStorage
             
-            // 跳转回认证页面让它处理登录/注册逻辑，保持mode参数
+            // 根据mode参数决定跳转目标
             const urlParams = new URLSearchParams(window.location.search)
             const mode = urlParams.get('mode') || 'login'
-            router.push(`/auth?mode=${mode}`)
+            const next = urlParams.get('next')
+            
+            if (mode === 'test' && next) {
+              // 测试模式，跳转回测试页面
+              router.push(next)
+            } else {
+              // 正常模式，跳转回认证页面
+              router.push(`/auth?mode=${mode}`)
+            }
           }
         } else {
           // 没有code参数，可能是直接访问
