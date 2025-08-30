@@ -56,15 +56,45 @@ export default function GoogleLoginPage() {
   
   const handleGoogleLogin = async () => {
     try {
-      // 使用Google OAuth登录
-      // 这里需要集成@react-oauth/google或者跳转到Google OAuth URL
-      console.log('启动Google OAuth登录...')
+      console.log('启动测试登录...')
       
-      // 临时：直接跳转到注册页面进行测试
-      router.push('/register')
+      // 显示加载状态
+      setChecking(true)
+      
+      // 使用测试登录API
+      const response = await fetch('/api/pwa/test-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: 'test@example.com',
+          name: '测试用户'
+        })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log('测试登录成功:', result)
+        
+        // 检查是否需要注册
+        if (result.needsRegistration) {
+          router.replace('/register')
+        } else {
+          router.replace('/')
+        }
+      } else {
+        const error = await response.json()
+        console.error('测试登录失败:', error)
+        alert('登录失败: ' + error.message)
+      }
       
     } catch (error) {
-      console.error('Google登录失败:', error)
+      console.error('登录请求失败:', error)
+      alert('登录请求失败: ' + error.message)
+    } finally {
+      setChecking(false)
     }
   }
   
@@ -103,12 +133,12 @@ export default function GoogleLoginPage() {
             <ModernCard>
               <div className="text-center">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  使用Google账号登录
+                  测试登录（开发模式）
                 </h2>
                 
                 <div className="mb-6">
                   <p className="text-sm text-gray-600 mb-6">
-                    使用您的Google账号安全登录
+                    点击下方按钮进行测试登录
                   </p>
                   
                   {/* Google登录按钮 */}
@@ -123,7 +153,7 @@ export default function GoogleLoginPage() {
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                       </svg>
-                      使用Google登录
+                      🧪 测试登录
                     </button>
                     <p className="text-xs text-gray-500 mt-4">
                       点击登录即表示您同意我们的服务条款
