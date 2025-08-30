@@ -3,10 +3,21 @@ import { createClient } from '@supabase/supabase-js'
 
 export default function TestAuthFlow() {
   const [logs, setLogs] = useState([])
-  const [supabase] = useState(() => createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ))
+  // 重要：在页面加载时就初始化Supabase，让它自动处理hash
+  const [supabase] = useState(() => {
+    const client = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        auth: {
+          detectSessionInUrl: true, // 自动检测URL中的session
+          persistSession: true,     // 持久化session
+          autoRefreshToken: true     // 自动刷新token
+        }
+      }
+    )
+    return client
+  })
 
   const addLog = (message) => {
     const timestamp = new Date().toLocaleTimeString()
@@ -47,36 +58,30 @@ export default function TestAuthFlow() {
     addLog(`Hash参数: ${JSON.stringify(hashEntries)}`)
     
     if (hashParams.has('access_token')) {
-      addLog('🔄 检测到OAuth Token回调（Implicit Flow），处理中...')
+      addLog('🔄 检测到OAuth Token回调（Implicit Flow）')
       const accessToken = hashParams.get('access_token')
       const refreshToken = hashParams.get('refresh_token')
-      const expiresAt = hashParams.get('expires_at')
       
       addLog(`Access Token: ${accessToken ? accessToken.substring(0, 50) + '...' : 'null'}`)
       addLog(`Refresh Token: ${refreshToken ? refreshToken.substring(0, 20) + '...' : 'null'}`)
-      addLog(`Expires At: ${expiresAt}`)
       
-      // 手动设置会话
-      const sessionData = {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_at: parseInt(expiresAt),
-        token_type: 'bearer',
-        user: null // Supabase会自动从token中解析用户信息
-      }
+      // Supabase应该已经自动处理了hash中的token
+      addLog('📝 Supabase应该已自动处理token，检查会话状态...')
       
-      addLog('正在设置Supabase会话...')
-      supabase.auth.setSession(sessionData).then(({ data: { session }, error }) => {
+      // 等待一下让Supabase处理完成，然后检查会话
+      setTimeout(async () => {
+        const { data: { session }, error } = await supabase.auth.getSession()
         if (error) {
-          addLog(`设置会话失败: ${error.message}`)
+          addLog(`❌ 获取会话失败: ${error.message}`)
         } else if (session) {
-          addLog(`✅ 会话已建立: ${session.user.email}`)
+          addLog(`✅ 会话已自动建立!`)
+          addLog(`用户邮箱: ${session.user.email}`)
           addLog(`用户ID: ${session.user.id}`)
           addLog(`用户名: ${session.user.user_metadata?.name || session.user.user_metadata?.full_name}`)
         } else {
-          addLog(`❌ 会话设置失败，没有返回session`)
+          addLog(`⚠️ 没有找到活跃会话`)
         }
-      })
+      }, 1000)
       
       // 清除hash参数以避免重复处理
       window.history.replaceState({}, document.title, window.location.pathname)
