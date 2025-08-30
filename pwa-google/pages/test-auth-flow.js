@@ -56,14 +56,25 @@ export default function TestAuthFlow() {
       addLog(`Refresh Token: ${refreshToken ? refreshToken.substring(0, 20) + '...' : 'null'}`)
       addLog(`Expires At: ${expiresAt}`)
       
-      // Supabase应该自动处理这些token，检查session
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
+      // 手动设置会话
+      const sessionData = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: parseInt(expiresAt),
+        token_type: 'bearer',
+        user: null // Supabase会自动从token中解析用户信息
+      }
+      
+      addLog('正在设置Supabase会话...')
+      supabase.auth.setSession(sessionData).then(({ data: { session }, error }) => {
         if (error) {
-          addLog(`获取会话失败: ${error.message}`)
+          addLog(`设置会话失败: ${error.message}`)
         } else if (session) {
           addLog(`✅ 会话已建立: ${session.user.email}`)
+          addLog(`用户ID: ${session.user.id}`)
+          addLog(`用户名: ${session.user.user_metadata?.name || session.user.user_metadata?.full_name}`)
         } else {
-          addLog(`❌ 没有活跃会话`)
+          addLog(`❌ 会话设置失败，没有返回session`)
         }
       })
       
