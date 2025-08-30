@@ -40,8 +40,8 @@ export default function AuthCallback() {
               provider: 'google'
             }))
             
-            // 跳转到首页
-            router.push('/')
+            // 跳转回认证页面让它处理登录/注册逻辑
+            router.push('/auth')
           }
         } else {
           // 没有code参数，可能是直接访问

@@ -59,6 +59,7 @@ export default function AuthPage() {
           setMode('complete-registration')
         } else {
           // 登录模式 - 检查用户是否已在系统中存在
+          console.log('登录模式：开始检查用户是否存在')
           checkUserExists(session.user.email)
         }
       }
@@ -101,6 +102,7 @@ export default function AuthPage() {
       }
       
       const result = await response.json()
+      console.log('API返回结果:', result)
       
       if (result.userExists) {
         console.log('用户已存在，允许登录')
@@ -114,6 +116,7 @@ export default function AuthPage() {
         localStorage.removeItem('user_info')
         
         // 显示错误信息并切换到注册模式
+        console.log('设置错误信息并切换到注册模式')
         setError('此Google账号尚未注册，请先完成注册流程')
         setMode('register')
         setLoading(false)
