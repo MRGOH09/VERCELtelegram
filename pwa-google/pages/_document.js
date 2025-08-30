@@ -22,17 +22,17 @@ export default function Document() {
         <link rel="shortcut icon" href="/favicon.ico" />
         
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:url" content="https://learnerclub.vercel.app" />
+        <meta name="twitter:url" content="https://pwagoogle.vercel.app" />
         <meta name="twitter:title" content="Learner Club" />
         <meta name="twitter:description" content="34天财务管理挑战，养成理财好习惯" />
-        <meta name="twitter:image" content="https://learnerclub.vercel.app/icons/icon-192.png" />
+        <meta name="twitter:image" content="https://pwagoogle.vercel.app/icons/icon-192.png" />
         
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Learner Club" />
         <meta property="og:description" content="34天财务管理挑战，养成理财好习惯" />
         <meta property="og:site_name" content="Learner Club" />
-        <meta property="og:url" content="https://learnerclub.vercel.app" />
-        <meta property="og:image" content="https://learnerclub.vercel.app/icons/icon-192.png" />
+        <meta property="og:url" content="https://pwagoogle.vercel.app" />
+        <meta property="og:image" content="https://pwagoogle.vercel.app/icons/icon-192.png" />
       </Head>
       <body>
         <Main />

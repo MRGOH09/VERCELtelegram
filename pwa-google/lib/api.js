@@ -4,9 +4,7 @@ import { useState } from 'react'
 // PWA API客户端 - 带智能缓存
 class PWAClient {
   getBaseURL() {
-    if (process.env.NODE_ENV === 'development') {
-      return 'http://localhost:3001'
-    }
+    // 始终使用当前域名，避免硬编码导致的跳转问题
     return typeof window !== 'undefined' ? window.location.origin : ''
   }
   
