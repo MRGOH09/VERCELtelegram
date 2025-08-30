@@ -153,18 +153,26 @@ export default function TestAuthFlow() {
     try {
       const redirectUrl = `${window.location.origin}/test-auth-flow`
       addLog(`OAuth重定向URL: ${redirectUrl}`)
+      addLog(`当前域名: ${window.location.origin}`)
       
+      // 使用与auth.js相同的callback路径
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl
+          redirectTo: `${window.location.origin}/auth/callback?mode=test&next=/test-auth-flow`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          }
         }
       })
       
       if (error) {
         addLog(`OAuth失败: ${error.message}`)
+        addLog(`错误详情: ${JSON.stringify(error)}`)
       } else {
         addLog('OAuth重定向中...')
+        addLog(`OAuth数据: ${JSON.stringify(data)}`)
       }
     } catch (error) {
       addLog(`OAuth错误: ${error.message}`)
