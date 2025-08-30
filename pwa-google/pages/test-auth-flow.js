@@ -31,8 +31,17 @@ export default function TestAuthFlow() {
       addLog('页面加载完成')
     }
     
-    // 检查是否是OAuth回调
+    // 调试：显示当前URL和参数
+    addLog(`当前URL: ${window.location.href}`)
     const urlParams = new URLSearchParams(window.location.search)
+    const allParams = Array.from(urlParams.entries())
+    addLog(`URL参数: ${JSON.stringify(allParams)}`)
+    
+    // 检查Supabase环境变量
+    addLog(`Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL ? '已配置' : '未配置'}`)
+    addLog(`Supabase Key: ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '已配置' : '未配置'}`)
+    
+    // 检查是否是OAuth回调
     if (urlParams.has('code')) {
       addLog('🔄 检测到OAuth回调，处理中...')
       const code = urlParams.get('code')
@@ -49,6 +58,15 @@ export default function TestAuthFlow() {
       
       // 清除URL参数以避免重复处理
       window.history.replaceState({}, document.title, window.location.pathname)
+    } else if (urlParams.has('error')) {
+      const error = urlParams.get('error')
+      const errorDescription = urlParams.get('error_description')
+      addLog(`❌ OAuth错误: ${error}`)
+      if (errorDescription) {
+        addLog(`错误描述: ${decodeURIComponent(errorDescription)}`)
+      }
+    } else {
+      addLog('📍 正常页面加载，无OAuth参数')
     }
     
     // 监听认证状态
