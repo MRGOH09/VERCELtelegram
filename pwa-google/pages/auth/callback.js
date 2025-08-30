@@ -18,14 +18,82 @@ export default function AuthCallback() {
         console.log('[CALLBACK] Router query:', router.query)
         console.log('[CALLBACK] Router isReady:', router.isReady)
         
-        // 获取URL中的code和state参数
+        // 检查URL hash中的token（Implicit Flow）
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+        const refreshToken = hashParams.get('refresh_token')
+        const errorInHash = hashParams.get('error')
+        
+        // 获取URL query中的code参数（Authorization Code Flow）
         const { code, state, error: oauthError } = router.query
 
-        if (oauthError) {
-          console.error('[CALLBACK] OAuth返回错误:', oauthError)
-          throw new Error(`OAuth错误: ${oauthError}`)
+        console.log('[CALLBACK] 检查参数:', {
+          hasAccessToken: !!accessToken,
+          hasCode: !!code,
+          hasError: !!oauthError || !!errorInHash
+        })
+
+        if (oauthError || errorInHash) {
+          console.error('[CALLBACK] OAuth返回错误:', oauthError || errorInHash)
+          throw new Error(`OAuth错误: ${oauthError || errorInHash}`)
         }
 
+        // 处理Implicit Flow（token在hash中）
+        if (accessToken && refreshToken) {
+          console.log('[CALLBACK] 处理Implicit Flow token回调')
+          console.log('[CALLBACK] Access Token:', accessToken.substring(0, 20) + '...')
+          console.log('[CALLBACK] Refresh Token:', refreshToken.substring(0, 20) + '...')
+          
+          const expiresAt = parseInt(hashParams.get('expires_at'))
+          const tokenType = hashParams.get('token_type') || 'bearer'
+          
+          // 手动设置Supabase会话
+          const sessionData = {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_at: expiresAt,
+            token_type: tokenType,
+            user: null // Supabase会自动解析
+          }
+          
+          console.log('[CALLBACK] 设置Supabase会话...')
+          const { data, error } = await supabase.auth.setSession(sessionData)
+          
+          if (error) {
+            console.error('[CALLBACK] 设置会话失败:', error)
+            throw error
+          }
+
+          console.log('[CALLBACK] ✅ Implicit Flow会话建立成功!')
+          console.log('[CALLBACK] 用户信息:', {
+            id: data.session?.user.id,
+            email: data.session?.user.email,
+            name: data.session?.user.user_metadata?.name || data.session?.user.user_metadata?.full_name
+          })
+          
+          // 验证会话
+          const { data: { session: savedSession } } = await supabase.auth.getSession()
+          console.log('[CALLBACK] 验证保存的会话:', !!savedSession)
+          
+          // 处理跳转逻辑
+          const urlParams = new URLSearchParams(window.location.search)
+          const mode = urlParams.get('mode') || 'login'
+          const next = urlParams.get('next')
+          
+          console.log('[CALLBACK] 跳转参数:', { mode, next })
+          
+          if (mode === 'test' && next) {
+            console.log('[CALLBACK] 测试模式，跳转到:', next)
+            router.push(next)
+          } else {
+            console.log('[CALLBACK] 正常模式，跳转到:', `/auth?mode=${mode}`)
+            router.push(`/auth?mode=${mode}`)
+          }
+          
+          return
+        }
+        
+        // 处理Authorization Code Flow（code在query中）
         if (code) {
           console.log('[CALLBACK] 处理OAuth回调，code:', code.substring(0, 20) + '...')
           console.log('[CALLBACK] State参数:', state)
