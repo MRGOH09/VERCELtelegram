@@ -27,7 +27,7 @@ export default function SettingsPage() {
     try {
       const authResult = await PWAClient.checkAuth()
       if (!authResult.authenticated) {
-        router.replace('/login-supabase')
+        router.replace('/auth')
         return
       }
       
@@ -35,7 +35,7 @@ export default function SettingsPage() {
       await loadUserProfile()
     } catch (error) {
       console.error('认证检查失败:', error)
-      router.replace('/login-supabase')
+      router.replace('/auth')
     }
   }
 

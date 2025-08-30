@@ -46,13 +46,13 @@ export default function AuthCallback() {
         } else {
           // 没有code参数，可能是直接访问
           console.log('没有找到OAuth code参数')
-          router.push('/login-supabase')
+          router.push('/auth')
         }
       } catch (error) {
         console.error('Auth回调处理失败:', error)
         
         // 跳转到登录页面并显示错误
-        router.push('/login-supabase?error=' + encodeURIComponent(error.message))
+        router.push('/auth?error=' + encodeURIComponent(error.message))
       }
     }
 

@@ -46,10 +46,10 @@ class PWAClient {
         
         // 401错误处理 - 除非明确禁用跳转
         if (response.status === 401 && typeof window !== 'undefined' && !options.skipRedirect) {
-          // 避免在登录页重复跳转
-          if (!window.location.pathname.includes('/login')) {
-            console.log('用户未认证，跳转到Google登录页')
-            window.location.href = '/login-google'
+          // 避免在认证页重复跳转
+          if (!window.location.pathname.includes('/auth') && !window.location.pathname.includes('/login')) {
+            console.log('用户未认证，跳转到统一认证页')
+            window.location.href = '/auth'
             return
           }
         }

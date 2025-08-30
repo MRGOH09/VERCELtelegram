@@ -34,7 +34,7 @@ export default function ModernDashboard() {
     try {
       const authResult = await PWAClient.checkAuth()
       if (!authResult.authenticated) {
-        router.replace('/login-google')
+        router.replace('/auth')
         return
       }
       
@@ -46,7 +46,7 @@ export default function ModernDashboard() {
       loadDashboard()
     } catch (error) {
       console.error('认证检查失败:', error)
-      router.replace('/login-google')
+      router.replace('/auth')
     }
   }
   
@@ -72,7 +72,7 @@ export default function ModernDashboard() {
       console.error('Dashboard load error:', error)
       
       if (error.message.includes('Unauthorized')) {
-        router.replace('/login-supabase')
+        router.replace('/auth')
         return
       }
       
