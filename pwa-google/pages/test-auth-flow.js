@@ -35,6 +35,18 @@ export default function TestAuthFlow() {
     const urlParams = new URLSearchParams(window.location.search)
     if (urlParams.has('code')) {
       addLog('🔄 检测到OAuth回调，处理中...')
+      const code = urlParams.get('code')
+      addLog(`OAuth code: ${code}`)
+      
+      // 手动处理OAuth交换
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (error) {
+          addLog(`OAuth交换失败: ${error.message}`)
+        } else {
+          addLog(`OAuth交换成功: ${data.session?.user?.email}`)
+        }
+      })
+      
       // 清除URL参数以避免重复处理
       window.history.replaceState({}, document.title, window.location.pathname)
     }
@@ -83,10 +95,13 @@ export default function TestAuthFlow() {
   const handleGoogleLogin = async () => {
     addLog('开始Google OAuth登录...')
     try {
+      const redirectUrl = `${window.location.origin}/test-auth-flow`
+      addLog(`OAuth重定向URL: ${redirectUrl}`)
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?mode=test&next=/test-auth-flow`
+          redirectTo: redirectUrl
         }
       })
       

@@ -13,11 +13,14 @@ export default function AuthCallback() {
 
     const handleAuthCallback = async () => {
       try {
+        console.log('Callback页面开始处理:', window.location.href)
+        console.log('Router query:', router.query)
+        
         // 获取URL中的code和state参数
         const { code } = router.query
 
         if (code) {
-          console.log('处理OAuth回调...')
+          console.log('处理OAuth回调，code:', code)
           
           // Supabase会自动处理OAuth交换
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
