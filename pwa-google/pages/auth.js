@@ -106,12 +106,9 @@ export default function AuthPage() {
             console.log('[AUTH] 用户已存在，跳转到首页')
             router.push('/')
           } else {
-            console.log('[AUTH] 用户不存在，切换到注册模式')
-            // 用户不存在，给用户选择注册模式
-            if (currentMode === 'login') {
-              setError('此Google账号尚未注册，请选择注册方式')
-            }
-            setMode('select-registration-type')
+            console.log('[AUTH] 用户不存在，跳转到完整注册')
+            // KISS: 直接跳转到完整注册页面
+            router.push('/enhanced-registration')
           }
         } else {
           console.error('[AUTH] 检查用户存在失败')
@@ -150,8 +147,9 @@ export default function AuthPage() {
             router.replace('/')
             return
           } else {
-            console.log('[AUTH] 用户不存在，切换到注册模式选择')
-            setMode('select-registration-type')
+            console.log('[AUTH] 用户不存在，跳转到完整注册')
+            // KISS: 直接跳转到完整注册页面
+            router.push('/enhanced-registration')
           }
         }
       } else {
@@ -316,111 +314,6 @@ export default function AuthPage() {
     )
   }
   
-  // 选择注册类型
-  if (mode === 'select-registration-type') {
-    return (
-      <WebAppWrapper>
-        <Layout title="选择注册方式 - Learner Club">
-          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-            <div className="max-w-md mx-auto pt-8">
-              {/* Logo和标题 */}
-              <div className="text-center mb-8">
-                <div className="text-6xl mb-4">🎯</div>
-                <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                  选择注册方式
-                </h1>
-                <p className="text-gray-600">
-                  选择最适合你的注册体验
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                {/* 快速注册选项 */}
-                <ModernCard className="p-6 hover:shadow-lg transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-blue-200"
-                  onClick={() => setMode('complete-registration')}
-                >
-                  <div className="flex items-start space-x-4">
-                    <div className="text-3xl">⚡</div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        快速注册
-                      </h3>
-                      <p className="text-gray-600 text-sm mb-3">
-                        只填写基本信息，快速开始使用
-                      </p>
-                      <div className="text-xs text-gray-500">
-                        <div className="flex items-center mb-1">
-                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                          4个基本字段
-                        </div>
-                        <div className="flex items-center mb-1">
-                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                          1分钟完成
-                        </div>
-                        <div className="flex items-center">
-                          <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                          后续可在设置中完善
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-blue-500 text-xl">→</div>
-                  </div>
-                </ModernCard>
-
-                {/* 完整注册选项 */}
-                <ModernCard className="p-6 hover:shadow-lg transition-all duration-200 cursor-pointer border-2 border-transparent hover:border-green-200"
-                  onClick={() => router.push('/enhanced-registration')}
-                >
-                  <div className="flex items-start space-x-4">
-                    <div className="text-3xl">🏆</div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        完整注册 <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full ml-2">推荐</span>
-                      </h3>
-                      <p className="text-gray-600 text-sm mb-3">
-                        一次性完善所有资料，获得最佳体验
-                      </p>
-                      <div className="text-xs text-gray-500 mb-3">
-                        <div className="flex items-center mb-1">
-                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                          个人信息 + 财务设置
-                        </div>
-                        <div className="flex items-center mb-1">
-                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                          年度预算规划
-                        </div>
-                        <div className="flex items-center">
-                          <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                          系统个性化设置
-                        </div>
-                      </div>
-                      <div className="bg-green-50 p-3 rounded-lg">
-                        <div className="text-xs text-green-800">
-                          <span className="font-medium">获得额外功能:</span>
-                          <div className="mt-1 space-y-0.5">
-                            <div>• 🏖️ 智能旅游基金分摊</div>
-                            <div>• 🏥 保险费用自动计算</div>
-                            <div>• 📱 个性化推送通知</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-green-500 text-xl">→</div>
-                  </div>
-                </ModernCard>
-              </div>
-
-              {/* 底部说明 */}
-              <div className="mt-6 text-center text-sm text-gray-500">
-                <p>💡 选择任一方式后都可以在设置中随时修改资料</p>
-              </div>
-            </div>
-          </div>
-        </Layout>
-      </WebAppWrapper>
-    )
-  }
-
   // 完成注册步骤
   if (mode === 'complete-registration') {
     return (
