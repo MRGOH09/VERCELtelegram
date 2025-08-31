@@ -197,16 +197,31 @@ export default function AuthPage() {
     setError(null)
     
     try {
-      // 验证表单
-      if (!formData.displayName || !formData.branchCode || 
-          !formData.monthlyIncome || !formData.expensePercentage) {
-        throw new Error('请填写所有必填字段')
+      // 详细验证表单
+      if (!formData.displayName || formData.displayName.trim().length < 2) {
+        throw new Error('昵称至少需要2个字符')
       }
+      
+      if (!formData.branchCode) {
+        throw new Error('请选择所属分行')
+      }
+      
+      if (!formData.monthlyIncome || formData.monthlyIncome <= 0) {
+        throw new Error('请输入有效的月收入')
+      }
+      
+      if (formData.expensePercentage === '' || formData.expensePercentage < 0 || formData.expensePercentage > 100) {
+        throw new Error('开销占比应该在0-100%之间')
+      }
+      
+      console.log('表单验证通过，准备提交:', formData)
       
       // 获取当前用户和会话
       const { data: { user } } = await supabase.auth.getUser()
       const { data: { session } } = await supabase.auth.getSession()
       if (!user || !session) throw new Error('用户未登录')
+      
+      console.log('用户信息:', { userId: user.id, email: user.email })
       
       // 调用API保存额外信息 - 使用新的register-google-user API
       const response = await fetch('/api/pwa/register-google-user', {
@@ -216,19 +231,25 @@ export default function AuthPage() {
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          displayName: formData.displayName,
+          displayName: formData.displayName.trim(),
           branchCode: formData.branchCode,
-          monthlyIncome: formData.monthlyIncome,
-          expensePercentage: formData.expensePercentage
+          monthlyIncome: parseInt(formData.monthlyIncome),
+          expensePercentage: parseInt(formData.expensePercentage)
         })
       })
       
+      const responseData = await response.json()
+      console.log('API响应:', responseData)
+      
       if (!response.ok) {
-        throw new Error('注册信息保存失败')
+        throw new Error(responseData.error || '注册信息保存失败')
       }
       
       console.log('注册完成，跳转到首页')
-      router.push('/')
+      // 添加短暂延迟让用户看到成功状态
+      setTimeout(() => {
+        router.push('/')
+      }, 1000)
       
     } catch (error) {
       console.error('完成注册失败:', error)
@@ -260,88 +281,153 @@ export default function AuthPage() {
         <Layout title="完成注册 - Learner Club">
           <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
             <div className="max-w-md mx-auto pt-8">
+              {/* Logo和标题 */}
+              <div className="text-center mb-8">
+                <div className="text-6xl mb-4">🎉</div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  欢迎加入 Learner Club
+                </h1>
+                <p className="text-gray-600">
+                  最后一步，完善您的个人资料
+                </p>
+              </div>
+              
               <ModernCard>
-                <h2 className="text-xl font-bold text-center mb-6">完成注册信息</h2>
+                <div className="text-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-2">完成注册信息</h2>
+                  <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                    <div className="w-8 h-1 bg-blue-500 rounded"></div>
+                    <div className="w-8 h-1 bg-blue-500 rounded"></div>
+                    <div className="w-8 h-1 bg-blue-200 rounded"></div>
+                  </div>
+                </div>
                 
                 <div className="space-y-4">
                   {/* 昵称 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                      <span className="text-lg mr-2">👤</span>
                       昵称
                     </label>
                     <input
                       type="text"
                       value={formData.displayName}
                       onChange={(e) => setFormData({...formData, displayName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="输入您的昵称"
                     />
                   </div>
                   
                   {/* 分行选择 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                      <span className="text-lg mr-2">🏢</span>
                       所属分行
                     </label>
-                    <select
-                      value={formData.branchCode}
-                      onChange={(e) => setFormData({...formData, branchCode: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">选择分行</option>
-                      {BRANCH_OPTIONS.map(branch => (
-                        <option key={branch} value={branch}>{branch}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={formData.branchCode}
+                        onChange={(e) => setFormData({...formData, branchCode: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none bg-white"
+                      >
+                        <option value="">-- 请选择分行 --</option>
+                        {BRANCH_OPTIONS.map(branch => (
+                          <option key={branch} value={branch}>{branch}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3">
+                        <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* 月收入 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                      <span className="text-lg mr-2">💰</span>
                       月收入 (RM)
                     </label>
                     <input
                       type="number"
                       value={formData.monthlyIncome}
                       onChange={(e) => setFormData({...formData, monthlyIncome: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="例如: 5000"
+                      min="0"
                     />
                   </div>
                   
                   {/* 开销占比 */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="space-y-2">
+                    <label className="flex items-center text-sm font-medium text-gray-700">
+                      <span className="text-lg mr-2">📊</span>
                       生活开销占比 (%)
                     </label>
-                    <input
-                      type="number"
-                      value={formData.expensePercentage}
-                      onChange={(e) => setFormData({...formData, expensePercentage: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="例如: 60"
-                      min="0"
-                      max="100"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={formData.expensePercentage}
+                        onChange={(e) => setFormData({...formData, expensePercentage: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="例如: 60"
+                        min="0"
+                        max="100"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-4">
+                        <span className="text-gray-400 text-sm">%</span>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* 错误提示 */}
                   {error && (
-                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{error}</p>
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start">
+                      <span className="text-red-500 mr-2">⚠️</span>
+                      <p className="text-sm text-red-600 flex-1">{error}</p>
                     </div>
                   )}
                   
                   {/* 提交按钮 */}
                   <button
                     onClick={handleCompleteRegistration}
-                    disabled={loading}
-                    className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                    disabled={loading || !formData.displayName || !formData.branchCode || !formData.monthlyIncome || !formData.expensePercentage}
+                    className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    {loading ? '保存中...' : '完成注册'}
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        保存中...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center">
+                        <span className="mr-2">🎉</span>
+                        完成注册
+                      </div>
+                    )}
                   </button>
                 </div>
               </ModernCard>
+              
+              {/* 底部说明 */}
+              <div className="mt-6 text-center text-sm text-gray-500">
+                <p className="mb-2">完成注册后，您将可以：</p>
+                <div className="flex justify-center space-x-4 text-xs">
+                  <div className="flex items-center">
+                    <span className="mr-1">📊</span>
+                    财务数据分析
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-1">🏆</span>
+                    分院排行榜
+                  </div>
+                  <div className="flex items-center">
+                    <span className="mr-1">📱</span>
+                    PWA离线支持
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </Layout>
