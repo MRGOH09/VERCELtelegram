@@ -84,14 +84,30 @@ export default function AuthPage() {
           : 'login'
         console.log('[DEBUG] 从URL重新读取的mode:', currentMode)
         
-        // 如果是注册模式，需要完成额外信息
-        if (currentMode === 'register') {
-          // 切换到完成注册步骤
-          setMode('complete-registration')
+        // 检查用户是否在数据库中存在
+        console.log('[AUTH] 检查用户是否在数据库中存在')
+        const response = await fetch('/api/pwa/auth-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.userExists) {
+            console.log('[AUTH] 用户已存在，跳转到首页')
+            router.push('/')
+          } else {
+            console.log('[AUTH] 用户不存在，切换到注册模式')
+            // 用户不存在，切换到注册模式
+            if (currentMode === 'login') {
+              setError('此Google账号尚未注册，请先完成注册流程')
+            }
+            setMode('complete-registration')
+          }
         } else {
-          // 登录模式 - 检查用户是否已在系统中存在
-          console.log('[AUTH] 登录模式：开始检查用户是否存在', 'currentMode=', currentMode)
-          checkUserExists(session.user.email)
+          console.error('[AUTH] 检查用户存在失败')
+          setError('检查用户状态失败，请重试')
         }
       }
       
@@ -111,9 +127,30 @@ export default function AuthPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        console.log('用户已登录:', session.user)
-        router.replace('/')
-        return
+        console.log('发现Supabase session，检查用户是否在数据库中存在')
+        
+        // 检查用户是否在数据库中存在
+        try {
+          const response = await fetch('/api/pwa/auth-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: session.user.email })
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            if (result.userExists) {
+              console.log('用户存在于数据库，跳转到首页')
+              router.replace('/')
+              return
+            } else {
+              console.log('用户不存在于数据库，停留在认证页面等待注册')
+              // 不跳转，让用户选择注册
+            }
+          }
+        } catch (error) {
+          console.error('检查用户存在性失败:', error)
+        }
       }
     } catch (error) {
       console.log('Not authenticated:', error)
@@ -122,48 +159,7 @@ export default function AuthPage() {
     }
   }
   
-  // 检查用户是否已在系统中存在
-  const checkUserExists = async (email) => {
-    try {
-      console.log(`检查用户是否存在: ${email}`)
-      
-      // 调用API检查用户是否存在
-      const response = await fetch('/api/pwa/auth-check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      })
-      
-      if (!response.ok) {
-        throw new Error('检查用户状态失败')
-      }
-      
-      const result = await response.json()
-      console.log('API返回结果:', result)
-      
-      if (result.userExists) {
-        console.log('用户已存在，允许登录')
-        // 用户存在，跳转到首页
-        router.push('/')
-      } else {
-        console.log('用户不存在，提示需要注册')
-        // 用户不存在，先登出，然后提示注册
-        await supabase.auth.signOut()
-        
-        // 显示错误信息并切换到注册模式
-        console.log('设置错误信息并切换到注册模式')
-        setError('此Google账号尚未注册，请先完成注册流程')
-        setMode('register')
-        setLoading(false)
-      }
-    } catch (error) {
-      console.error('检查用户存在失败:', error)
-      setError('登录检查失败，请重试')
-      setLoading(false)
-    }
-  }
+  // 这个函数已经整合到onAuthStateChange中，不再需要单独的checkUserExists
   
   // Google OAuth处理
   const handleGoogleAuth = async () => {
