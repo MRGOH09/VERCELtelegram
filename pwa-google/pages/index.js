@@ -9,7 +9,7 @@ import PWAInstallPrompt from '../components/PWAInstallPrompt'
 import QuickActions from '../components/QuickActions'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 import { BarChart, DonutChart, CategoryBredown } from '../components/Charts'
-import SpendingInsights, { BudgetControl, RecordStatistics } from '../components/SpendingInsights'
+import { BudgetControl, RecordStatistics } from '../components/SpendingInsights'
 
 export default function ModernDashboard() {
   const router = useRouter()
@@ -207,8 +207,6 @@ export default function ModernDashboard() {
             }}
           />
           
-          {/* 智能建议 */}
-          <SpendingInsights data={data} categoryDetails={data?.categoryDetails} />
           
           {/* 最近活动 */}
           <RecentActivity records={data?.recent} />
@@ -642,11 +640,6 @@ function EnhancedBudgetControl({ data }) {
               }
             </p>
             
-            {!isOverBudget && daysLeft > 0 && (
-              <p className="text-xs text-gray-600 mt-2">
-                💡 建议每日开销控制在 RM {dailyBudget.toFixed(2)} 以内
-              </p>
-            )}
           </div>
         </div>
         
@@ -736,24 +729,18 @@ function EnhancedExpenseChart({ data }) {
         />
       </div>
       
-      {/* 占比分析建议 */}
+      {/* LEARNER CLUB 理财理念 */}
       <div className="mt-6 p-4 bg-blue-50 rounded-xl">
-        <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 LEARNER CLUB 理财建议</h4>
+        <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 LEARNER CLUB 理财理念</h4>
         <div className="space-y-1">
           <p className="text-xs text-blue-800">
-            {percentage_a > 60 
-              ? '• 开销占比偏高，建议优化日常支出结构'
-              : '• 开销控制良好，继续保持理性消费'}
+            • 开销 33% - 合理控制日常生活支出
           </p>
           <p className="text-xs text-blue-800">
-            {percentage_b < 10
-              ? '• 学习投资偏低，建议增加自我提升投入'
-              : '• 学习投资合理，知识就是力量'}
+            • 学习 33% - 持续投资自我提升和技能
           </p>
           <p className="text-xs text-blue-800">
-            {percentage_c < 20
-              ? '• 储蓄率偏低，建议提高财务安全边际'
-              : '• 储蓄习惯良好，财务未来可期'}
+            • 储蓄 33% - 稳健积累财富安全边际
           </p>
         </div>
       </div>
