@@ -212,17 +212,18 @@ export default function AuthPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!user || !session) throw new Error('用户未登录')
       
-      // 调用API保存额外信息
-      const response = await fetch('/api/pwa/complete-registration', {
+      // 调用API保存额外信息 - 使用新的register-google-user API
+      const response = await fetch('/api/pwa/register-google-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          userId: user.id,
-          email: user.email,
-          ...formData
+          displayName: formData.displayName,
+          branchCode: formData.branchCode,
+          monthlyIncome: formData.monthlyIncome,
+          expensePercentage: formData.expensePercentage
         })
       })
       

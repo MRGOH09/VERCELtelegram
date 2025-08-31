@@ -46,14 +46,66 @@ export default async function handler(req, res) {
     }
 
     // 检查用户是否已存在
-    const { data: existingUser } = await supabase
+    const { data: existingProfile } = await supabase
       .from('user_profile')
       .select('user_id')
       .eq('email', user.email)
       .single()
 
-    if (existingUser) {
-      return res.status(400).json({ error: '用户已存在' })
+    if (existingProfile) {
+      console.log(`[Register Google User] 用户已存在: ${existingProfile.user_id}`)
+      return res.status(400).json({ error: '用户已存在', userId: existingProfile.user_id })
+    }
+    
+    // 检查是否有同email的users记录（可能之前创建了但没有profile）
+    const { data: existingUserByEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('name', user.email)
+      .single()
+      
+    if (existingUserByEmail) {
+      console.log(`[Register Google User] 发现孤立的users记录: ${existingUserByEmail.id}`)
+      // 如果有孤立的users记录，使用它而不是创建新的
+      const { error: profileError } = await supabase
+        .from('user_profile')
+        .insert({
+          user_id: existingUserByEmail.id,
+          display_name: displayName.trim(),
+          monthly_income: monthlyIncome,
+          a_pct: expensePercentage,
+          email: user.email,
+          google_id: user.id
+        })
+        
+      if (profileError) {
+        console.error('[Register Google User] 为孤立用户创建profile失败:', profileError)
+        throw profileError
+      }
+      
+      // 更新users记录
+      await supabase
+        .from('users')
+        .update({
+          branch_code: branchCode,
+          status: 'active',
+          source: 'google_oauth'
+        })
+        .eq('id', existingUserByEmail.id)
+      
+      return res.status(200).json({
+        success: true,
+        message: '注册成功（使用现有用户记录）',
+        user: {
+          id: existingUserByEmail.id,
+          email: user.email,
+          name: user.email,
+          branch_code: branchCode,
+          display_name: displayName,
+          monthly_income: monthlyIncome,
+          expense_percentage: expensePercentage
+        }
+      })
     }
 
     console.log(`[Register Google User] 创建新用户记录`)
