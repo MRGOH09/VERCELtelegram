@@ -193,10 +193,13 @@ export default function AuthPage() {
   
   // 完成注册（添加额外信息）
   const handleCompleteRegistration = async () => {
+    console.log('🚀 开始注册流程...')
     setLoading(true)
     setError(null)
     
     try {
+      console.log('📋 验证表单数据:', formData)
+      
       // 详细验证表单
       if (!formData.displayName || formData.displayName.trim().length < 2) {
         throw new Error('昵称至少需要2个字符')
@@ -214,46 +217,77 @@ export default function AuthPage() {
         throw new Error('开销占比应该在0-100%之间')
       }
       
-      console.log('表单验证通过，准备提交:', formData)
+      console.log('✅ 表单验证通过')
       
       // 获取当前用户和会话
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!user || !session) throw new Error('用户未登录')
+      console.log('🔐 获取用户会话...')
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      console.log('用户信息:', { userId: user.id, email: user.email })
+      if (userError) {
+        console.error('❌ 获取用户失败:', userError)
+        throw new Error('获取用户信息失败: ' + userError.message)
+      }
       
-      // 调用API保存额外信息 - 使用新的register-google-user API
+      if (sessionError) {
+        console.error('❌ 获取会话失败:', sessionError)
+        throw new Error('获取会话失败: ' + sessionError.message)
+      }
+      
+      if (!user || !session) {
+        console.error('❌ 用户或会话不存在')
+        throw new Error('用户未登录')
+      }
+      
+      console.log('✅ 用户信息:', { userId: user.id, email: user.email })
+      
+      // 准备API请求数据
+      const requestData = {
+        displayName: formData.displayName.trim(),
+        branchCode: formData.branchCode,
+        monthlyIncome: parseInt(formData.monthlyIncome),
+        expensePercentage: parseInt(formData.expensePercentage)
+      }
+      
+      console.log('📤 发送API请求:', requestData)
+      
+      // 调用API保存额外信息
       const response = await fetch('/api/pwa/register-google-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
         },
-        body: JSON.stringify({
-          displayName: formData.displayName.trim(),
-          branchCode: formData.branchCode,
-          monthlyIncome: parseInt(formData.monthlyIncome),
-          expensePercentage: parseInt(formData.expensePercentage)
-        })
+        body: JSON.stringify(requestData)
       })
       
-      const responseData = await response.json()
-      console.log('API响应:', responseData)
+      console.log('📥 API响应状态:', response.status, response.statusText)
       
-      if (!response.ok) {
-        throw new Error(responseData.error || '注册信息保存失败')
+      let responseData
+      try {
+        responseData = await response.json()
+        console.log('📄 API响应数据:', responseData)
+      } catch (parseError) {
+        console.error('❌ 解析响应失败:', parseError)
+        throw new Error('服务器响应格式错误')
       }
       
-      console.log('注册完成，跳转到首页')
-      // 添加短暂延迟让用户看到成功状态
+      if (!response.ok) {
+        console.error('❌ API请求失败:', responseData)
+        throw new Error(responseData.error || `请求失败 (${response.status})`)
+      }
+      
+      console.log('🎉 注册成功！准备跳转...')
+      
+      // 短暂延迟显示成功状态
       setTimeout(() => {
+        console.log('🔄 跳转到首页')
         router.push('/')
-      }, 1000)
+      }, 1500)
       
     } catch (error) {
-      console.error('完成注册失败:', error)
-      setError(error.message)
+      console.error('💥 注册失败:', error)
+      setError(error.message || '注册过程中发生未知错误')
       setLoading(false)
     }
   }
