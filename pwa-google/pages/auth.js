@@ -251,14 +251,16 @@ export default function AuthPage() {
       
       console.log('📤 发送API请求:', requestData)
       
-      // 调用API保存额外信息
-      const response = await fetch('/api/pwa/register-google-user', {
+      // 使用简化的注册API
+      const response = await fetch('/api/quick-register', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+          ...requestData,
+          userEmail: user.email
+        })
       })
       
       console.log('📥 API响应状态:', response.status, response.statusText)
