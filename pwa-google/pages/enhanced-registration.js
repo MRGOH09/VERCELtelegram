@@ -356,9 +356,6 @@ export default function EnhancedRegistrationPage() {
                         <span className="text-gray-400 text-sm">%</span>
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      💡 建议：日常开销控制在收入的50-70%内
-                    </div>
                   </div>
 
                   {formData.monthlyIncome > 0 && formData.expensePercentage > 0 && (
