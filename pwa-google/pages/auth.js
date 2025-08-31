@@ -135,33 +135,30 @@ export default function AuthPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        console.log('发现Supabase session，检查用户是否在数据库中存在')
+        console.log('[AUTH] 发现已登录session，检查用户是否存在')
         
-        // 检查用户是否在数据库中存在
-        try {
-          const response = await fetch('/api/pwa/auth-check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: session.user.email })
-          })
-          
-          if (response.ok) {
-            const result = await response.json()
-            if (result.userExists) {
-              console.log('用户存在于数据库，跳转到首页')
-              router.replace('/')
-              return
-            } else {
-              console.log('用户不存在于数据库，停留在认证页面等待注册')
-              // 不跳转，让用户选择注册
-            }
+        const response = await fetch('/api/pwa/auth-check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.userExists) {
+            console.log('[AUTH] 用户存在，跳转到首页')
+            router.replace('/')
+            return
+          } else {
+            console.log('[AUTH] 用户不存在，切换到注册模式')
+            setMode('complete-registration')
           }
-        } catch (error) {
-          console.error('检查用户存在性失败:', error)
         }
+      } else {
+        console.log('[AUTH] 无session，留在认证页')
       }
     } catch (error) {
-      console.log('Not authenticated:', error)
+      console.log('[AUTH] 认证检查失败:', error)
     } finally {
       setChecking(false)
     }

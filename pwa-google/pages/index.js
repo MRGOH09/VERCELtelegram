@@ -32,17 +32,37 @@ export default function ModernDashboard() {
   
   const checkAuthAndLoadDashboard = async () => {
     try {
-      const authResult = await PWAClient.checkAuth()
-      if (!authResult.authenticated) {
+      // KISS: 直接用Supabase检查session，避免复杂API调用
+      const { createClient } = require('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.log('[AUTH] 无session，跳转到登录页')
         router.replace('/auth')
         return
       }
       
-      // 检查是否需要完成注册
-      if (authResult.needsRegistration) {
-        router.replace('/register')
-        return
+      // 检查用户是否在数据库中存在
+      const response = await fetch('/api/pwa/auth-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: session.user.email })
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (!result.userExists) {
+          console.log('[AUTH] 用户不存在，跳转到注册页')
+          router.replace('/auth?mode=complete-registration')
+          return
+        }
       }
+      
+      console.log('[AUTH] 用户已认证，加载仪表板')
       loadDashboard()
     } catch (error) {
       console.error('认证检查失败:', error)
