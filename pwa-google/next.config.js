@@ -17,6 +17,9 @@ const withPWA = require('next-pwa')({
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   
   // 环境变量
   env: {

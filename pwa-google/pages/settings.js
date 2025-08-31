@@ -5,6 +5,7 @@ import ModernCard from '../components/ModernCard'
 import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient from '../lib/api'
+import { InstallPWAButton } from '../components/PWAInstallPrompt'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -651,6 +652,15 @@ export default function SettingsPage() {
                       <span className="text-gray-700">应用版本</span>
                     </div>
                     <span className="font-medium text-gray-900">PWA v1.0.0</span>
+                  </div>
+                  
+                  {/* PWA安装按钮 */}
+                  <div className="flex items-center justify-between py-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-lg">⬇️</span>
+                      <span className="text-gray-700">安装到设备</span>
+                    </div>
+                    <InstallPWAButton className="text-sm px-3 py-1" />
                   </div>
                   
                   <div className="flex items-center justify-between py-2">

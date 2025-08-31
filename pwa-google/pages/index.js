@@ -4,7 +4,8 @@ import Layout from '../components/Layout'
 import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } from '../components/ModernCard'
 import { SmoothTransition, useSmartPreload, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
-import TelegramJumpOut, { TelegramJumpBanner } from '../components/TelegramJumpOut'
+import PullToRefresh from '../components/PullToRefresh'
+import PWAInstallPrompt from '../components/PWAInstallPrompt'
 import QuickActions from '../components/QuickActions'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
 import { BarChart, DonutChart, CategoryBredown } from '../components/Charts'
@@ -17,7 +18,7 @@ export default function ModernDashboard() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [showSkeleton, setShowSkeleton] = useState(false)
-  const [showTelegramJump, setShowTelegramJump] = useState(false)
+  // Telegram跳转已移除
   const { preloadPage } = useSmartPreload()
   
   useEffect(() => {
@@ -151,12 +152,8 @@ export default function ModernDashboard() {
   return (
     <WebAppWrapper>
       <Layout title="首页 - Learner Club">
-        {/* Telegram跳转横幅 */}
-        <TelegramJumpBanner 
-          onShow={() => setShowTelegramJump(true)}
-          onDismiss={() => {}}
-        />
         
+      <PullToRefresh onRefresh={handleRefresh}>
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         
@@ -221,11 +218,10 @@ export default function ModernDashboard() {
         
         </div>
       </SmoothTransition>
+      </PullToRefresh>
       
-      {/* Telegram跳转引导弹窗 */}
-      {showTelegramJump && (
-        <TelegramJumpOut onDismiss={() => setShowTelegramJump(false)} />
-      )}
+      {/* PWA安装提示 */}
+      <PWAInstallPrompt />
       
       {/* 快速操作按钮 */}
       <QuickActions />
@@ -411,7 +407,7 @@ function RecentActivity({ records }) {
           <div className="text-6xl mb-4">📝</div>
           <p className="text-gray-500 text-lg">暂无活动记录</p>
           <p className="text-sm text-gray-400 mt-2">
-            使用Telegram Bot开始记录财务数据
+            点击右下角按钮开始记录财务数据
           </p>
         </div>
       </ModernCard>
