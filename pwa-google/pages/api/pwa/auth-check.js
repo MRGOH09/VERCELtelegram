@@ -29,12 +29,13 @@ export default async function handler(req, res) {
         .eq('email', email)
         .single()
       
-      const userExists = !error && profileData
+      const userExists = !error && !!profileData  // KISS: 转换为boolean值
       
       console.log(`[Auth Check] Email ${email} 存在: ${userExists}`)
+      console.log(`[Auth Check] Profile data:`, profileData)
       
       return res.status(200).json({
-        userExists
+        userExists  // 现在已经是boolean了
       })
     }
     
