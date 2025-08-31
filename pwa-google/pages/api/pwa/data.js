@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-import { validateJWTToken, formatYMD, getYYYYMM, getEndOfMonth } from '../../../lib/auth'
+import { formatYMD, getYYYYMM, getEndOfMonth } from '../../../lib/auth'
 
+// KISS: 使用Vercel-Supabase集成环境变量
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
 export default async function handler(req, res) {
@@ -27,61 +28,104 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' })
     }
     
-    // JWT Token验证
-    const user = await validateJWTToken(req)
-    if (!user) {
+    // KISS: Supabase原生认证验证
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ 
         error: 'Unauthorized',
-        message: '请先登录Google账号',
-        redirect: '/login-google'
+        message: '请先登录'
       })
     }
     
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    
+    if (authError || !user) {
+      return res.status(401).json({ 
+        error: 'Unauthorized',
+        message: '认证失败'
+      })
+    }
+    
+    console.log(`[PWA Data] 认证用户: ${user.id} (${user.email})`)
+    
+    // 获取用户在数据库中的信息
+    const { data: userProfile, error: profileError } = await supabase
+      .from('user_profile')
+      .select(`
+        user_id,
+        email,
+        display_name,
+        users!inner (
+          id,
+          name,
+          branch_code,
+          status
+        )
+      `)
+      .eq('email', user.email)
+      .single()
+      
+    if (profileError) {
+      console.error('[PWA Data] 用户资料查询失败:', profileError)
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: '用户资料不存在'
+      })
+    }
+    
+    const dbUser = {
+      id: userProfile.users.id,
+      email: userProfile.email,
+      name: userProfile.users.name,
+      branch_code: userProfile.users.branch_code
+    }
+    
     const { action, ...params } = req.body
-    console.log(`[PWA Data] 处理请求: action=${action}, user=${user.id}`)
+    console.log(`[PWA Data] 处理请求: action=${action}, user=${dbUser.id}`)
     
     switch (action) {
       case 'dashboard':
-        return await getDashboardData(user.id, res)
+        return await getDashboardData(dbUser.id, res)
         
       case 'profile':
-        return await getProfileData(user.id, res)
+        return await getProfileData(dbUser.id, res)
         
       case 'history':
-        return await getHistoryData(user.id, params, res)
+        return await getHistoryData(dbUser.id, params, res)
         
       case 'check-auth':
-        return res.json({ authenticated: true, user: { id: user.id, name: user.name, branch: user.branch_code } })
+        return res.json({ authenticated: true, user: { id: dbUser.id, name: dbUser.name, branch: dbUser.branch_code } })
         
       case 'subscribe-push':
-        return await subscribePushNotification(user.id, params, res)
+        return await subscribePushNotification(dbUser.id, params, res)
         
       case 'unsubscribe-push':
-        return await unsubscribePushNotification(user.id, res)
+        return await unsubscribePushNotification(dbUser.id, res)
         
       case 'test-push-notification':
-        return await sendTestPushNotification(user.id, res)
+        return await sendTestPushNotification(dbUser.id, res)
         
       case 'verify-subscription':
-        return await verifyPushSubscription(user.id, res)
+        return await verifyPushSubscription(dbUser.id, res)
         
       case 'add-record':
-        return await addRecord(user.id, params, res)
+        return await addRecord(dbUser.id, params, res)
         
       case 'batch-add-records':
-        return await batchAddRecords(user.id, params, res)
+        return await batchAddRecords(dbUser.id, params, res)
         
       case 'delete-record':
-        return await deleteRecord(user.id, params, res)
+        return await deleteRecord(dbUser.id, params, res)
         
       case 'update-record':
-        return await updateRecord(user.id, params, res)
+        return await updateRecord(dbUser.id, params, res)
         
       case 'checkin':
-        return await handleCheckIn(user.id, res)
+        return await handleCheckIn(dbUser.id, res)
         
       case 'check-checkin-status':
-        return await checkCheckInStatus(user.id, res)
+        return await checkCheckInStatus(dbUser.id, res)
         
       default:
         return res.status(400).json({ error: 'Invalid action' })
