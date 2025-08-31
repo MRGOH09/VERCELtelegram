@@ -17,6 +17,16 @@ export default function DebugBatch() {
       isValid: true
     }
 
+    // 验证记录有效性
+    const isRecordValid = testRecord.date && testRecord.category && testRecord.amount && parseFloat(testRecord.amount) > 0
+    console.log('记录验证:', {
+      hasDate: !!testRecord.date,
+      hasCategory: !!testRecord.category,
+      hasAmount: !!testRecord.amount,
+      amountIsPositive: parseFloat(testRecord.amount) > 0,
+      isValid: isRecordValid
+    })
+
     try {
       console.log('发送的数据:', { records: [testRecord] })
 

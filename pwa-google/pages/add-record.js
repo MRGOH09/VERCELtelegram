@@ -180,8 +180,8 @@ export default function AddRecordPage() {
     setBatchRecords(prev => prev.map((record, i) => {
       if (i === index) {
         const updated = { ...record, [field]: value }
-        // 实时验证
-        updated.isValid = updated.date && updated.amount && parseFloat(updated.amount) > 0
+        // 实时验证 - 需要日期、金额和分类
+        updated.isValid = updated.date && updated.category && updated.amount && parseFloat(updated.amount) > 0
         return updated
       }
       return record
