@@ -17,9 +17,7 @@ export default async function handler(req, res) {
     userEmail,
     travelBudget,
     medicalInsurance,
-    carInsurance,
-    enablePushNotifications,
-    preferredNotificationTime
+    carInsurance
   } = req.body
   
   console.log('收到增强版注册数据:', { 
@@ -31,9 +29,7 @@ export default async function handler(req, res) {
     userEmail,
     travelBudget,
     medicalInsurance,
-    carInsurance,
-    enablePushNotifications,
-    preferredNotificationTime
+    carInsurance
   })
   
   // 基础验证 - KISS
@@ -102,11 +98,6 @@ export default async function handler(req, res) {
     
     console.log('增强版user_profile创建成功')
 
-    // Step 3: 如果启用了推送通知，可以在这里做一些初始化工作
-    if (enablePushNotifications) {
-      console.log('用户启用了推送通知，记录偏好设置')
-      // 这里可以添加推送服务的初始化逻辑
-    }
 
     console.log('=== 增强版注册完成 ===')
 
@@ -125,8 +116,7 @@ export default async function handler(req, res) {
       message: '增强版注册成功',
       preview: {
         monthlyBudget,
-        totalAnnualCommitments: (parseFloat(travelBudget) || 0) + (parseFloat(medicalInsurance) || 0) + (parseFloat(carInsurance) || 0),
-        pushNotificationsEnabled: enablePushNotifications
+        totalAnnualCommitments: (parseFloat(travelBudget) || 0) + (parseFloat(medicalInsurance) || 0) + (parseFloat(carInsurance) || 0)
       }
     })
 

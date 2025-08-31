@@ -32,11 +32,7 @@ export default function EnhancedRegistrationPage() {
     // 步骤3: 年度预算规划
     travelBudget: '',
     medicalInsurance: '',
-    carInsurance: '',
-    
-    // 步骤4: 系统偏好
-    enablePushNotifications: true,
-    preferredNotificationTime: '18:00'
+    carInsurance: ''
   })
 
   // 分行选项
@@ -104,8 +100,6 @@ export default function EnhancedRegistrationPage() {
                formData.expensePercentage <= 100
       case 3:
         return true // 年度预算是可选的
-      case 4:
-        return true // 系统偏好是可选的
       default:
         return false
     }
@@ -114,7 +108,7 @@ export default function EnhancedRegistrationPage() {
   // 下一步
   const nextStep = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4))
+      setCurrentStep(prev => Math.min(prev + 1, 3))
       setError(null)
     } else {
       setError('请填写所有必填字段')
@@ -167,11 +161,7 @@ export default function EnhancedRegistrationPage() {
           // 年度预算
           travelBudget: parseFloat(formData.travelBudget) || 0,
           medicalInsurance: parseFloat(formData.medicalInsurance) || 0,
-          carInsurance: parseFloat(formData.carInsurance) || 0,
-          
-          // 系统偏好
-          enablePushNotifications: formData.enablePushNotifications,
-          preferredNotificationTime: formData.preferredNotificationTime
+          carInsurance: parseFloat(formData.carInsurance) || 0
         })
       })
 
@@ -201,7 +191,7 @@ export default function EnhancedRegistrationPage() {
   // 进度条
   const ProgressBar = () => (
     <div className="flex items-center justify-center space-x-2 mb-8">
-      {[1, 2, 3, 4].map((step) => (
+      {[1, 2, 3].map((step) => (
         <div key={step} className="flex items-center">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-200 ${
             currentStep >= step 
@@ -210,7 +200,7 @@ export default function EnhancedRegistrationPage() {
           }`}>
             {currentStep > step ? '✓' : step}
           </div>
-          {step < 4 && (
+          {step < 3 && (
             <div className={`w-8 h-1 mx-2 rounded-full transition-all duration-200 ${
               currentStep > step ? 'bg-blue-500' : 'bg-gray-200'
             }`} />
@@ -226,7 +216,6 @@ export default function EnhancedRegistrationPage() {
       case 1: return { title: '基本信息', subtitle: '完善你的个人资料' }
       case 2: return { title: '财务核心', subtitle: '设置收入和支出目标' }
       case 3: return { title: '年度规划', subtitle: '规划你的年度预算' }
-      case 4: return { title: '系统偏好', subtitle: '个性化你的体验' }
       default: return { title: '', subtitle: '' }
     }
   }
@@ -449,60 +438,6 @@ export default function EnhancedRegistrationPage() {
                 </div>
               )}
 
-              {/* 步骤4: 系统偏好 */}
-              {currentStep === 4 && (
-                <div className="space-y-4">
-                  <div className="space-y-4">
-                    <label className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="text-lg mr-3">🔔</span>
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">推送通知</span>
-                          <p className="text-xs text-gray-500">接收记账提醒和报告</p>
-                        </div>
-                      </div>
-                      <div className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.enablePushNotifications}
-                          onChange={(e) => setFormData({...formData, enablePushNotifications: e.target.checked})}
-                          className="sr-only peer"
-                        />
-                        <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
-                      </div>
-                    </label>
-
-                    {formData.enablePushNotifications && (
-                      <div className="space-y-2 ml-8">
-                        <label className="block text-sm font-medium text-gray-700">
-                          每日提醒时间
-                        </label>
-                        <select
-                          value={formData.preferredNotificationTime}
-                          onChange={(e) => setFormData({...formData, preferredNotificationTime: e.target.value})}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="18:00">18:00 (推荐)</option>
-                          <option value="19:00">19:00</option>
-                          <option value="20:00">20:00</option>
-                          <option value="21:00">21:00</option>
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-2">🎯 注册完成后你将获得</h4>
-                    <ul className="text-xs text-blue-800 space-y-1">
-                      <li>• 📊 个性化财务仪表板</li>
-                      <li>• 🏆 分院排行榜参与资格</li>
-                      <li>• 📱 完整PWA离线体验</li>
-                      <li>• 🤖 智能理财建议</li>
-                      <li>• 📈 详细数据分析报告</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
 
               {/* 错误提示 */}
               {error && (
@@ -525,7 +460,7 @@ export default function EnhancedRegistrationPage() {
                 
                 <div className="flex-1" />
 
-                {currentStep < 4 ? (
+                {currentStep < 3 ? (
                   <button
                     onClick={nextStep}
                     disabled={!validateStep(currentStep)}
