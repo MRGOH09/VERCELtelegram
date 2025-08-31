@@ -19,18 +19,10 @@ export default function AuthPage() {
   const [error, setError] = useState(null)
   const [checking, setChecking] = useState(true)
   
-  // Supabase客户端 - 配置detectSessionInUrl自动处理token
+  // Supabase客户端
   const [supabase] = useState(() => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: {
-        detectSessionInUrl: true,     // 自动检测并处理URL中的session
-        persistSession: true,          // 持久化session到localStorage
-        autoRefreshToken: true,        // 自动刷新token
-        flowType: 'implicit'           // 明确使用implicit flow
-      }
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   ))
   
   // 表单数据（用于注册后的额外信息）
