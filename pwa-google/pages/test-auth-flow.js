@@ -58,8 +58,35 @@ export default function TestAuthFlow() {
           addLog(`用户: ${session.user.email}`)
         } else if (error) {
           addLog(`❌ 会话建立失败: ${error.message}`)
+        } else {
+          addLog('⚠️ 没有会话但也没有错误，可能是token处理问题')
+          
+          // 尝试手动处理token
+          try {
+            addLog('🔄 尝试手动处理URL中的token...')
+            const hashParams = new URLSearchParams(window.location.hash.substring(1))
+            const accessToken = hashParams.get('access_token')
+            const refreshToken = hashParams.get('refresh_token')
+            
+            if (accessToken && refreshToken) {
+              addLog('🔑 找到token，尝试手动设置会话...')
+              const { data, error: setError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+              })
+              
+              if (setError) {
+                addLog(`❌ 手动设置会话失败: ${setError.message}`)
+              } else if (data.session) {
+                addLog('✅ 手动设置会话成功！')
+                addLog(`用户: ${data.session.user.email}`)
+              }
+            }
+          } catch (manualError) {
+            addLog(`❌ 手动处理失败: ${manualError.message}`)
+          }
         }
-      }, 500)
+      }, 1000)
     }
     
     // 监听认证状态变化
@@ -113,7 +140,7 @@ export default function TestAuthFlow() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/test-auth-flow`,
+          redirectTo: `${window.location.origin}/auth/callback?mode=test&next=${encodeURIComponent('/test-auth-flow')}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
