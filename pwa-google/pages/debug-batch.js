@@ -8,41 +8,46 @@ export default function DebugBatch() {
     setLoading(true)
     setResult('正在测试...')
 
-    const testRecord = {
+    const testRecords = [{
       group: 'A',
-      category: '餐饮',
+      category: 'food', // 直接使用英文代码
       amount: '12.50',
-      note: '测试批量记录调试',
-      date: new Date().toISOString().split('T')[0],
-      isValid: true
-    }
-
-    // 验证记录有效性
-    const isRecordValid = testRecord.date && testRecord.category && testRecord.amount && parseFloat(testRecord.amount) > 0
-    console.log('记录验证:', {
-      hasDate: !!testRecord.date,
-      hasCategory: !!testRecord.category,
-      hasAmount: !!testRecord.amount,
-      amountIsPositive: parseFloat(testRecord.amount) > 0,
-      isValid: isRecordValid
-    })
+      note: '测试PWA批量记录 - 直接写入Supabase',
+      date: new Date().toISOString().split('T')[0]
+    }]
 
     try {
-      console.log('发送的数据:', { records: [testRecord] })
+      console.log('使用PWA API测试批量记录:', testRecords)
 
-      const response = await fetch('/api/batch-no-auth', {
+      // 获取Supabase session token
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        setResult('错误：用户未登录')
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch('/api/pwa/data', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
-          records: [testRecord]
+          action: 'batch-add-records',
+          records: testRecords
         })
       })
 
       const responseText = await response.text()
-      console.log('响应状态:', response.status)
-      console.log('响应文本:', responseText)
+      console.log('PWA API响应状态:', response.status)
+      console.log('PWA API响应文本:', responseText)
 
       let result
       try {
@@ -52,13 +57,14 @@ export default function DebugBatch() {
       }
 
       setResult(JSON.stringify({
+        api: 'PWA批量记录API (直接写入Supabase)',
         status: response.status,
         ok: response.ok,
         result: result
       }, null, 2))
 
     } catch (error) {
-      console.error('请求失败:', error)
+      console.error('PWA API请求失败:', error)
       setResult(JSON.stringify({
         error: error.message,
         stack: error.stack

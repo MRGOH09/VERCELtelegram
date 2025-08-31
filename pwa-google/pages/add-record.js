@@ -7,6 +7,26 @@ import WebAppWrapper from '../components/WebAppWrapper'
 import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency } from '../lib/api'
 
+// 中文到英文分类代码映射表 - 与数据库一致
+const CATEGORY_CODE_MAP = {
+  '餐饮': 'food',
+  '娱乐': 'ent', 
+  '购物': 'shop',
+  '交通': 'transport',
+  '水电': 'utilities',
+  '手机': 'mobile',
+  '家用': 'home',
+  '其他': 'other',
+  '书籍': 'books',
+  '课程': 'course',
+  '培训': 'training',
+  '认证': 'cert',
+  '股票': 'stock',
+  '定存': 'fixed',
+  '保险': 'insurance',
+  '紧急基金': 'emerg'
+}
+
 // 与Telegram系统完全一致的分类系统
 const TELEGRAM_CATEGORIES = {
   A: {
@@ -124,7 +144,7 @@ export default function AddRecordPage() {
 
       const recordData = {
         group: selectedGroup,
-        category: selectedCategory,
+        category: CATEGORY_CODE_MAP[selectedCategory] || selectedCategory, // 映射为英文代码
         amount: numAmount,
         note: note.trim() || null,
         date: new Date().toISOString().split('T')[0] // YYYY-MM-DD
@@ -214,24 +234,18 @@ export default function AddRecordPage() {
     try {
       setIsSubmitting(true)
       
-      // 使用修复的批量记录API（直接调用成功的解决方案）
-      const response = await fetch('/api/batch-no-auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          records: validRecords
-        })
+      // 使用PWA API直接写入Supabase数据库
+      const result = await PWAClient.call('data', 'batch-add-records', { 
+        records: validRecords.map(record => ({
+          group: record.group,
+          category: CATEGORY_CODE_MAP[record.category] || record.category, // 映射为英文代码
+          amount: record.amount,
+          note: record.note,
+          date: record.date
+        }))
       })
       
-      const result = await response.json()
-      
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || `批量记录失败: ${response.status}`)
-      }
-      
-      console.log('✅ 批量记录成功:', result)
+      console.log('✅ PWA批量记录成功:', result)
       
       // 清空打卡消息，确保显示批量记录成功提示
       setCheckInMessage('')
@@ -243,7 +257,7 @@ export default function AddRecordPage() {
       }, 3000)
 
     } catch (error) {
-      console.error('批量记录失败:', error)
+      console.error('PWA批量记录失败:', error)
       alert(error.message || '批量记录失败，请重试')
     } finally {
       setIsSubmitting(false)
