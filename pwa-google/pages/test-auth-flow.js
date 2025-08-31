@@ -4,13 +4,13 @@ import { createClient } from '@supabase/supabase-js'
 export default function TestAuthFlow() {
   const [logs, setLogs] = useState([])
   
-  // 关键修复：配置detectSessionInUrl让Supabase自动处理hash中的token
+  // 配置Supabase客户端 - 关闭自动处理以便手动测试
   const [supabase] = useState(() => createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       auth: {
-        detectSessionInUrl: true,     // 自动检测并处理URL中的session
+        detectSessionInUrl: false,    // 关闭自动检测，手动处理
         persistSession: true,          // 持久化session到localStorage
         autoRefreshToken: true,        // 自动刷新token
         flowType: 'implicit'           // 明确使用implicit flow
@@ -28,6 +28,158 @@ export default function TestAuthFlow() {
       return updatedLogs
     })
     console.log(`[TEST] ${message}`)
+  }
+
+  const handleTokenWithMultipleMethods = async () => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+    
+    if (!accessToken || !refreshToken) {
+      addLog('❌ 没有找到完整的token')
+      return
+    }
+    
+    addLog('🔑 找到OAuth tokens，开始尝试多种方法...')
+    
+    // 方法1: 直接setSession
+    addLog('📌 方法1: 直接setSession')
+    try {
+      const { data, error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      })
+      
+      if (error) {
+        addLog(`❌ 方法1失败: ${error.message}`)
+      } else if (data.session) {
+        addLog('✅ 方法1成功！会话已建立')
+        addLog(`用户: ${data.session.user.email}`)
+        return
+      }
+    } catch (e) {
+      addLog(`❌ 方法1异常: ${e.message}`)
+    }
+    
+    // 方法2: 先验证token再设置
+    addLog('📌 方法2: 先验证token有效性')
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        }
+      })
+      
+      if (response.ok) {
+        const user = await response.json()
+        addLog(`✅ Token有效！用户: ${user.email}`)
+        
+        // 现在尝试设置会话
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          })
+          
+          if (error) {
+            addLog(`❌ 方法2 setSession失败: ${error.message}`)
+          } else if (data.session) {
+            addLog('✅ 方法2成功！会话已建立')
+            return
+          }
+        } catch (e) {
+          addLog(`❌ 方法2 setSession异常: ${e.message}`)
+        }
+      } else {
+        const errorText = await response.text()
+        addLog(`❌ Token验证失败: ${response.status} - ${errorText}`)
+      }
+    } catch (e) {
+      addLog(`❌ 方法2异常: ${e.message}`)
+    }
+    
+    // 方法3: 创建新的Supabase客户端
+    addLog('📌 方法3: 创建detectSessionInUrl=true的新客户端')
+    try {
+      const newSupabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          auth: {
+            detectSessionInUrl: true,
+            persistSession: false
+          }
+        }
+      )
+      
+      // 等待新客户端处理
+      setTimeout(async () => {
+        const { data: { session } } = await newSupabase.auth.getSession()
+        if (session) {
+          addLog('✅ 方法3: 新客户端成功获取会话')
+          addLog(`用户: ${session.user.email}`)
+          
+          // 同步到主客户端
+          try {
+            const { error } = await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
+            })
+            
+            if (error) {
+              addLog(`⚠️ 同步到主客户端失败: ${error.message}`)
+            } else {
+              addLog('✅ 会话已同步到主客户端')
+            }
+          } catch (e) {
+            addLog(`⚠️ 同步异常: ${e.message}`)
+          }
+        } else {
+          addLog('❌ 方法3: 新客户端也无法建立会话')
+        }
+      }, 1500)
+    } catch (e) {
+      addLog(`❌ 方法3异常: ${e.message}`)
+    }
+    
+    // 方法4: 使用localStorage直接存储
+    addLog('📌 方法4: 直接操作localStorage (不推荐但测试用)')
+    try {
+      const sessionData = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        expires_in: 3600,
+        token_type: 'bearer',
+        user: null  // 这里需要从token解析
+      }
+      
+      // 尝试从token解析用户信息
+      try {
+        const payload = JSON.parse(atob(accessToken.split('.')[1]))
+        sessionData.user = {
+          id: payload.sub,
+          email: payload.email,
+          user_metadata: payload.user_metadata || {}
+        }
+        
+        localStorage.setItem('supabase.auth.token', JSON.stringify(sessionData))
+        addLog('📝 已写入localStorage')
+        
+        // 重新初始化客户端
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          addLog('✅ 方法4: 通过localStorage成功')
+        } else {
+          addLog('❌ 方法4: localStorage写入但未生效')
+        }
+      } catch (e) {
+        addLog(`❌ 方法4 token解析失败: ${e.message}`)
+      }
+    } catch (e) {
+      addLog(`❌ 方法4异常: ${e.message}`)
+    }
   }
 
   useEffect(() => {
@@ -50,43 +202,8 @@ export default function TestAuthFlow() {
       addLog('🔄 检测到OAuth token在URL hash中')
       addLog('⏳ Supabase正在自动处理token...')
       
-      // 给Supabase一点时间处理token，然后检查结果
-      setTimeout(async () => {
-        const { data: { session }, error } = await supabase.auth.getSession()
-        if (session) {
-          addLog('✅ 会话已自动建立成功！')
-          addLog(`用户: ${session.user.email}`)
-        } else if (error) {
-          addLog(`❌ 会话建立失败: ${error.message}`)
-        } else {
-          addLog('⚠️ 没有会话但也没有错误，可能是token处理问题')
-          
-          // 尝试手动处理token
-          try {
-            addLog('🔄 尝试手动处理URL中的token...')
-            const hashParams = new URLSearchParams(window.location.hash.substring(1))
-            const accessToken = hashParams.get('access_token')
-            const refreshToken = hashParams.get('refresh_token')
-            
-            if (accessToken && refreshToken) {
-              addLog('🔑 找到token，尝试手动设置会话...')
-              const { data, error: setError } = await supabase.auth.setSession({
-                access_token: accessToken,
-                refresh_token: refreshToken
-              })
-              
-              if (setError) {
-                addLog(`❌ 手动设置会话失败: ${setError.message}`)
-              } else if (data.session) {
-                addLog('✅ 手动设置会话成功！')
-                addLog(`用户: ${data.session.user.email}`)
-              }
-            }
-          } catch (manualError) {
-            addLog(`❌ 手动处理失败: ${manualError.message}`)
-          }
-        }
-      }, 1000)
+      // 尝试多种方法处理token
+      handleTokenWithMultipleMethods()
     }
     
     // 监听认证状态变化
