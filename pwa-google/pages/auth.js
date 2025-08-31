@@ -18,6 +18,7 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [checking, setChecking] = useState(true)
+  const [authProcessed, setAuthProcessed] = useState(false) // KISS: 简单标志防止重复处理
   
   // Supabase客户端
   const [supabase] = useState(() => createClient(
@@ -65,10 +66,17 @@ export default function AuthPage() {
     // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AUTH] 认证状态变化:', event)
-      console.log('[DEBUG] 认证状态变化时的mode:', mode)
+      console.log('[DEBUG] authProcessed标志:', authProcessed)
+      
+      // KISS: 如果已经处理过认证，跳过
+      if (authProcessed && event === 'SIGNED_IN') {
+        console.log('[AUTH] 🚫 已处理过认证，跳过重复处理')
+        return
+      }
       
       if (event === 'SIGNED_IN' && session) {
         console.log('[AUTH] ✅ 用户登录成功:', session.user.email)
+        setAuthProcessed(true) // KISS: 标记已处理
         
         // Supabase会自动管理session，无需手动保存到localStorage
         console.log('[AUTH] Supabase session已建立，用户信息：', {
@@ -251,14 +259,15 @@ export default function AuthPage() {
       
       console.log('📤 发送API请求:', requestData)
       
-      // 使用简化的注册API
-      const response = await fetch('/api/quick-register', {
+      // KISS: 使用最简单的注册API
+      const response = await fetch('/api/simple-register', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...requestData,
+          displayName: formData.displayName.trim(),
+          branchCode: formData.branchCode,
+          monthlyIncome: formData.monthlyIncome,
+          expensePercentage: formData.expensePercentage,
           userEmail: user.email
         })
       })
