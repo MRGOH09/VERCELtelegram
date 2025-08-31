@@ -88,11 +88,9 @@ export default async function handler(req, res) {
         // 年度预算字段
         travel_budget_annual: parseFloat(travelBudget) || 0,
         annual_medical_insurance: parseFloat(medicalInsurance) || 0,
-        annual_car_insurance: parseFloat(carInsurance) || 0,
+        annual_car_insurance: parseFloat(carInsurance) || 0
         
-        // 系统偏好设置 (如果数据库有这些字段的话)
-        push_notifications_enabled: enablePushNotifications,
-        preferred_notification_time: preferredNotificationTime
+        // 注意：推送通知偏好设置需要单独存储，不在user_profile表中
       })
 
     if (profileError) {
