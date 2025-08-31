@@ -233,6 +233,8 @@ export default function AddRecordPage() {
       
       console.log('✅ 批量记录成功:', result)
       
+      // 清空打卡消息，确保显示批量记录成功提示
+      setCheckInMessage('')
       setShowSuccess(true)
       setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
       
