@@ -110,6 +110,7 @@ export default function AddRecordPage() {
   const [batchRecords, setBatchRecords] = useState(() => 
     Array.from({ length: 5 }, (_, i) => createEmptyRecord(i))
   )
+  const [lastSuccessCount, setLastSuccessCount] = useState(0) // 记录最后成功提交的记录数
 
   useEffect(() => {
     // 从URL参数中获取预选分类
@@ -247,6 +248,9 @@ export default function AddRecordPage() {
       
       console.log('✅ PWA批量记录成功:', result)
       
+      // 保存成功记录数
+      setLastSuccessCount(validRecords.length)
+      
       // 清空打卡消息，确保显示批量记录成功提示
       setCheckInMessage('')
       setShowSuccess(true)
@@ -254,6 +258,7 @@ export default function AddRecordPage() {
       
       setTimeout(() => {
         setShowSuccess(false)
+        setLastSuccessCount(0) // 重置成功记录数
       }, 3000)
 
     } catch (error) {
@@ -530,7 +535,7 @@ export default function AddRecordPage() {
                           {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
                         </p>
                         {isBatchMode && (
-                          <p className="text-green-600 text-sm">已保存 {getValidRecordsCount()} 条记录</p>
+                          <p className="text-green-600 text-sm">已保存 {lastSuccessCount} 条记录</p>
                         )}
                       </>
                     )}
