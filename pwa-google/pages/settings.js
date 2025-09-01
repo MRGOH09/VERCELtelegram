@@ -85,7 +85,7 @@ export default function SettingsPage() {
       const dbField = fieldName || fieldMapping[field] || field
       
       // 调用更新API
-      const response = await fetch('/api/pwa/test-settings', {
+      const response = await fetch('/api/pwa/update-settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

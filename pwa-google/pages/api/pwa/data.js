@@ -27,6 +27,64 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
+// 创建或更新月度自动记录（幂等操作）
+async function createMonthlyAutoRecords(userId, profile) {
+  const today = new Date()
+  const ymd = `${today.toISOString().slice(0,7)}-01` // 月初
+  
+  const autoRecords = [
+    { 
+      group: 'B', 
+      code: 'travel_auto', 
+      amount: profile?.travel_budget_annual ? Math.round((profile.travel_budget_annual / 12) * 100) / 100 : 0 
+    },
+    { 
+      group: 'C', 
+      code: 'ins_med_auto', 
+      amount: profile?.annual_medical_insurance ? Math.round((profile.annual_medical_insurance / 12) * 100) / 100 : 0 
+    },
+    { 
+      group: 'C', 
+      code: 'ins_car_auto', 
+      amount: profile?.annual_car_insurance ? Math.round((profile.annual_car_insurance / 12) * 100) / 100 : 0 
+    }
+  ].filter(r => r.amount > 0)
+  
+  for (const record of autoRecords) {
+    // 检查是否已存在（幂等性）
+    const { data: existing } = await supabase
+      .from('records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ymd', ymd)
+      .eq('category_code', record.code)
+      .eq('is_voided', false)
+      .maybeSingle()
+    
+    if (!existing) {
+      // 创建新记录
+      await supabase.from('records').insert([{
+        user_id: userId,
+        category_group: record.group,
+        category_code: record.code,
+        amount: record.amount,
+        note: 'Auto-generated monthly',
+        ymd: ymd
+      }])
+      
+      console.log(`[createMonthlyAutoRecords] 创建自动记录: ${record.code} = ${record.amount}`)
+    } else {
+      // 更新现有记录的金额（如果用户修改了年度设置）
+      await supabase
+        .from('records')
+        .update({ amount: record.amount })
+        .eq('id', existing.id)
+      
+      console.log(`[createMonthlyAutoRecords] 更新自动记录: ${record.code} = ${record.amount}`)
+    }
+  }
+}
+
 export default async function handler(req, res) {
   try {
     // CORS和缓存控制处理
@@ -170,9 +228,14 @@ async function getDashboardData(userId, res) {
     // 获取用户资料
     const { data: profile } = await supabase
       .from('user_profile')
-      .select('display_name, monthly_income, a_pct, travel_budget_annual, current_streak, total_records')
+      .select('display_name, monthly_income, a_pct, travel_budget_annual, annual_medical_insurance, annual_car_insurance, current_streak, total_records')
       .eq('user_id', userId)
       .single()
+    
+    // 确保当月的自动记录存在
+    if (profile) {
+      await createMonthlyAutoRecords(userId, profile)
+    }
       
     // 获取用户分行
     const { data: user } = await supabase
@@ -238,6 +301,25 @@ async function getDashboardData(userId, res) {
       recordDays.add(record.ymd)
     })
     
+    // 添加固定月度支出到分类详情（与主系统保持一致）
+    // 旅游基金（B类）
+    if (profile?.travel_budget_annual > 0) {
+      if (!categoryDetails.B) categoryDetails.B = {}
+      categoryDetails.B.travel_auto = Math.round((profile.travel_budget_annual / 12) * 100) / 100
+    }
+    
+    // 医疗保险（C类）
+    if (profile?.annual_medical_insurance > 0) {
+      if (!categoryDetails.C) categoryDetails.C = {}
+      categoryDetails.C.ins_med_auto = Math.round((profile.annual_medical_insurance / 12) * 100) / 100
+    }
+    
+    // 车险（C类）
+    if (profile?.annual_car_insurance > 0) {
+      if (!categoryDetails.C) categoryDetails.C = {}
+      categoryDetails.C.ins_car_auto = Math.round((profile.annual_car_insurance / 12) * 100) / 100
+    }
+    
     // 按 /my 命令逻辑计算最终金额
     const income = budget?.income || profile?.monthly_income || 0
     
@@ -248,7 +330,15 @@ async function getDashboardData(userId, res) {
     const travelMonthly = Math.round((profile?.travel_budget_annual || 0) / 12 * 100) / 100
     const bTotal = Math.round((groupStats.B.total + travelMonthly) * 100) / 100
     
-    // C类：储蓄 = 收入 - 开销 - 学习（计算得出）
+    // 计算年度保险的月度分摊
+    const medicalMonthly = Math.round((profile?.annual_medical_insurance || 0) / 12 * 100) / 100
+    const carMonthly = Math.round((profile?.annual_car_insurance || 0) / 12 * 100) / 100
+    
+    // C类：储蓄 = C类记录 + 保险月度分摊 + 余额
+    // 先计算C类实际记录总额（包括ins_med_auto和ins_car_auto）
+    const cRecords = groupStats.C.total
+    
+    // C类总额 = 收入 - A类 - B类
     const cTotal = Math.round((income - aTotal - bTotal) * 100) / 100
     
     // 最终支出结构

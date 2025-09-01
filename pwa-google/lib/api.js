@@ -328,13 +328,16 @@ export const CATEGORIES = {
     books: { name: '书籍', icon: '📖' },
     course: { name: '课程', icon: '📚' },
     training: { name: '培训', icon: '🎓' },
-    cert: { name: '认证', icon: '🏆' }
+    cert: { name: '认证', icon: '🏆' },
+    travel_auto: { name: '旅游基金(月)', icon: '✈️' }
   },
   C: {
     stock: { name: '股票', icon: '📈' },
     fixed: { name: '定存', icon: '🏦' },
     insurance: { name: '保险', icon: '🛡️' },
-    emerg: { name: '紧急基金', icon: '🚨' }
+    emerg: { name: '紧急基金', icon: '🚨' },
+    ins_med_auto: { name: '医疗保险(月)', icon: '🏥' },
+    ins_car_auto: { name: '车险(月)', icon: '🚗' }
   }
 }
 
