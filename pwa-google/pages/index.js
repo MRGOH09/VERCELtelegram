@@ -367,7 +367,6 @@ function SpendingAnalysis({ data }) {
       name: '生活开销',
       amount: spent_a,
       percentage: percentage_a,
-      items: 12, // 假设数据
       icon: '🛒',
       color: 'bg-red-500',
       bgColor: 'bg-red-50'
@@ -376,7 +375,6 @@ function SpendingAnalysis({ data }) {
       name: '学习投资', 
       amount: spent_b,
       percentage: percentage_b,
-      items: 5,
       icon: '📚',
       color: 'bg-blue-500',
       bgColor: 'bg-blue-50'
@@ -385,7 +383,6 @@ function SpendingAnalysis({ data }) {
       name: '储蓄投资',
       amount: spent_c,
       percentage: percentage_c,
-      items: 8,
       icon: '💎',
       color: 'bg-green-500',
       bgColor: 'bg-green-50'

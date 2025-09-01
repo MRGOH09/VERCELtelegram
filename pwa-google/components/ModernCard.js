@@ -215,7 +215,6 @@ export function CategoryCard({ categories }) {
               
               <div className="flex justify-between items-center mt-1">
                 <span className="text-xs text-gray-500">{category.percentage}%</span>
-                <span className="text-xs text-gray-500">{category.items} 笔</span>
               </div>
             </div>
           </div>
