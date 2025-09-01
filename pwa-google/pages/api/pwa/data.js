@@ -1,6 +1,31 @@
 import { createClient } from '@supabase/supabase-js'
 import { formatYMD, getYYYYMM, getEndOfMonth } from '../../../lib/auth'
 
+// 分院代码到名称的映射
+const BRANCH_NAMES = {
+  'PU': '槟城',
+  'KK': '亚庇', 
+  'JB': '新山',
+  'KL': '吉隆坡',
+  'MM': '马六甲',
+  'PG': '槟岛',
+  'KC': '古晋',
+  'BLS': 'BLS',
+  'BP': 'BP',
+  'HQ': '总部',
+  'M2': 'M2',
+  'MTK': 'MTK',
+  'OTK': 'OTK',
+  'PDMR': 'PDMR', 
+  'PJY': 'PJY',
+  'SRD': 'SRD',
+  'STL': 'STL',
+  'TLK': 'TLK',
+  'UKT': 'UKT',
+  'VIVA': 'VIVA',
+  '小天使': '小天使'
+}
+
 // KISS: 使用Vercel-Supabase集成环境变量
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -1395,8 +1420,11 @@ async function getLeaderboardData(userId, userBranch, res) {
       .map((branch, index) => ({
         rank: index + 1,
         branch_code: branch.branch_code,
+        branch_name: BRANCH_NAMES[branch.branch_code] || branch.branch_code, // 添加分院名称
         total_score: branch.total_score,
-        user_count: branch.user_count,
+        active_members: branch.user_count, // 字段名匹配前端期望
+        total_members: branch.user_count,  // 暂时使用相同值，后续可区分活跃/总数
+        user_count: branch.user_count,     // 保持原字段以防其他地方使用
         avg_score: Math.round((branch.total_score / branch.user_count) * 10) / 10,
         top_users: branch.top_users
       }))
