@@ -159,6 +159,11 @@ class PWAClient {
     return this.cachedCall('data', 'history', params, 1 * 60 * 1000)
   }
 
+  // 获取排行榜数据 (5分钟缓存)
+  async getLeaderboard() {
+    return this.cachedCall('data', 'leaderboard', {}, 5 * 60 * 1000)
+  }
+
   // 添加记录
   async addRecord(recordData) {
     return this.call('data', 'add-record', recordData, { useCache: false })

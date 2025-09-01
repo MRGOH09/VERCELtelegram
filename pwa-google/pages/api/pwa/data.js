@@ -127,6 +127,9 @@ export default async function handler(req, res) {
       case 'check-checkin-status':
         return await checkCheckInStatus(dbUser.id, res)
         
+      case 'leaderboard':
+        return await getLeaderboardData(dbUser.id, dbUser.branch_code, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -1281,5 +1284,135 @@ async function checkCheckInStatus(userId, res) {
       success: false,
       error: '检查打卡状态失败'
     })
+  }
+}
+
+// 获取排行榜数据 - 直接集成到PWA API
+async function getLeaderboardData(userId, userBranch, res) {
+  try {
+    console.log(`[getLeaderboardData] 获取用户 ${userId} 分院 ${userBranch} 的排行榜`)
+
+    // 1. 获取全部用户积分排行
+    const { data: allScores, error: allError } = await supabase
+      .from('user_daily_scores')
+      .select('*')
+    
+    if (allError) {
+      console.error('[getLeaderboardData] 获取积分记录失败:', allError)
+      return res.status(500).json({ error: '获取积分记录失败' })
+    }
+    
+    // 获取相关用户信息
+    const userIds = [...new Set(allScores?.map(s => s.user_id) || [])]
+    
+    const { data: usersData } = await supabase
+      .from('users')
+      .select('id, name, branch_code')
+      .in('id', userIds)
+    
+    const { data: profilesData } = await supabase
+      .from('user_profile')
+      .select('user_id, display_name')
+      .in('user_id', userIds)
+    
+    // 合并数据
+    const usersMap = new Map(usersData?.map(u => [u.id, u]) || [])
+    const profilesMap = new Map(profilesData?.map(p => [p.user_id, p]) || [])
+    
+    const mergedScores = allScores?.map(score => ({
+      ...score,
+      users: usersMap.get(score.user_id),
+      user_profile: profilesMap.get(score.user_id)
+    })) || []
+
+    // 计算用户总积分
+    const userTotalScores = {}
+    mergedScores.forEach(score => {
+      if (!userTotalScores[score.user_id]) {
+        userTotalScores[score.user_id] = {
+          user_id: score.user_id,
+          total_score: 0,
+          total_days: 0,
+          current_streak: score.current_streak || 0,
+          users: score.users,
+          user_profile: score.user_profile
+        }
+      }
+      userTotalScores[score.user_id].total_score += score.total_score || 0
+      userTotalScores[score.user_id].total_days += 1
+      // 使用最新的streak记录
+      if (score.ymd && score.current_streak) {
+        userTotalScores[score.user_id].current_streak = score.current_streak
+      }
+    })
+
+    // 排序全部用户
+    const allUsers = Object.values(userTotalScores)
+      .filter(user => user.users) // 只保留有用户信息的记录
+      .sort((a, b) => b.total_score - a.total_score)
+      .slice(0, 50) // 取前50名
+      .map((user, index) => ({
+        rank: index + 1,
+        user_id: user.user_id,
+        name: user.user_profile?.display_name || user.users?.name || 'Unknown',
+        branch_code: user.users?.branch_code,
+        total_score: user.total_score,
+        total_days: user.total_days,
+        current_streak: user.current_streak,
+        avg_score: user.total_days > 0 ? Math.round((user.total_score / user.total_days) * 10) / 10 : 0
+      }))
+
+    // 同分院用户排行
+    const branchUsers = allUsers
+      .filter(user => user.branch_code === userBranch)
+      .slice(0, 20)
+
+    // 分院排行榜
+    const branchTotalScores = {}
+    allUsers.forEach(user => {
+      if (user.branch_code) {
+        if (!branchTotalScores[user.branch_code]) {
+          branchTotalScores[user.branch_code] = {
+            branch_code: user.branch_code,
+            total_score: 0,
+            user_count: 0,
+            top_users: []
+          }
+        }
+        branchTotalScores[user.branch_code].total_score += user.total_score
+        branchTotalScores[user.branch_code].user_count += 1
+        if (branchTotalScores[user.branch_code].top_users.length < 3) {
+          branchTotalScores[user.branch_code].top_users.push(user.name)
+        }
+      }
+    })
+
+    const branchRankings = Object.values(branchTotalScores)
+      .sort((a, b) => b.total_score - a.total_score)
+      .map((branch, index) => ({
+        rank: index + 1,
+        branch_code: branch.branch_code,
+        total_score: branch.total_score,
+        user_count: branch.user_count,
+        avg_score: Math.round((branch.total_score / branch.user_count) * 10) / 10,
+        top_users: branch.top_users
+      }))
+
+    console.log(`[getLeaderboardData] 返回排行榜数据: 全部${allUsers.length}人, 分院${branchUsers.length}人, ${branchRankings.length}个分院`)
+
+    return res.json({
+      ok: true,
+      data: {
+        allUsers,
+        branchUsers,
+        branchRankings,
+        userBranch,
+        timeframe: 'all_time'
+      }
+    })
+    
+  } catch (error) {
+    console.error('[getLeaderboardData] 错误:', error)
+    return res.status(500).json({ error: 'Failed to get leaderboard data' })
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
+import PWAClient from '../lib/api'
 
 export default function LeaderboardPage() {
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'branch' | 'myscore'
@@ -34,23 +35,10 @@ export default function LeaderboardPage() {
     try {
       setLeaderboardData(prev => ({ ...prev, loading: true }))
 
-      // 调用积分排行榜API - 添加认证headers和cookies
-      const token = localStorage.getItem('jwt_token')
-      const headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
+      // 使用PWA Client获取排行榜数据
+      const result = await PWAClient.getLeaderboard()
 
-      const response = await fetch('/api/pwa/leaderboard', {
-        method: 'GET',
-        headers,
-        credentials: 'include'
-      })
-      const result = await response.json()
+      console.log('[leaderboard] PWA Client返回数据:', result)
 
       if (result.ok) {
         setLeaderboardData({
