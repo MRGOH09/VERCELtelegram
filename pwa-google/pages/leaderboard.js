@@ -62,23 +62,8 @@ export default function LeaderboardPage() {
     try {
       setScoreData(prev => ({ ...prev, loading: true }))
 
-      // 调用积分历史API - 添加认证headers和cookies
-      const token = localStorage.getItem('jwt_token')
-      const headers = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const response = await fetch('/api/pwa/scores', {
-        method: 'GET',
-        headers,
-        credentials: 'include'
-      })
-      const result = await response.json()
+      // 使用PWA Client统一API
+      const result = await PWAClient.getScores()
 
       if (result.ok) {
         setScoreData({
