@@ -209,6 +209,40 @@ export default function AddRecordPage() {
     }))
   }
 
+  // 处理Enter键导航
+  const handleEnterKey = (e, recordIndex, fieldIndex) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      
+      // 字段顺序：0=类型, 1=分类, 2=金额, 3=备注
+      const fieldsPerRow = 4
+      const totalRecords = batchRecords.length
+      
+      // 计算下一个焦点位置
+      let nextRecordIndex = recordIndex
+      let nextFieldIndex = fieldIndex + 1
+      
+      // 如果是当前行的最后一个字段，跳到下一行的第一个字段
+      if (nextFieldIndex >= fieldsPerRow) {
+        nextFieldIndex = 0
+        nextRecordIndex = recordIndex + 1
+      }
+      
+      // 如果超出记录范围，聚焦到提交按钮
+      if (nextRecordIndex >= totalRecords) {
+        document.getElementById('batch-submit-btn')?.focus()
+        return
+      }
+      
+      // 构建下一个元素的ID并聚焦
+      const nextElementId = `batch-${nextRecordIndex}-${nextFieldIndex}`
+      const nextElement = document.getElementById(nextElementId)
+      if (nextElement) {
+        nextElement.focus()
+      }
+    }
+  }
+
   const calculateTotal = () => {
     return batchRecords.reduce((total, record) => {
       const amount = parseFloat(record.amount) || 0
@@ -647,6 +681,7 @@ export default function AddRecordPage() {
                           {/* 类型 */}
                           <div className="col-span-3">
                             <select
+                              id={`batch-${index}-0`}
                               value={record.group}
                               onChange={(e) => {
                                 updateBatchRecord(index, 'group', e.target.value)
@@ -654,6 +689,7 @@ export default function AddRecordPage() {
                                 const firstCategory = TELEGRAM_CATEGORIES[e.target.value]?.items[0]?.code || ''
                                 updateBatchRecord(index, 'category', firstCategory)
                               }}
+                              onKeyDown={(e) => handleEnterKey(e, index, 0)}
                               className="w-full px-2 py-2 bg-gray-50 rounded text-sm font-medium hover:bg-gray-100 transition-all"
                             >
                               <option value="A">🛒开销</option>
@@ -665,8 +701,10 @@ export default function AddRecordPage() {
                           {/* 分类 */}
                           <div className="col-span-3">
                             <select
+                              id={`batch-${index}-1`}
                               value={record.category}
                               onChange={(e) => updateBatchRecord(index, 'category', e.target.value)}
+                              onKeyDown={(e) => handleEnterKey(e, index, 1)}
                               className="w-full px-2 py-2 bg-white border rounded text-sm hover:border-blue-400 transition-all"
                             >
                               {getAllCategories(record.group).map(cat => (
@@ -680,11 +718,13 @@ export default function AddRecordPage() {
                           {/* 金额 */}
                           <div className="col-span-3">
                             <input
+                              id={`batch-${index}-2`}
                               type="number"
                               step="0.01"
                               min="0"
                               value={record.amount}
                               onChange={(e) => updateBatchRecord(index, 'amount', e.target.value)}
+                              onKeyDown={(e) => handleEnterKey(e, index, 2)}
                               placeholder="0.00"
                               className="w-full px-2 py-2 border rounded text-sm font-bold text-right hover:border-blue-400 focus:border-blue-500 focus:outline-none transition-all"
                             />
@@ -693,9 +733,11 @@ export default function AddRecordPage() {
                           {/* 备注 */}
                           <div className="col-span-3">
                             <input
+                              id={`batch-${index}-3`}
                               type="text"
                               value={record.note}
                               onChange={(e) => updateBatchRecord(index, 'note', e.target.value)}
+                              onKeyDown={(e) => handleEnterKey(e, index, 3)}
                               placeholder="备注"
                               className="w-full px-2 py-2 border rounded text-sm hover:border-blue-400 focus:border-blue-500 focus:outline-none transition-all"
                             />
@@ -724,6 +766,7 @@ export default function AddRecordPage() {
                     </button>
                     
                     <button
+                      id="batch-submit-btn"
                       onClick={handleBatchSubmit}
                       disabled={isSubmitting || getValidRecordsCount() === 0}
                       className="py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
