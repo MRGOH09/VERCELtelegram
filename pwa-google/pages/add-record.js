@@ -95,6 +95,7 @@ export default function AddRecordPage() {
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [countdown, setCountdown] = useState(3) // 倒计时状态
   
   // 积分反馈状态
   const [scoreInfo, setScoreInfo] = useState(null)
@@ -176,11 +177,19 @@ export default function AddRecordPage() {
       } else {
         // 显示普通成功状态
         setShowSuccess(true)
+        setCountdown(3) // 重置倒计时
         
-        // 2秒后隐藏成功提示
-        setTimeout(() => {
-          setShowSuccess(false)
-        }, 2000)
+        // 倒计时逻辑
+        let count = 3
+        const countdownInterval = setInterval(() => {
+          count--
+          setCountdown(count)
+          if (count <= 0) {
+            clearInterval(countdownInterval)
+            setShowSuccess(false)
+            setCountdown(3) // 重置倒计时
+          }
+        }, 1000)
       }
       
       // 重置表单
@@ -288,12 +297,21 @@ export default function AddRecordPage() {
       // 清空打卡消息，确保显示批量记录成功提示
       setCheckInMessage('')
       setShowSuccess(true)
+      setCountdown(3) // 重置倒计时
       setBatchRecords(Array.from({ length: 5 }, (_, i) => createEmptyRecord(i)))
       
-      setTimeout(() => {
-        setShowSuccess(false)
-        setLastSuccessCount(0) // 重置成功记录数
-      }, 3000)
+      // 倒计时逻辑
+      let count = 3
+      const countdownInterval = setInterval(() => {
+        count--
+        setCountdown(count)
+        if (count <= 0) {
+          clearInterval(countdownInterval)
+          setShowSuccess(false)
+          setLastSuccessCount(0) // 重置成功记录数
+          setCountdown(3) // 重置倒计时
+        }
+      }, 1000)
 
     } catch (error) {
       console.error('PWA批量记录失败:', error)
@@ -365,11 +383,20 @@ export default function AddRecordPage() {
           // 没有积分信息时显示简单成功提示
           setCheckInMessage('✅ 打卡成功！')
           setShowSuccess(true)
+          setCountdown(3) // 重置倒计时
           
-          setTimeout(() => {
-            setShowSuccess(false)
-            setCheckInMessage('')
-          }, 3000)
+          // 倒计时逻辑
+          let count = 3
+          const countdownInterval = setInterval(() => {
+            count--
+            setCountdown(count)
+            if (count <= 0) {
+              clearInterval(countdownInterval)
+              setShowSuccess(false)
+              setCheckInMessage('')
+              setCountdown(3) // 重置倒计时
+            }
+          }, 1000)
         }
       }
     } catch (error) {
@@ -593,7 +620,10 @@ export default function AddRecordPage() {
                         <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
                           <div className="h-full bg-green-600 animate-progress" style={{ animationDuration: '3s' }}></div>
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">3秒后自动关闭</p>
+                        <div className="mt-3 text-center">
+                          <span className="text-3xl font-bold text-gray-700">{countdown}</span>
+                          <p className="text-xs text-gray-500 mt-1">秒后自动关闭</p>
+                        </div>
                       </div>
                     </div>
                   </div>
