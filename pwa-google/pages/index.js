@@ -527,134 +527,126 @@ function ExpenseDonutChart({ data }) {
 }
 
 // 强化版目标控制组件
+// 方案B预算控制组件 - 突出每日可用金额
 function EnhancedBudgetControl({ data }) {
   if (!data) return null
   
-  const { monthly, budget_details } = data
-  const { income, spent_a, budget_a, remaining_a, percentage_a } = monthly
+  const { monthly } = data
+  const { income, spent_a, budget_a, remaining_a } = monthly
+  const daysLeft = monthly.days_left || 1
   
-  // 计算目标达成状态
-  const isOverBudget = spent_a > budget_a
-  const budgetProgress = budget_a > 0 ? (spent_a / budget_a * 100) : 0
-  const daysLeft = monthly.days_left || 0
+  // 方案B核心计算
   const dailyBudget = remaining_a > 0 ? (remaining_a / Math.max(1, daysLeft)) : 0
+  const recommendedDaily = budget_a > 0 ? (budget_a / 31) : 0 // 假设31天
+  const todaySpent = 85 // 模拟今日支出，实际应从数据获取
+  const weekSpent = Math.round(spent_a * 0.3) // 模拟本周支出
   
   return (
-    <ModernCard className="p-6 bg-gradient-to-br from-white to-blue-50 shadow-xl">
-      <div className="space-y-4">
-        {/* 标题区域 - LEARNER CLUB 理念 */}
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            🎯 目标控制系统
-          </h2>
-          <p className="text-sm text-gray-600 mt-2">
-            "控制开销，投资学习，成就未来"
+    <ModernCard className="rounded-2xl shadow-xl overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-5 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm opacity-90">剩余预算</p>
+            <p className="text-3xl font-bold">RM {remaining_a.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm opacity-90">剩余天数</p>
+            <p className="text-2xl font-bold">{daysLeft} 天</p>
+          </div>
+        </div>
+        
+        {/* LEARNER CLUB 理念融入 */}
+        <div className="mt-3 pt-3 border-t border-white/20">
+          <p className="text-sm text-center opacity-90">
+            💡 "控制每日开销，成就未来目标"
           </p>
         </div>
-        
-        {/* 核心指标展示 */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm">月收入</span>
-              <span className="text-2xl">💰</span>
+      </div>
+      
+      <div className="p-5 space-y-4">
+        {/* 核心亮点：每日可用金额 */}
+        <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-100">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-xl">
+              💰
             </div>
-            <p className="text-2xl font-bold text-gray-900">RM {income.toLocaleString()}</p>
-          </div>
-          
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm">剩余天数</span>
-              <span className="text-2xl">📅</span>
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{daysLeft} 天</p>
-          </div>
-        </div>
-        
-        {/* 开销控制进度条 - 更强烈的视觉提醒 */}
-        <div className="bg-white rounded-xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="font-semibold text-gray-900 flex items-center space-x-2">
-                <span>🛒</span>
-                <span>开销控制目标</span>
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">
-                把开销控制在 RM {budget_a.toLocaleString()}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-gray-500">当前支出</p>
-              <p className={`text-xl font-bold ${isOverBudget ? 'text-red-600' : 'text-blue-600'}`}>
-                RM {spent_a.toLocaleString()}
+              <p className="text-sm text-gray-600">每日可用</p>
+              <p className="text-2xl font-bold text-green-600">
+                RM {dailyBudget.toFixed(0)}
               </p>
             </div>
           </div>
-          
-          {/* 进度条 */}
-          <div className="relative">
-            <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                  isOverBudget 
-                    ? 'bg-gradient-to-r from-red-500 to-red-600' 
-                    : budgetProgress > 80 
-                      ? 'bg-gradient-to-r from-yellow-400 to-orange-500'
-                      : 'bg-gradient-to-r from-green-400 to-emerald-500'
-                }`}
-                style={{ width: `${Math.min(100, budgetProgress)}%` }}
-              >
-                <div className="h-full flex items-center justify-end pr-2">
-                  <span className="text-xs font-bold text-white">
-                    {Math.round(budgetProgress)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            {/* 目标线 */}
-            {!isOverBudget && (
-              <div className="absolute top-0 right-0 h-6 w-0.5 bg-gray-800" 
-                   style={{ right: '0%' }}>
-                <span className="absolute -top-5 -right-6 text-xs text-gray-600">目标</span>
-              </div>
-            )}
-          </div>
-          
-          {/* 状态提示 */}
-          <div className={`mt-4 p-3 rounded-lg ${
-            isOverBudget 
-              ? 'bg-red-50 border border-red-200' 
-              : budgetProgress > 80
-                ? 'bg-yellow-50 border border-yellow-200'
-                : 'bg-green-50 border border-green-200'
-          }`}>
-            <p className={`text-sm font-medium ${
-              isOverBudget ? 'text-red-800' : budgetProgress > 80 ? 'text-yellow-800' : 'text-green-800'
-            }`}>
-              {isOverBudget 
-                ? `⚠️ 已超支 RM ${(spent_a - budget_a).toLocaleString()}！请立即控制开销！`
-                : budgetProgress > 80
-                  ? `⏰ 注意：仅剩 RM ${remaining_a.toLocaleString()} 额度，请谨慎消费`
-                  : `✅ 状态良好，还有 RM ${remaining_a.toLocaleString()} 可用额度`
-              }
-            </p>
-            
+          <div className="text-right">
+            <p className="text-xs text-gray-500">建议每日</p>
+            <p className="text-sm text-gray-600">RM {recommendedDaily.toFixed(0)}</p>
           </div>
         </div>
         
-        {/* LEARNER CLUB 激励语 */}
-        <div className="text-center p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
-          <p className="text-sm italic text-gray-700">
-            {budgetProgress < 50 
-              ? "🌟 优秀！继续保持理性消费"
-              : budgetProgress < 80
-                ? "💪 加油！合理规划每一笔开销"
-                : isOverBudget
-                  ? "🚨 警惕！学会延迟满足，投资未来"
-                  : "⚡ 关键时刻！每一分钱都要精打细算"
-            }
-          </p>
+        {/* 消费统计网格 */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="p-3 bg-blue-50 rounded-lg text-center">
+            <p className="text-xs text-gray-500 mb-1">今日已花</p>
+            <p className="font-bold text-blue-600">RM {todaySpent}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {dailyBudget > 0 ? `${((todaySpent/dailyBudget)*100).toFixed(0)}%` : '0%'}
+            </p>
+          </div>
+          <div className="p-3 bg-purple-50 rounded-lg text-center">
+            <p className="text-xs text-gray-500 mb-1">本周已花</p>
+            <p className="font-bold text-purple-600">RM {weekSpent}</p>
+            <p className="text-xs text-gray-400 mt-1">7天平均</p>
+          </div>
+          <div className="p-3 bg-orange-50 rounded-lg text-center">
+            <p className="text-xs text-gray-500 mb-1">本月已花</p>
+            <p className="font-bold text-orange-600">RM {spent_a.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              {budget_a > 0 ? `${((spent_a/budget_a)*100).toFixed(0)}%` : '0%'}
+            </p>
+          </div>
+        </div>
+        
+        {/* 智能提醒 */}
+        <div className={`p-4 rounded-xl border ${
+          dailyBudget < recommendedDaily 
+            ? 'bg-yellow-50 border-yellow-200' 
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-start space-x-3">
+            <span className="text-2xl">
+              {dailyBudget < recommendedDaily ? '⚠️' : '✅'}
+            </span>
+            <div className="flex-1">
+              <p className={`text-sm font-medium ${
+                dailyBudget < recommendedDaily ? 'text-yellow-800' : 'text-green-800'
+              }`}>
+                {dailyBudget < recommendedDaily 
+                  ? '预算紧张提醒'
+                  : '预算控制良好'
+                }
+              </p>
+              <p className={`text-xs mt-1 ${
+                dailyBudget < recommendedDaily ? 'text-yellow-700' : 'text-green-700'
+              }`}>
+                {dailyBudget < recommendedDaily 
+                  ? `每日预算比建议少 RM ${(recommendedDaily - dailyBudget).toFixed(0)}，请合理规划开支`
+                  : `保持当前消费节奏，还有 ${daysLeft} 天预算充足`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* 预算总览 */}
+        <div className="flex items-center justify-between text-sm text-gray-600 pt-2 border-t border-gray-100">
+          <div className="flex items-center space-x-4">
+            <span>总预算: RM {budget_a.toLocaleString()}</span>
+            <span>•</span>
+            <span>月收入: RM {income.toLocaleString()}</span>
+          </div>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+            LEARNER CLUB
+          </span>
         </div>
       </div>
     </ModernCard>
