@@ -8,15 +8,34 @@ import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
 import { formatDisplayDate } from '../../lib/date-utils'
 
-// 🚀 极简API调用器 - C1方案
-const simpleAPI = async (action, data = {}) => {
+// 🚀 原生PWA-Google API调用器 - 带认证的原生数据库操作
+const nativeAPI = async (action, data = {}) => {
+  // 获取Supabase认证token
+  const { createClient } = await import('@supabase/supabase-js')
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
+  
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) {
+    throw new Error('请先登录')
+  }
+
   const response = await fetch('/api/pwa/data', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}` // PWA-Google原生认证
+    },
     body: JSON.stringify({ action, ...data })
   })
   
-  if (!response.ok) throw new Error('操作失败')
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(errorData.error || `操作失败 (${response.status})`)
+  }
+  
   return response.json()
 }
 
@@ -135,7 +154,7 @@ export default function HistoryPage() {
   const handleDeleteRecord = async (recordId) => {
     try {
       showToast('🔄 正在删除...', 'info')
-      await simpleAPI('delete-record', { recordId })
+      await nativeAPI('delete-record-native', { recordId })
       window.location.reload()
     } catch (error) {
       showToast('❌ ' + (error.message || '删除失败'), 'error')
@@ -150,7 +169,7 @@ export default function HistoryPage() {
     try {
       setEditingRecord(null)
       showToast('🔄 正在修改...', 'info')
-      await simpleAPI('update-record', { recordId, ...updatedData })
+      await nativeAPI('update-record-native', { recordId, ...updatedData })
       window.location.reload()
     } catch (error) {
       showToast('❌ ' + (error.message || '修改失败'), 'error')

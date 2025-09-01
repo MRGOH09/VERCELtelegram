@@ -199,6 +199,13 @@ export default async function handler(req, res) {
       case 'update-record':
         return await updateRecord(dbUser.id, params, res)
         
+      // 🚀 原生PWA-Google数据库操作 - 不调用主系统
+      case 'delete-record-native':
+        return await deleteRecordNative(dbUser.id, params, res)
+        
+      case 'update-record-native':
+        return await updateRecordNative(dbUser.id, params, res)
+        
       case 'checkin':
         return await handleCheckIn(dbUser.id, res)
         
@@ -1614,6 +1621,115 @@ async function getScoresData(userId, res) {
     console.error('[getScoresData] 错误:', error)
     return res.status(500).json({
       error: error.message || '获取积分数据失败'
+    })
+  }
+}
+
+// 🚀 原生PWA-Google删除记录 - 直接操作Supabase数据库
+async function deleteRecordNative(userId, params, res) {
+  try {
+    const { recordId } = params
+    console.log(`[deleteRecordNative] 用户 ${userId} 删除记录: ${recordId}`)
+    
+    if (!recordId) {
+      return res.status(400).json({ 
+        error: 'Missing required field: recordId' 
+      })
+    }
+    
+    // 直接操作Supabase - 软删除记录
+    const { data, error } = await supabase
+      .from('records')
+      .update({ is_voided: true })
+      .eq('id', recordId)
+      .eq('user_id', userId)
+      .select()
+    
+    if (error) {
+      console.error('[deleteRecordNative] Supabase错误:', error)
+      return res.status(500).json({ 
+        error: 'Database error: ' + error.message 
+      })
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({ 
+        error: '记录不存在或无权限删除' 
+      })
+    }
+    
+    console.log(`[deleteRecordNative] 删除成功: ${recordId}`)
+    return res.json({ 
+      success: true, 
+      message: '记录已成功删除',
+      deletedRecord: data[0]
+    })
+    
+  } catch (error) {
+    console.error('[deleteRecordNative] 系统错误:', error)
+    return res.status(500).json({
+      error: error.message || '删除记录失败'
+    })
+  }
+}
+
+// 🚀 原生PWA-Google修改记录 - 直接操作Supabase数据库  
+async function updateRecordNative(userId, params, res) {
+  try {
+    const { recordId, group, category, amount, date, note } = params
+    console.log(`[updateRecordNative] 用户 ${userId} 修改记录 ${recordId}:`, { group, category, amount, date, note })
+    
+    if (!recordId) {
+      return res.status(400).json({ 
+        error: 'Missing required field: recordId' 
+      })
+    }
+    
+    if (!group || !category || amount === undefined || !date) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: group, category, amount, date' 
+      })
+    }
+    
+    // 直接操作Supabase - 更新记录
+    const { data, error } = await supabase
+      .from('records')
+      .update({
+        category_group: group,
+        category_code: category, 
+        amount: -Math.abs(parseFloat(amount)), // 确保是负数（支出）
+        ymd: date,
+        note: note || null
+      })
+      .eq('id', recordId)
+      .eq('user_id', userId)
+      .eq('is_voided', false) // 只能修改未删除的记录
+      .select()
+    
+    if (error) {
+      console.error('[updateRecordNative] Supabase错误:', error)
+      return res.status(500).json({ 
+        error: 'Database error: ' + error.message 
+      })
+    }
+    
+    if (!data || data.length === 0) {
+      return res.status(404).json({ 
+        error: '记录不存在或无权限修改' 
+      })
+    }
+    
+    console.log(`[updateRecordNative] 修改成功: ${recordId}`)
+    return res.json({ 
+      success: true, 
+      message: '记录已成功修改',
+      updatedRecord: data[0]
+    })
+    
+  } catch (error) {
+    console.error('[updateRecordNative] 系统错误:', error)
+    return res.status(500).json({
+      error: error.message || '修改记录失败'
     })
   }
 }
