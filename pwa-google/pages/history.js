@@ -8,6 +8,18 @@ import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
 import { formatDisplayDate } from '../../lib/date-utils'
 
+// 🚀 极简API调用器 - C1方案
+const simpleAPI = async (action, data = {}) => {
+  const response = await fetch('/api/pwa/data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...data })
+  })
+  
+  if (!response.ok) throw new Error('操作失败')
+  return response.json()
+}
+
 // 分类说明函数
 function getCategoryDescription(group) {
   const descriptions = {
@@ -56,16 +68,6 @@ export default function HistoryPage() {
     }
   }, [toast])
 
-  // 强化Safari检测 - 包括PWA模式
-  const isSafari = () => {
-    const ua = navigator.userAgent
-    const isIOS = /iPad|iPhone|iPod/.test(ua)
-    const isSafariBrowser = /^((?!chrome|android).)*safari/i.test(ua)
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
-    
-    // iOS设备 OR Safari浏览器 OR PWA模式都使用Safari策略
-    return isIOS || isSafariBrowser || isPWA
-  }
 
 
   const showToast = (message, type = 'success') => {
@@ -133,38 +135,10 @@ export default function HistoryPage() {
   const handleDeleteRecord = async (recordId) => {
     try {
       showToast('🔄 正在删除...', 'info')
-      
-      await PWAClient.deleteRecord(recordId)
-      
-      // 多重刷新策略确保成功
-      if (isSafari()) {
-        // 方法1: 强制无缓存刷新
-        try {
-          window.location.reload(true)
-        } catch (e) {
-          // 方法2: 替代刷新方案
-          window.location.href = window.location.href + '?t=' + Date.now()
-        }
-        return
-      }
-      
-      // 非Safari: 使用React状态更新
-      showToast('🔄 正在删除记录...', 'info')
-      
-      await PWAClient.deleteRecord(recordId)
-      
-      const result = await PWAClient.call('data', 'history', { 
-        month: selectedMonth, 
-        limit: 20, 
-        offset: 0 
-      }, { useCache: false })
-      
-      const safeRecords = Array.isArray(result.records) ? result.records : []
-      setRecords([...safeRecords])
-      showToast('✅ 记录已成功删除', 'success')
-      
+      await simpleAPI('delete-record', { recordId })
+      window.location.reload()
     } catch (error) {
-      showToast('❌ ' + (error.message || '删除失败，请重试'), 'error')
+      showToast('❌ ' + (error.message || '删除失败'), 'error')
     }
   }
 
@@ -174,42 +148,12 @@ export default function HistoryPage() {
 
   const handleUpdateRecord = async (recordId, updatedData) => {
     try {
-      // 关闭编辑模态框
       setEditingRecord(null)
-      
       showToast('🔄 正在修改...', 'info')
-      
-      await PWAClient.updateRecord(recordId, updatedData)
-      
-      // 多重刷新策略确保成功
-      if (isSafari()) {
-        // 方法1: 强制无缓存刷新
-        try {
-          window.location.reload(true)
-        } catch (e) {
-          // 方法2: 替代刷新方案
-          window.location.href = window.location.href + '?t=' + Date.now()
-        }
-        return
-      }
-      
-      // 非Safari: 使用React状态更新
-      showToast('🔄 正在保存修改...', 'info')
-      
-      await PWAClient.updateRecord(recordId, updatedData)
-      
-      const result = await PWAClient.call('data', 'history', { 
-        month: selectedMonth, 
-        limit: 20, 
-        offset: 0 
-      }, { useCache: false })
-      
-      const safeRecords = Array.isArray(result.records) ? result.records : []
-      setRecords([...safeRecords])
-      showToast('✅ 记录已成功修改', 'success')
-      
+      await simpleAPI('update-record', { recordId, ...updatedData })
+      window.location.reload()
     } catch (error) {
-      showToast('❌ ' + (error.message || '修改失败，请重试'), 'error')
+      showToast('❌ ' + (error.message || '修改失败'), 'error')
     }
   }
 
