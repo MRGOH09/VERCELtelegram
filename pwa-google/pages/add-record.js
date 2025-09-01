@@ -518,28 +518,51 @@ export default function AddRecordPage() {
                 </div>
               )}
 
-              {/* 成功提示 */}
+              {/* 成功对话框 */}
               {showSuccess && (
-                <div className="relative z-20">
-                  <ModernCard className="p-4 bg-green-50 border border-green-200 text-center">
-                    <div className="text-4xl mb-2">✅</div>
-                    {checkInMessage ? (
-                      <div className="text-green-800">
-                        <pre className="whitespace-pre-wrap font-semibold text-sm text-left">
-                          {checkInMessage}
-                        </pre>
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
+                  <div className="bg-white rounded-2xl p-8 max-w-sm mx-4 shadow-2xl transform animate-slideUp">
+                    <div className="text-center">
+                      {/* 成功动画图标 */}
+                      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-12 h-12 text-green-600 animate-checkmark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                        </svg>
                       </div>
-                    ) : (
-                      <>
-                        <p className="text-green-800 font-semibold">
-                          {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
-                        </p>
-                        {isBatchMode && (
-                          <p className="text-green-600 text-sm">已保存 {lastSuccessCount} 条记录</p>
-                        )}
-                      </>
-                    )}
-                  </ModernCard>
+                      
+                      {checkInMessage ? (
+                        <div className="text-gray-800">
+                          <pre className="whitespace-pre-wrap font-semibold text-sm">
+                            {checkInMessage}
+                          </pre>
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                            {isBatchMode ? '批量记录成功！' : '记录添加成功！'}
+                          </h3>
+                          {isBatchMode && (
+                            <div className="space-y-2">
+                              <p className="text-4xl font-bold text-green-600">
+                                {lastSuccessCount} 条
+                              </p>
+                              <p className="text-gray-600">
+                                成功保存到数据库
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* 自动关闭提示 */}
+                      <div className="mt-6">
+                        <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-600 animate-progress" style={{ animationDuration: '3s' }}></div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">3秒后自动关闭</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -548,7 +571,7 @@ export default function AddRecordPage() {
                 // 批量记录模式
                 <>
                   {/* 统计卡片 - LEARNER CLUB 风格 */}
-                  <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
+                  <div className="-mt-16" style={{ position: 'relative', zIndex: 10 }}>
                     <ModernCard className="p-6 bg-gradient-to-br from-white to-blue-50 shadow-xl">
                       <div className="text-center mb-4">
                         <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
