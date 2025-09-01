@@ -658,7 +658,11 @@ function EnhancedExpenseChart({ data }) {
   if (!data) return null
   
   const { monthly } = data
-  const { percentage_a, percentage_b, percentage_c, spent_a, spent_b, spent_c } = monthly
+  const { 
+    percentage_a, percentage_b, percentage_c, 
+    spent_a, spent_b, spent_c,
+    count_a, count_b, count_c 
+  } = monthly
   const total = spent_a + spent_b + spent_c
   
   if (total === 0) {
@@ -678,12 +682,13 @@ function EnhancedExpenseChart({ data }) {
   const dominantCategory = percentage_a === maxPercentage ? '开销' : 
                           percentage_b === maxPercentage ? '学习' : '储蓄'
   
-  // 为圆环图准备数据，强调百分比
+  // 为圆环图准备数据，强调百分比和记录数量
   const chartData = [
     {
       name: '开销',
       value: spent_a,
       percentage: percentage_a,
+      count: count_a || 0,
       color: percentage_a > 60 ? '#EF4444' : '#3B82F6',
       icon: '🛒'
     },
@@ -691,6 +696,7 @@ function EnhancedExpenseChart({ data }) {
       name: '学习',
       value: spent_b,
       percentage: percentage_b,
+      count: count_b || 0,
       color: '#10B981',
       icon: '📚'
     },
@@ -698,6 +704,7 @@ function EnhancedExpenseChart({ data }) {
       name: '储蓄', 
       value: spent_c,
       percentage: percentage_c,
+      count: count_c || 0,
       color: percentage_c < 20 ? '#F59E0B' : '#10B981',
       icon: '💎'
     }
@@ -825,6 +832,9 @@ function PercentageDonutChart({ data, dominantCategory, maxPercentage }) {
             </div>
             <div className="text-xs text-gray-500">
               RM {item.value.toLocaleString()}
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {item.count} 笔
             </div>
           </div>
         ))}
