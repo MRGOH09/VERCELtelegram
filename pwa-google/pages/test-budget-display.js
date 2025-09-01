@@ -2,18 +2,74 @@ import { useState } from 'react'
 import Head from 'next/head'
 
 export default function TestBudgetDisplay() {
-  // 模拟数据
+  // 完整首页模拟数据
   const mockData = {
+    // 预算数据
     monthlyIncome: 5000,
-    monthlyBudget: 3000,  // 月预算
-    spent: 1850,          // 已花费
-    remaining: 1150,      // 剩余
-    daysInMonth: 31,      // 本月天数
-    currentDay: 15,       // 当前是第15天
-    daysRemaining: 16     // 剩余16天
+    monthlyBudget: 3000,
+    spent: 1850,
+    remaining: 1150,
+    daysInMonth: 31,
+    currentDay: 15,
+    daysRemaining: 16,
+    
+    // 用户数据
+    user: {
+      name: 'John Doe',
+      branch: 'PU'
+    },
+    
+    // 月度统计
+    monthly: {
+      totalIncome: 5000,
+      totalExpense: 1850,
+      totalSaving: 800,
+      categoryBreakdown: {
+        food: 650,
+        transport: 320,
+        shopping: 280,
+        entertainment: 200,
+        education: 200,
+        investment: 200
+      }
+    },
+    
+    // 统计数据
+    stats: {
+      record_days: 15,
+      total_records: 32,
+      current_streak: 5,
+      max_streak: 12
+    },
+    
+    // 最近记录
+    recent: [
+      { id: 1, category: '餐饮', amount: 25, note: '午餐', date: '2025-01-09' },
+      { id: 2, category: '交通', amount: 15, note: '地铁', date: '2025-01-08' },
+      { id: 3, category: '购物', amount: 80, note: '日用品', date: '2025-01-08' }
+    ],
+    
+    // 分类详情
+    categoryDetails: {
+      A: { // 开销
+        food: 650,
+        transport: 320,
+        shopping: 280,
+        entertainment: 200
+      },
+      B: { // 学习
+        education: 200,
+        books: 50
+      },
+      C: { // 储蓄
+        investment: 200,
+        saving: 600
+      }
+    }
   }
 
   const [selectedOption, setSelectedOption] = useState(null)
+  const [showFullHomepage, setShowFullHomepage] = useState(false)
 
   // 方案A：大字突出剩余金额 + 进度条
   const OptionA = () => (
@@ -277,6 +333,14 @@ export default function TestBudgetDisplay() {
                 >
                   选择方案 B
                 </button>
+                {selectedOption === 'B' && (
+                  <button
+                    onClick={() => setShowFullHomepage(!showFullHomepage)}
+                    className="mt-2 w-full py-2 px-4 rounded-lg font-medium bg-green-500 text-white hover:bg-green-600 transition-colors"
+                  >
+                    {showFullHomepage ? '隐藏完整首页预览' : '🎯 查看完整首页预览 (方案B)'}
+                  </button>
+                )}
               </div>
             </div>
             
@@ -346,8 +410,284 @@ export default function TestBudgetDisplay() {
               </table>
             </div>
           </div>
+          
+          {/* 完整首页预览 - 使用方案B */}
+          {showFullHomepage && (
+            <FullHomepagePreview data={mockData} />
+          )}
         </div>
       </div>
     </>
+  )
+}
+
+// 完整首页预览组件
+function FullHomepagePreview({ data }) {
+  const currentHour = new Date().getHours()
+  const greeting = currentHour < 12 ? '早上好' : currentHour < 18 ? '下午好' : '晚上好'
+  
+  return (
+    <div className="mt-8">
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-2">
+          🎯 完整首页预览 - 方案B预算显示
+        </h2>
+        <p className="text-gray-600 text-sm">
+          以下是使用方案B预算显示风格的完整首页效果
+        </p>
+      </div>
+      
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        {/* LEARNER CLUB 品牌标语 */}
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center">
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-2xl">🎯</span>
+            <div>
+              <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
+              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+            </div>
+            <span className="text-2xl">📚</span>
+          </div>
+        </div>
+        
+        {/* 现代化头部 */}
+        <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-6 pt-8 pb-20 relative overflow-hidden">
+          {/* 装饰性元素 */}
+          <div className="absolute top-0 right-0 opacity-10">
+            <div className="w-32 h-32 rounded-full bg-white transform translate-x-10 -translate-y-10"></div>
+          </div>
+          <div className="absolute bottom-0 left-0 opacity-5">
+            <div className="w-24 h-24 rounded-full bg-white transform -translate-x-6 translate-y-6"></div>
+          </div>
+          
+          <div className="relative z-10 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold">{greeting}！</h2>
+                <p className="text-blue-100 text-sm">{data.user.name}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-blue-100 text-sm">{data.user.branch}分院</p>
+                <p className="text-xs text-blue-200">连续记录 {data.stats.current_streak} 天</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* 方案B预算控制卡片 - 主要预算显示 */}
+        <div className="px-4 -mt-12 relative z-10 mb-6">
+          <BudgetControlCardB data={data} />
+        </div>
+        
+        {/* 快速统计卡片 */}
+        <div className="px-4 mb-6">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-blue-50 rounded-xl p-3 text-center">
+              <div className="text-2xl mb-1">📅</div>
+              <div className="text-lg font-bold text-blue-600">{data.stats.record_days}</div>
+              <div className="text-xs text-gray-600">记录天数</div>
+            </div>
+            <div className="bg-green-50 rounded-xl p-3 text-center">
+              <div className="text-2xl mb-1">📝</div>
+              <div className="text-lg font-bold text-green-600">{data.stats.total_records}</div>
+              <div className="text-xs text-gray-600">总记录数</div>
+            </div>
+            <div className="bg-orange-50 rounded-xl p-3 text-center">
+              <div className="text-2xl mb-1">🔥</div>
+              <div className="text-lg font-bold text-orange-600">{data.stats.current_streak}</div>
+              <div className="text-xs text-gray-600">连续记录</div>
+            </div>
+          </div>
+        </div>
+        
+        {/* 支出分析图表 */}
+        <div className="px-4 mb-6">
+          <ExpenseChart data={data} />
+        </div>
+        
+        {/* 分类明细 */}
+        <div className="px-4 mb-6">
+          <CategoryBreakdown data={data} />
+        </div>
+        
+        {/* 最近记录 */}
+        <div className="px-4 pb-6">
+          <RecentRecords records={data.recent} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 方案B预算控制卡片 - 与原方案B一致
+function BudgetControlCardB({ data }) {
+  const dailyBudget = data.remaining / data.daysRemaining
+  const recommendedDaily = data.monthlyBudget / data.daysInMonth
+  
+  return (
+    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm opacity-90">剩余预算</p>
+            <p className="text-2xl font-bold">RM {data.remaining}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm opacity-90">剩余天数</p>
+            <p className="text-xl font-bold">{data.daysRemaining} 天</p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-lg">
+              💰
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">每日可用</p>
+              <p className="text-lg font-bold text-green-600">
+                RM {dailyBudget.toFixed(0)}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">建议每日</p>
+            <p className="text-sm text-gray-600">RM {recommendedDaily.toFixed(0)}</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="p-2 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-500">今日已花</p>
+            <p className="font-semibold">RM 85</p>
+          </div>
+          <div className="p-2 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-500">本周已花</p>
+            <p className="font-semibold">RM 420</p>
+          </div>
+          <div className="p-2 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-500">本月已花</p>
+            <p className="font-semibold">RM {data.spent}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 支出图表组件
+function ExpenseChart({ data }) {
+  const categories = [
+    { name: '餐饮', amount: data.categoryDetails.A.food, color: '#3B82F6', icon: '🍽️' },
+    { name: '交通', amount: data.categoryDetails.A.transport, color: '#10B981', icon: '🚗' },
+    { name: '购物', amount: data.categoryDetails.A.shopping, color: '#F59E0B', icon: '🛒' },
+    { name: '娱乐', amount: data.categoryDetails.A.entertainment, color: '#EF4444', icon: '🎮' },
+  ]
+  
+  const maxAmount = Math.max(...categories.map(c => c.amount))
+  
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 本月支出分析</h3>
+      
+      <div className="space-y-3">
+        {categories.map((category, index) => (
+          <div key={index} className="flex items-center space-x-3">
+            <span className="text-lg">{category.icon}</span>
+            <div className="flex-1">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-sm font-medium text-gray-700">{category.name}</span>
+                <span className="text-sm font-semibold">RM {category.amount}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="h-2 rounded-full transition-all duration-500"
+                  style={{ 
+                    width: `${(category.amount / maxAmount) * 100}%`,
+                    backgroundColor: category.color 
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// 分类明细组件
+function CategoryBreakdown({ data }) {
+  const groupConfig = {
+    A: { name: '开销', icon: '🛒', color: '#3B82F6' },
+    B: { name: '学习', icon: '📚', color: '#10B981' },
+    C: { name: '储蓄', icon: '💎', color: '#F59E0B' }
+  }
+  
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">📋 分类明细</h3>
+      
+      <div className="space-y-4">
+        {Object.entries(data.categoryDetails).map(([groupKey, categories]) => {
+          const group = groupConfig[groupKey]
+          const groupTotal = Object.values(categories).reduce((sum, amount) => sum + amount, 0)
+          
+          return (
+            <div key={groupKey} className="border border-gray-100 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">{group.icon}</span>
+                  <span className="font-medium" style={{ color: group.color }}>
+                    {group.name}
+                  </span>
+                </div>
+                <span className="font-semibold">RM {groupTotal}</span>
+              </div>
+              
+              <div className="space-y-1">
+                {Object.entries(categories).map(([categoryKey, amount]) => (
+                  <div key={categoryKey} className="flex justify-between text-sm">
+                    <span className="text-gray-600 capitalize">{categoryKey}</span>
+                    <span>RM {amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// 最近记录组件
+function RecentRecords({ records }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">🕐 最近记录</h3>
+      
+      <div className="space-y-3">
+        {records.map((record) => (
+          <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 text-sm">💳</span>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">{record.category}</p>
+                <p className="text-xs text-gray-500">{record.note}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-gray-900">RM {record.amount}</p>
+              <p className="text-xs text-gray-500">{record.date}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
