@@ -1,28 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 import { formatYMD, getYYYYMM, getEndOfMonth } from '../../../lib/auth'
 
-// 分院代码到名称的映射
+// 分院代码到名称的映射（保持原始代码）
 const BRANCH_NAMES = {
-  'PU': 'PU',
-  'KK': 'KK', 
-  'JB': 'JB',
-  'KL': 'KL',
-  'MM': 'MM',
-  'PG': 'PG',
-  'KC': 'KC',
-  'BLS': 'BLS',
-  'BP': 'BP',
-  'HQ': 'HQ',
-  'M2': 'M2',
-  'MTK': 'MTK',
-  'OTK': 'OTK',
-  'PDMR': 'PDMR', 
   'PJY': 'PJY',
-  'SRD': 'SRD',
-  'STL': 'STL',
-  'TLK': 'TLK',
+  'BLS': 'BLS',
+  'OTK': 'OTK',
+  'PU': 'PU',
   'UKT': 'UKT',
+  'TLK': 'TLK',
+  'M2': 'M2',
+  'BP': 'BP',
+  'MTK': 'MTK',
+  'HQ': 'HQ',
   'VIVA': 'VIVA',
+  'STL': 'STL',
+  'SRD': 'SRD',
+  'PDMR': 'PDMR',
+  'KK': 'KK',
   '小天使': '小天使'
 }
 
