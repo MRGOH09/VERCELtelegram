@@ -44,19 +44,14 @@ export default function SettingsPage() {
     try {
       setLoadingProfile(true)
       
-      const response = await fetch('/api/pwa/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ action: 'profile' })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
+      // 🔧 修复：使用PWAClient来确保正确的认证
+      const result = await PWAClient.call('data', 'profile')
+      
+      if (result && !result.error) {
         setUserData(result)
-        setProfileMessage('个人资料已加载')
+        setProfileMessage('✅ 个人资料已加载')
       } else {
-        throw new Error(`加载失败: ${response.status}`)
+        throw new Error(result?.error || '加载失败')
       }
     } catch (error) {
       console.error('加载个人资料失败:', error)
@@ -84,27 +79,19 @@ export default function SettingsPage() {
       
       const dbField = fieldName || fieldMapping[field] || field
       
-      // 调用更新API
-      const response = await fetch('/api/pwa/update-settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          action: 'update_field',
-          tableName: tableName,
-          fieldName: dbField,
-          value: value
-        })
+      // 🔧 修复：使用PWA data API来更新设置
+      const result = await PWAClient.call('data', 'update-profile', {
+        fieldName: dbField,
+        value: value,
+        tableName: tableName
       })
-
-      const result = await response.json()
       
-      if (response.ok && result.ok) {
+      if (result && result.success) {
         setProfileMessage(`✅ ${field} 已更新为: ${value}`)
         // 1秒后重新加载数据以显示更新结果
         setTimeout(loadUserProfile, 1000)
       } else {
-        setProfileMessage(`❌ 更新失败: ${result.error || '未知错误'}`)
+        setProfileMessage(`❌ 更新失败: ${result?.error || '未知错误'}`)
       }
     } catch (error) {
       setProfileMessage(`❌ 更新错误: ${error.message}`)

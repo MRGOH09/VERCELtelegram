@@ -173,6 +173,9 @@ export default async function handler(req, res) {
       case 'profile':
         return await getProfileData(dbUser.id, res)
         
+      case 'update-profile':
+        return await updateProfileData(dbUser.id, params, res)
+        
       case 'history':
         return await getHistoryData(dbUser.id, params, res)
         
@@ -574,6 +577,120 @@ async function getProfileData(userId, res) {
   } catch (error) {
     console.error('[getProfileData] 错误:', error)
     return res.status(500).json({ error: 'Failed to get profile data' })
+  }
+}
+
+// 更新个人资料数据
+async function updateProfileData(userId, params, res) {
+  try {
+    const { fieldName, value, tableName = 'user_profile' } = params
+    console.log(`[updateProfileData] 更新用户 ${userId} 的 ${fieldName} = ${value}`)
+    
+    // 更新用户资料字段
+    const { error: updateError } = await supabase
+      .from(tableName)
+      .update({ [fieldName]: value })
+      .eq('user_id', userId)
+    
+    if (updateError) {
+      console.error('[updateProfileData] 更新失败:', updateError)
+      return res.status(500).json({ error: '更新失败', details: updateError.message })
+    }
+    
+    // 🔧 创建月度自动记录（从原update-settings.js移植）
+    const annualFields = ['travel_budget_annual', 'annual_medical_insurance', 'annual_car_insurance']
+    if (annualFields.includes(fieldName)) {
+      await createMonthlyAutoRecords(userId, fieldName, value)
+    }
+    
+    console.log(`[updateProfileData] 更新成功: ${fieldName} = ${value}`)
+    
+    return res.json({ 
+      success: true, 
+      message: `${fieldName} 已更新`,
+      value: value 
+    })
+    
+  } catch (error) {
+    console.error('[updateProfileData] 错误:', error)
+    return res.status(500).json({ error: 'Failed to update profile data' })
+  }
+}
+
+// 创建或更新月度自动记录
+async function createMonthlyAutoRecords(userId, fieldName, value) {
+  try {
+    const today = new Date()
+    const ymd = `${today.toISOString().slice(0,7)}-01`
+    
+    // 根据字段名确定要更新的记录
+    let recordConfig = null
+    
+    if (fieldName === 'travel_budget_annual') {
+      recordConfig = {
+        group: 'B',
+        code: 'travel_auto',
+        amount: Math.round((value / 12) * 100) / 100
+      }
+    } else if (fieldName === 'annual_medical_insurance') {
+      recordConfig = {
+        group: 'C',
+        code: 'ins_med_auto',
+        amount: Math.round((value / 12) * 100) / 100
+      }
+    } else if (fieldName === 'annual_car_insurance') {
+      recordConfig = {
+        group: 'C',
+        code: 'ins_car_auto',
+        amount: Math.round((value / 12) * 100) / 100
+      }
+    }
+    
+    if (!recordConfig) return
+    
+    // 检查是否已存在
+    const { data: existing } = await supabase
+      .from('records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('ymd', ymd)
+      .eq('category_code', recordConfig.code)
+      .eq('is_voided', false)
+      .maybeSingle()
+    
+    if (recordConfig.amount > 0) {
+      if (!existing) {
+        // 创建新记录
+        await supabase.from('records').insert([{
+          user_id: userId,
+          category_group: recordConfig.group,
+          category_code: recordConfig.code,
+          amount: recordConfig.amount,
+          note: 'Auto-generated monthly',
+          ymd: ymd
+        }])
+        
+        console.log(`[createMonthlyAutoRecords] 创建自动记录: ${recordConfig.code} = ${recordConfig.amount}`)
+      } else {
+        // 更新现有记录
+        await supabase
+          .from('records')
+          .update({ amount: recordConfig.amount })
+          .eq('id', existing.id)
+        
+        console.log(`[createMonthlyAutoRecords] 更新自动记录: ${recordConfig.code} = ${recordConfig.amount}`)
+      }
+    } else if (existing) {
+      // 如果金额为0且记录存在，删除记录
+      await supabase
+        .from('records')
+        .update({ is_voided: true })
+        .eq('id', existing.id)
+      
+      console.log(`[createMonthlyAutoRecords] 删除自动记录: ${recordConfig.code}`)
+    }
+  } catch (error) {
+    console.error('[createMonthlyAutoRecords] 错误:', error)
   }
 }
 
