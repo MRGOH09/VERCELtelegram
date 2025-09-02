@@ -43,19 +43,24 @@ export default function SettingsPage() {
   const loadUserProfile = async () => {
     try {
       setLoadingProfile(true)
+      setProfileMessage('正在加载个人资料...')
       
       // 🔧 修复：使用PWAClient来确保正确的认证
+      console.log('[loadUserProfile] 开始加载用户资料')
       const result = await PWAClient.call('data', 'profile')
+      console.log('[loadUserProfile] API响应:', result)
       
       if (result && !result.error) {
         setUserData(result)
         setProfileMessage('✅ 个人资料已加载')
+        console.log('[loadUserProfile] 用户资料设置成功:', result)
       } else {
+        console.error('[loadUserProfile] 资料加载失败:', result)
         throw new Error(result?.error || '加载失败')
       }
     } catch (error) {
-      console.error('加载个人资料失败:', error)
-      setProfileMessage('个人资料加载失败')
+      console.error('[loadUserProfile] 加载个人资料失败:', error)
+      setProfileMessage(`❌ 个人资料加载失败: ${error.message}`)
     } finally {
       setLoadingProfile(false)
     }
@@ -80,18 +85,23 @@ export default function SettingsPage() {
       const dbField = fieldName || fieldMapping[field] || field
       
       // 🔧 修复：使用PWA data API来更新设置
+      console.log('[updateField] 准备更新:', { field, value, dbField, tableName })
+      
       const result = await PWAClient.call('data', 'update-profile', {
         fieldName: dbField,
         value: value,
         tableName: tableName
       })
       
+      console.log('[updateField] API响应:', result)
+      
       if (result && result.success) {
         setProfileMessage(`✅ ${field} 已更新为: ${value}`)
         // 1秒后重新加载数据以显示更新结果
         setTimeout(loadUserProfile, 1000)
       } else {
-        setProfileMessage(`❌ 更新失败: ${result?.error || '未知错误'}`)
+        console.error('[updateField] 更新失败:', result)
+        setProfileMessage(`❌ 更新失败: ${result?.error || result?.details || '未知错误'}`)
       }
     } catch (error) {
       setProfileMessage(`❌ 更新错误: ${error.message}`)

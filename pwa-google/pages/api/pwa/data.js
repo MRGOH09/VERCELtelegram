@@ -586,15 +586,62 @@ async function updateProfileData(userId, params, res) {
     const { fieldName, value, tableName = 'user_profile' } = params
     console.log(`[updateProfileData] 更新用户 ${userId} 的 ${fieldName} = ${value}`)
     
-    // 更新用户资料字段
-    const { error: updateError } = await supabase
-      .from(tableName)
-      .update({ [fieldName]: value })
-      .eq('user_id', userId)
-    
-    if (updateError) {
-      console.error('[updateProfileData] 更新失败:', updateError)
-      return res.status(500).json({ error: '更新失败', details: updateError.message })
+    // 🔧 修复：先检查用户资料是否存在，不存在则创建
+    if (tableName === 'user_profile') {
+      const { data: existingProfile } = await supabase
+        .from('user_profile')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle()
+      
+      if (!existingProfile) {
+        console.log(`[updateProfileData] 用户资料不存在，创建新记录`)
+        // 获取用户邮箱用于创建资料
+        const { data: userData } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', userId)
+          .single()
+        
+        // 创建基础用户资料
+        const { error: createError } = await supabase
+          .from('user_profile')
+          .insert({
+            user_id: userId,
+            email: userData?.email || '',
+            display_name: userData?.name || '',
+            [fieldName]: value
+          })
+        
+        if (createError) {
+          console.error('[updateProfileData] 创建用户资料失败:', createError)
+          return res.status(500).json({ error: '创建用户资料失败', details: createError.message })
+        }
+        
+        console.log(`[updateProfileData] 用户资料创建成功`)
+      } else {
+        // 更新现有用户资料字段
+        const { error: updateError } = await supabase
+          .from(tableName)
+          .update({ [fieldName]: value })
+          .eq('user_id', userId)
+        
+        if (updateError) {
+          console.error('[updateProfileData] 更新失败:', updateError)
+          return res.status(500).json({ error: '更新失败', details: updateError.message })
+        }
+      }
+    } else {
+      // 非user_profile表的更新
+      const { error: updateError } = await supabase
+        .from(tableName)
+        .update({ [fieldName]: value })
+        .eq('user_id', userId)
+      
+      if (updateError) {
+        console.error('[updateProfileData] 更新失败:', updateError)
+        return res.status(500).json({ error: '更新失败', details: updateError.message })
+      }
     }
     
     // 🔧 创建月度自动记录（单字段更新）
