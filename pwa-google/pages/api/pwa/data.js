@@ -1852,9 +1852,14 @@ async function simpleCheckIn(userId, res) {
     })
     
   } catch (error) {
-    console.error('[simpleCheckIn] 错误:', error)
+    console.error('[simpleCheckIn] 详细错误:', error)
+    console.error('[simpleCheckIn] 错误消息:', error.message)
+    console.error('[simpleCheckIn] 错误栈:', error.stack)
+    console.error('[simpleCheckIn] 用户ID:', userId)
     return res.status(500).json({ 
-      error: '打卡失败' 
+      error: '打卡失败',
+      details: error.message,
+      userId: userId
     })
   }
 }
