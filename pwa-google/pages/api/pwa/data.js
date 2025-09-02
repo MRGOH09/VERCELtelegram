@@ -1801,7 +1801,7 @@ async function simpleCheckIn(userId, res) {
     
     console.log('[DEBUG simpleCheckIn] 连续天数:', currentStreak, '总分:', totalScore)
     
-    // 插入积分记录
+    // 插入积分记录 - 移除total_score让数据库自动计算
     const { data: scoreResult, error: scoreError } = await supabase
       .from('user_daily_scores')
       .insert([{
@@ -1810,7 +1810,6 @@ async function simpleCheckIn(userId, res) {
         base_score: baseScore,
         streak_score: streakScore,
         bonus_score: 0,
-        total_score: totalScore,
         current_streak: currentStreak,
         record_type: 'checkin'
       }])
@@ -1840,14 +1839,14 @@ async function simpleCheckIn(userId, res) {
       success: true, 
       message: '打卡成功',
       score: {
-        total_score: scoreResult.total_score,
+        total_score: scoreResult.total_score || totalScore,
         base_score: scoreResult.base_score,
         streak_score: scoreResult.streak_score,
         bonus_score: scoreResult.bonus_score,
         current_streak: scoreResult.current_streak,
-        bonus_details: scoreResult.bonus_details
+        bonus_details: []
       },
-      scoreMessage: `🎉 打卡获得 ${scoreResult.total_score} 分！`,
+      scoreMessage: `🎉 打卡获得 ${scoreResult.total_score || totalScore} 分！`,
       streakMessage: `连续打卡 ${scoreResult.current_streak} 天`
     })
     
