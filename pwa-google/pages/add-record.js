@@ -347,6 +347,8 @@ export default function AddRecordPage() {
         throw new Error('请先登录')
       }
 
+      console.log('[打卡] 开始调用API，token长度:', session.access_token.length)
+
       // 调用专用的Check In API
       const response = await fetch('/api/pwa/data', {
         method: 'POST',
@@ -360,10 +362,13 @@ export default function AddRecordPage() {
         })
       })
 
+      console.log('[打卡] API响应状态:', response.status)
+      
       const result = await response.json()
+      console.log('[打卡] API响应数据:', result)
       
       if (!response.ok) {
-        throw new Error(result.error || '打卡失败')
+        throw new Error(result.error || `HTTP ${response.status}: 打卡失败`)
       }
       
       if (result.success) {
@@ -414,14 +419,24 @@ export default function AddRecordPage() {
       }
     } catch (error) {
       console.error('Check In失败:', error)
+      console.error('错误详情:', {
+        message: error.message,
+        stack: error.stack
+      })
+      
       let errorMessage = '❌ 打卡失败，请重试'
       if (error.message.includes('already')) {
         errorMessage = '😊 今天已经打卡过了！'
         setHasCheckedInToday(true)
         localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
+      } else if (error.message.includes('请先登录')) {
+        errorMessage = '❌ 请先登录后再打卡'
+      } else {
+        errorMessage = `❌ 打卡失败: ${error.message}`
       }
+      
       setCheckInMessage(errorMessage)
-      setTimeout(() => setCheckInMessage(''), 3000)
+      setTimeout(() => setCheckInMessage(''), 5000) // 延长显示时间便于查看错误
     } finally {
       setIsCheckingIn(false)
     }
