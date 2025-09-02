@@ -163,7 +163,7 @@ export default function ModernDashboard() {
             <span className="text-2xl">🎯</span>
             <div>
               <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
-              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来</p>
+              <p className="text-xs opacity-90">学习改变命运 · 记录成就未来 ✨</p>
             </div>
             <span className="text-2xl">📚</span>
           </div>
