@@ -1782,10 +1782,47 @@ async function simpleCheckIn(userId, res) {
       })
     }
     
-    // 正确的积分算法：复用现有calculateCheckInScore
-    console.log('[DEBUG simpleCheckIn] 开始计算积分')
-    const scoreResult = await calculateCheckInScore(userId, today)
-    console.log('[DEBUG simpleCheckIn] 积分计算完成:', scoreResult)
+    // ULTRA-KISS: 最简单的积分计算，不依赖任何其他函数
+    console.log('[DEBUG simpleCheckIn] 开始简单积分计算')
+    
+    // 查询昨天是否有打卡(计算连续天数)
+    const yesterday = new Date(new Date(today).getTime() - 86400000).toISOString().split('T')[0]
+    const { data: yesterdayScore } = await supabase
+      .from('user_daily_scores')
+      .select('current_streak')
+      .eq('user_id', userId)
+      .eq('ymd', yesterday)
+      .maybeSingle()
+    
+    const currentStreak = yesterdayScore ? yesterdayScore.current_streak + 1 : 1
+    const baseScore = 1
+    const streakScore = currentStreak > 1 ? 1 : 0
+    const totalScore = baseScore + streakScore
+    
+    console.log('[DEBUG simpleCheckIn] 连续天数:', currentStreak, '总分:', totalScore)
+    
+    // 插入积分记录
+    const { data: scoreResult, error: scoreError } = await supabase
+      .from('user_daily_scores')
+      .insert([{
+        user_id: userId,
+        ymd: today,
+        base_score: baseScore,
+        streak_score: streakScore,
+        bonus_score: 0,
+        total_score: totalScore,
+        current_streak: currentStreak,
+        record_type: 'checkin'
+      }])
+      .select()
+      .single()
+    
+    if (scoreError) {
+      console.error('[DEBUG simpleCheckIn] 积分插入失败:', scoreError)
+      throw scoreError
+    }
+    
+    console.log('[DEBUG simpleCheckIn] 积分记录完成:', scoreResult)
     
     // 插入打卡记录
     await supabase
