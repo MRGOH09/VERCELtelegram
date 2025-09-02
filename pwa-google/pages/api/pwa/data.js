@@ -1692,12 +1692,26 @@ async function updateRecordNative(userId, params, res) {
     }
     
     // 直接操作Supabase - 更新记录
+    // 保持原始记录的正负号，不强制转换
+    const originalRecord = await supabase
+      .from('records')
+      .select('amount')
+      .eq('id', recordId)
+      .eq('user_id', userId)
+      .single()
+    
+    // 根据原始记录的正负号来确定新金额的符号
+    const isOriginalPositive = originalRecord.data?.amount >= 0
+    const newAmount = isOriginalPositive 
+      ? Math.abs(parseFloat(amount))  // 保持正数
+      : -Math.abs(parseFloat(amount)) // 保持负数
+    
     const { data, error } = await supabase
       .from('records')
       .update({
         category_group: group,
         category_code: category, 
-        amount: -Math.abs(parseFloat(amount)), // 确保是负数（支出）
+        amount: newAmount, // 保持原始正负号
         ymd: date,
         note: note || null
       })
