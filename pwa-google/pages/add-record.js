@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import ModernCard from '../components/ModernCard'
@@ -85,6 +85,10 @@ const createEmptyRecord = (index) => ({
 export default function AddRecordPage() {
   const router = useRouter()
   
+  // 🛡️ 定时器引用 - 防止内存泄漏
+  const timeoutRefs = useRef([])
+  const intervalRefs = useRef([])
+  
   // 模式切换状态
   const [isBatchMode, setIsBatchMode] = useState(false)
   
@@ -112,6 +116,44 @@ export default function AddRecordPage() {
   )
   const [lastSuccessCount, setLastSuccessCount] = useState(0) // 记录最后成功提交的记录数
   const [batchDate, setBatchDate] = useState(new Date().toISOString().split('T')[0]) // 统一日期
+
+  // 🛡️ 定时器清理函数
+  const clearAllTimers = () => {
+    timeoutRefs.current.forEach(ref => {
+      if (ref.current) clearTimeout(ref.current)
+    })
+    intervalRefs.current.forEach(ref => {
+      if (ref.current) clearInterval(ref.current)
+    })
+    timeoutRefs.current = []
+    intervalRefs.current = []
+  }
+
+  // 🛡️ 安全的定时器创建函数
+  const safeSetTimeout = (callback, delay) => {
+    const ref = { current: null }
+    ref.current = setTimeout(() => {
+      callback()
+      // 执行完后从数组中移除
+      timeoutRefs.current = timeoutRefs.current.filter(r => r !== ref)
+    }, delay)
+    timeoutRefs.current.push(ref)
+    return ref
+  }
+
+  const safeSetInterval = (callback, delay) => {
+    const ref = { current: null }
+    ref.current = setInterval(callback, delay)
+    intervalRefs.current.push(ref)
+    return ref
+  }
+
+  // 🛡️ 组件卸载时清理所有定时器
+  useEffect(() => {
+    return () => {
+      clearAllTimers()
+    }
+  }, [])
 
   useEffect(() => {
     // 从URL参数中获取预选分类
@@ -170,7 +212,7 @@ export default function AddRecordPage() {
         setShowScoreFeedback(true)
         
         // 6秒后隐藏积分反馈（比普通成功提示长一些）
-        setTimeout(() => {
+        safeSetTimeout(() => {
           setShowScoreFeedback(false)
           setScoreInfo(null)
         }, 6000)
@@ -181,11 +223,14 @@ export default function AddRecordPage() {
         
         // 倒计时逻辑
         let count = 3
-        const countdownInterval = setInterval(() => {
+        const countdownRef = safeSetInterval(() => {
           count--
           setCountdown(count)
           if (count <= 0) {
-            clearInterval(countdownInterval)
+            if (countdownRef.current) {
+              clearInterval(countdownRef.current)
+              intervalRefs.current = intervalRefs.current.filter(r => r !== countdownRef)
+            }
             setShowSuccess(false)
             setCountdown(3) // 重置倒计时
           }
@@ -302,11 +347,14 @@ export default function AddRecordPage() {
       
       // 倒计时逻辑
       let count = 3
-      const countdownInterval = setInterval(() => {
+      const batchCountdownRef = safeSetInterval(() => {
         count--
         setCountdown(count)
         if (count <= 0) {
-          clearInterval(countdownInterval)
+          if (batchCountdownRef.current) {
+            clearInterval(batchCountdownRef.current)
+            intervalRefs.current = intervalRefs.current.filter(r => r !== batchCountdownRef)
+          }
           setShowSuccess(false)
           setLastSuccessCount(0) // 重置成功记录数
           setCountdown(3) // 重置倒计时
@@ -361,7 +409,7 @@ export default function AddRecordPage() {
             streakMessage: result.streakMessage || `连续打卡 ${result.score.current_streak || 1} 天`
           })
           setShowScoreFeedback(true)
-          setTimeout(() => {
+          safeSetTimeout(() => {
             setShowScoreFeedback(false)
             setScoreInfo(null)
           }, 4000)
@@ -380,15 +428,17 @@ export default function AddRecordPage() {
     } finally {
       console.log('[DEBUG] 打卡流程结束')
       setIsCheckingIn(false)
-      setTimeout(() => setCheckInMessage(''), 3000)
+      safeSetTimeout(() => setCheckInMessage(''), 3000)
     }
   }
   
-  // KISS: 简单检查打卡状态
+  // KISS: 简单检查打卡状态 + 调试
   const checkTodayCheckIn = async () => {
     const today = new Date().toISOString().slice(0, 10)
     const lastCheckIn = localStorage.getItem('lastCheckInDate')
-    setHasCheckedInToday(lastCheckIn === today)
+    const hasChecked = lastCheckIn === today
+    console.log('[DEBUG checkTodayCheckIn] 今天:', today, '上次打卡:', lastCheckIn, '已打卡:', hasChecked)
+    setHasCheckedInToday(hasChecked)
   }
   
   // 页面加载时检查打卡状态

@@ -21,6 +21,10 @@ export default function ModernDashboard() {
   // Telegram跳转已移除
   const { preloadPage } = useSmartPreload()
   
+  // 🛡️ 认证重定向保护 - 防止无限循环
+  const [authRedirectCount, setAuthRedirectCount] = useState(0)
+  const MAX_AUTH_REDIRECTS = 3
+  
   useEffect(() => {
     checkAuthAndLoadDashboard()
     
@@ -43,6 +47,15 @@ export default function ModernDashboard() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         console.log('[AUTH] 无session，跳转到登录页')
+        
+        // 🛡️ 认证保护：检查重定向次数
+        if (authRedirectCount >= MAX_AUTH_REDIRECTS) {
+          console.warn('[AUTH] 重定向次数过多，显示错误信息')
+          setError('认证服务异常，请手动刷新页面或清除浏览器缓存后重试')
+          setLoading(false)
+          return
+        }
+        setAuthRedirectCount(prev => prev + 1)
         router.replace('/auth')
         return
       }
@@ -58,15 +71,35 @@ export default function ModernDashboard() {
         const result = await response.json()
         if (!result.userExists) {
           console.log('[AUTH] 用户不存在，跳转到注册页')
+          
+          // 🛡️ 认证保护：检查重定向次数
+          if (authRedirectCount >= MAX_AUTH_REDIRECTS) {
+            console.warn('[AUTH] 重定向次数过多，显示错误信息')
+            setError('用户注册异常，请联系管理员或尝试重新登录')
+            setLoading(false)
+            return
+          }
+          setAuthRedirectCount(prev => prev + 1)
           router.replace('/auth?mode=complete-registration')
           return
         }
       }
       
       console.log('[AUTH] 用户已认证，加载仪表板')
+      // 🛡️ 认证成功，重置计数器
+      setAuthRedirectCount(0)
       loadDashboard()
     } catch (error) {
       console.error('认证检查失败:', error)
+      
+      // 🛡️ 认证保护：检查重定向次数
+      if (authRedirectCount >= MAX_AUTH_REDIRECTS) {
+        console.warn('[AUTH] 重定向次数过多，显示网络错误')
+        setError('网络连接异常，请检查网络设置后刷新页面')
+        setLoading(false)
+        return
+      }
+      setAuthRedirectCount(prev => prev + 1)
       router.replace('/auth')
     }
   }
@@ -93,6 +126,13 @@ export default function ModernDashboard() {
       console.error('Dashboard load error:', error)
       
       if (error.message.includes('Unauthorized')) {
+        // 🛡️ 认证保护：检查重定向次数
+        if (authRedirectCount >= MAX_AUTH_REDIRECTS) {
+          console.warn('[DASHBOARD] 认证错误重定向次数过多')
+          setError('认证已过期，请手动点击刷新按钮重新登录')
+          return
+        }
+        setAuthRedirectCount(prev => prev + 1)
         router.replace('/auth')
         return
       }
