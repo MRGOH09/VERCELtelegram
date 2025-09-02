@@ -19,6 +19,18 @@ export default function SettingsPage() {
   const [userData, setUserData] = useState(null)
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [profileMessage, setProfileMessage] = useState('')
+  
+  // 🔧 表单字段状态 - 用于实时更新显示
+  const [formFields, setFormFields] = useState({
+    display_name: '',
+    phone_e164: '',
+    email: '',
+    monthly_income: 0,
+    a_pct: 0,
+    travel_budget_annual: 0,
+    annual_medical_insurance: 0,
+    annual_car_insurance: 0
+  })
 
   useEffect(() => {
     checkAuthAndInitialize()
@@ -52,6 +64,19 @@ export default function SettingsPage() {
       
       if (result && !result.error) {
         setUserData(result)
+        
+        // 🔧 同步更新表单字段状态以实现实时显示
+        setFormFields({
+          display_name: result.profile?.display_name || '',
+          phone_e164: result.profile?.phone || '',
+          email: result.profile?.email || '',
+          monthly_income: result.profile?.income || 0,
+          a_pct: result.profile?.a_pct || 0,
+          travel_budget_annual: result.profile?.travel_budget || 0,
+          annual_medical_insurance: result.profile?.annual_medical_insurance || 0,
+          annual_car_insurance: result.profile?.annual_car_insurance || 0
+        })
+        
         setProfileMessage('✅ 个人资料已加载')
         console.log('[loadUserProfile] 用户资料设置成功:', result)
       } else {
@@ -75,7 +100,7 @@ export default function SettingsPage() {
         '显示名称': 'display_name',
         '电话': 'phone_e164', 
         '邮箱': 'email',
-        '月收入': 'monthly_income',
+        '月收入': 'income',
         'A类百分比': 'a_pct',
         '旅游预算': 'travel_budget_annual',
         '年度医疗保险': 'annual_medical_insurance',
@@ -97,8 +122,28 @@ export default function SettingsPage() {
       
       if (result && result.success) {
         setProfileMessage(`✅ ${field} 已更新为: ${value}`)
-        // 1秒后重新加载数据以显示更新结果
-        setTimeout(loadUserProfile, 1000)
+        
+        // 🔧 立即更新表单字段状态，无需等待重新加载
+        // 需要映射回formFields中的字段名
+        const formFieldMapping = {
+          'display_name': 'display_name',
+          'phone_e164': 'phone_e164',
+          'email': 'email', 
+          'income': 'monthly_income',
+          'a_pct': 'a_pct',
+          'travel_budget_annual': 'travel_budget_annual',
+          'annual_medical_insurance': 'annual_medical_insurance',
+          'annual_car_insurance': 'annual_car_insurance'
+        }
+        
+        const formField = formFieldMapping[dbField] || dbField
+        setFormFields(prev => ({
+          ...prev,
+          [formField]: value
+        }))
+        
+        // 也重新加载完整数据以确保数据一致性
+        setTimeout(loadUserProfile, 500)
       } else {
         console.error('[updateField] 更新失败:', result)
         setProfileMessage(`❌ 更新失败: ${result?.error || result?.details || '未知错误'}`)
@@ -436,14 +481,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="text"
-                              id="display_name"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.display_name || ''}
+                              value={formFields.display_name}
+                              onChange={(e) => setFormFields(prev => ({...prev, display_name: e.target.value}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('display_name').value
-                                updateField('显示名称', value)
+                                updateField('显示名称', formFields.display_name)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -456,14 +500,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="text"
-                              id="phone_e164"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.phone || ''}
+                              value={formFields.phone_e164}
+                              onChange={(e) => setFormFields(prev => ({...prev, phone_e164: e.target.value}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('phone_e164').value
-                                updateField('电话', value)
+                                updateField('电话', formFields.phone_e164)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -478,14 +521,13 @@ export default function SettingsPage() {
                         <div className="flex gap-2">
                           <input 
                             type="email"
-                            id="email"
                             className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                            defaultValue={userData.profile?.email || ''}
+                            value={formFields.email}
+                            onChange={(e) => setFormFields(prev => ({...prev, email: e.target.value}))}
                           />
                           <button
                             onClick={() => {
-                              const value = document.getElementById('email').value
-                              updateField('邮箱', value)
+                              updateField('邮箱', formFields.email)
                             }}
                             className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                           >
@@ -504,14 +546,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              id="monthly_income"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.income || 0}
+                              value={formFields.monthly_income}
+                              onChange={(e) => setFormFields(prev => ({...prev, monthly_income: parseFloat(e.target.value) || 0}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('monthly_income').value
-                                updateField('月收入', parseFloat(value) || 0)
+                                updateField('月收入', formFields.monthly_income)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -524,15 +565,14 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              id="a_pct"
                               min="0" max="100"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.a_pct || 0}
+                              value={formFields.a_pct}
+                              onChange={(e) => setFormFields(prev => ({...prev, a_pct: parseInt(e.target.value) || 0}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('a_pct').value
-                                updateField('A类百分比', parseInt(value) || 0)
+                                updateField('A类百分比', formFields.a_pct)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -548,14 +588,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              id="travel_budget_annual"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.travel_budget || 0}
+                              value={formFields.travel_budget_annual}
+                              onChange={(e) => setFormFields(prev => ({...prev, travel_budget_annual: parseFloat(e.target.value) || 0}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('travel_budget_annual').value
-                                updateField('旅游预算', parseFloat(value) || 0)
+                                updateField('旅游预算', formFields.travel_budget_annual)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -563,7 +602,7 @@ export default function SettingsPage() {
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            月度分摊: RM {((userData.profile?.travel_budget || 0) / 12).toFixed(2)}
+                            月度分摊: RM {(formFields.travel_budget_annual / 12).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -578,14 +617,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              id="annual_medical_insurance"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.annual_medical_insurance || 0}
+                              value={formFields.annual_medical_insurance}
+                              onChange={(e) => setFormFields(prev => ({...prev, annual_medical_insurance: parseFloat(e.target.value) || 0}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('annual_medical_insurance').value
-                                updateField('年度医疗保险', parseFloat(value) || 0)
+                                updateField('年度医疗保险', formFields.annual_medical_insurance)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -593,7 +631,7 @@ export default function SettingsPage() {
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            月度分摊: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}
+                            月度分摊: RM {(formFields.annual_medical_insurance / 12).toFixed(2)}
                           </div>
                         </div>
                         <div>
@@ -601,14 +639,13 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              id="annual_car_insurance"
                               className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
-                              defaultValue={userData.profile?.annual_car_insurance || 0}
+                              value={formFields.annual_car_insurance}
+                              onChange={(e) => setFormFields(prev => ({...prev, annual_car_insurance: parseFloat(e.target.value) || 0}))}
                             />
                             <button
                               onClick={() => {
-                                const value = document.getElementById('annual_car_insurance').value
-                                updateField('年度车险', parseFloat(value) || 0)
+                                updateField('年度车险', formFields.annual_car_insurance)
                               }}
                               className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
                             >
@@ -616,7 +653,7 @@ export default function SettingsPage() {
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            月度分摊: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}
+                            月度分摊: RM {(formFields.annual_car_insurance / 12).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -626,10 +663,10 @@ export default function SettingsPage() {
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <h4 className="font-semibold text-blue-800 mb-2">💡 自动计算说明</h4>
                       <div className="text-sm text-blue-700 space-y-1">
-                        <p><strong>EPF (固定24%)</strong>: RM {((userData.profile?.income || 0) * 0.24).toFixed(2)}/月</p>
-                        <p><strong>旅游基金</strong>: RM {((userData.profile?.travel_budget || 0) / 12).toFixed(2)}/月</p>
-                        <p><strong>医疗保险</strong>: RM {((userData.profile?.annual_medical_insurance || 0) / 12).toFixed(2)}/月</p>
-                        <p><strong>车险</strong>: RM {((userData.profile?.annual_car_insurance || 0) / 12).toFixed(2)}/月</p>
+                        <p><strong>EPF (固定24%)</strong>: RM {(formFields.monthly_income * 0.24).toFixed(2)}/月</p>
+                        <p><strong>旅游基金</strong>: RM {(formFields.travel_budget_annual / 12).toFixed(2)}/月</p>
+                        <p><strong>医疗保险</strong>: RM {(formFields.annual_medical_insurance / 12).toFixed(2)}/月</p>
+                        <p><strong>车险</strong>: RM {(formFields.annual_car_insurance / 12).toFixed(2)}/月</p>
                         <p className="text-xs mt-2">这些金额会自动分摊到每月的相应分类中</p>
                       </div>
                     </div>
