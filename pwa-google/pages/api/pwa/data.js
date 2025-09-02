@@ -1756,30 +1756,50 @@ async function updateRecordNative(userId, params, res) {
   }
 }
 
-// KISS: 极简打卡功能
+// KISS: 极简打卡功能 + 基础积分
 async function simpleCheckIn(userId, res) {
   try {
     const today = new Date().toISOString().split('T')[0]
     
     // 检查今日是否已打卡
     const { data: existing } = await supabase
-      .from('records')
-      .select('id')
+      .from('user_daily_scores')
+      .select('*')
       .eq('user_id', userId)
-      .eq('category_code', 'checkin')
       .eq('ymd', today)
-      .eq('is_voided', false)
       .maybeSingle()
     
     if (existing) {
       return res.status(200).json({ 
         success: false, 
-        message: '今日已打卡' 
+        message: '今日已打卡',
+        score: {
+          total_score: existing.total_score,
+          base_score: existing.base_score
+        }
       })
     }
     
+    // KISS积分计算：固定10分基础分
+    const baseScore = 10
+    const totalScore = baseScore
+    
+    // 插入积分记录
+    await supabase
+      .from('user_daily_scores')
+      .insert([{
+        user_id: userId,
+        ymd: today,
+        base_score: baseScore,
+        streak_score: 0,
+        bonus_score: 0,
+        total_score: totalScore,
+        current_streak: 1,
+        record_type: 'checkin'
+      }])
+    
     // 插入打卡记录
-    const { data } = await supabase
+    await supabase
       .from('records')
       .insert([{
         user_id: userId,
@@ -1789,13 +1809,17 @@ async function simpleCheckIn(userId, res) {
         note: '每日打卡',
         ymd: today
       }])
-      .select()
-      .single()
     
     return res.status(200).json({ 
       success: true, 
       message: '打卡成功',
-      record: data 
+      score: {
+        total_score: totalScore,
+        base_score: baseScore,
+        streak_score: 0,
+        bonus_score: 0
+      },
+      scoreMessage: `🎉 打卡获得 ${totalScore} 分！`
     })
     
   } catch (error) {

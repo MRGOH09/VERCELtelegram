@@ -327,7 +327,7 @@ export default function AddRecordPage() {
     }
   }
   
-  // KISS: 极简打卡功能
+  // KISS: 极简打卡功能 + 积分反馈
   const handleCheckIn = async () => {
     if (hasCheckedInToday) return
     
@@ -338,7 +338,24 @@ export default function AddRecordPage() {
       if (result.success) {
         setHasCheckedInToday(true)
         localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
-        setCheckInMessage('✅ 打卡成功！')
+        
+        // 显示积分反馈
+        if (result.score) {
+          setScoreInfo({
+            totalScore: result.score.total_score,
+            baseScore: result.score.base_score,
+            streakScore: result.score.streak_score || 0,
+            bonusScore: result.score.bonus_score || 0,
+            scoreMessage: result.scoreMessage || `🎉 打卡获得 ${result.score.total_score} 分！`
+          })
+          setShowScoreFeedback(true)
+          setTimeout(() => {
+            setShowScoreFeedback(false)
+            setScoreInfo(null)
+          }, 4000)
+        } else {
+          setCheckInMessage('✅ 打卡成功！')
+        }
       } else {
         setCheckInMessage(result.message || '今日已打卡')
         setHasCheckedInToday(true)
