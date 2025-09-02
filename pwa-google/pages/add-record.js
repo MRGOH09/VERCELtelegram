@@ -327,159 +327,37 @@ export default function AddRecordPage() {
     }
   }
   
-  // Check In处理函数
+  // KISS: 极简打卡功能
   const handleCheckIn = async () => {
-    if (hasCheckedInToday) {
-      return
-    }
+    if (hasCheckedInToday) return
     
     setIsCheckingIn(true)
     try {
-      // 🔧 获取Supabase认证token
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      )
-      
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        throw new Error('请先登录')
-      }
-
-      console.log('[打卡] 开始调用API，token长度:', session.access_token.length)
-
-      // 调用专用的Check In API
-      const response = await fetch('/api/pwa/data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // 🔧 添加认证头
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          action: 'checkin'
-        })
-      })
-
-      console.log('[打卡] API响应状态:', response.status)
-      
-      const result = await response.json()
-      console.log('[打卡] API响应数据:', result)
-      
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}: 打卡失败`)
-      }
+      const result = await PWAClient.call('data', 'checkin')
       
       if (result.success) {
         setHasCheckedInToday(true)
-        
-        // 更新localStorage标记
         localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
-        
-        // 使用积分反馈UI显示打卡成功
-        if (result.score) {
-          setScoreInfo({
-            totalScore: result.score.total_score,
-            baseScore: result.score.base_score,
-            streakScore: result.score.streak_score,
-            bonusScore: result.score.bonus_score,
-            currentStreak: result.score.current_streak,
-            bonusDetails: result.score.bonus_details || [],
-            scoreMessage: result.scoreMessage || `🎉 打卡获得 ${result.score.total_score} 分！`,
-            streakMessage: result.streakMessage || `连续打卡 ${result.score.current_streak} 天`,
-            achievementMessage: result.achievementMessage
-          })
-          setShowScoreFeedback(true)
-          
-          // 6秒后隐藏积分反馈
-          setTimeout(() => {
-            setShowScoreFeedback(false)
-            setScoreInfo(null)
-          }, 6000)
-        } else {
-          // 没有积分信息时显示简单成功提示
-          setCheckInMessage('✅ 打卡成功！')
-          setShowSuccess(true)
-          setCountdown(3) // 重置倒计时
-          
-          // 倒计时逻辑
-          let count = 3
-          const countdownInterval = setInterval(() => {
-            count--
-            setCountdown(count)
-            if (count <= 0) {
-              clearInterval(countdownInterval)
-              setShowSuccess(false)
-              setCheckInMessage('')
-              setCountdown(3) // 重置倒计时
-            }
-          }, 1000)
-        }
-      }
-    } catch (error) {
-      console.error('Check In失败:', error)
-      console.error('错误详情:', {
-        message: error.message,
-        stack: error.stack
-      })
-      
-      let errorMessage = '❌ 打卡失败，请重试'
-      if (error.message.includes('already')) {
-        errorMessage = '😊 今天已经打卡过了！'
-        setHasCheckedInToday(true)
-        localStorage.setItem('lastCheckInDate', new Date().toISOString().slice(0, 10))
-      } else if (error.message.includes('请先登录')) {
-        errorMessage = '❌ 请先登录后再打卡'
+        setCheckInMessage('✅ 打卡成功！')
       } else {
-        errorMessage = `❌ 打卡失败: ${error.message}`
+        setCheckInMessage(result.message || '今日已打卡')
+        setHasCheckedInToday(true)
       }
       
-      setCheckInMessage(errorMessage)
-      setTimeout(() => setCheckInMessage(''), 5000) // 延长显示时间便于查看错误
+    } catch (error) {
+      console.error('打卡失败:', error)
+      setCheckInMessage('❌ 打卡失败，请重试')
     } finally {
       setIsCheckingIn(false)
+      setTimeout(() => setCheckInMessage(''), 3000)
     }
   }
   
-  // 检查今日是否已打卡
+  // KISS: 简单检查打卡状态
   const checkTodayCheckIn = async () => {
-    try {
-      const response = await fetch('/api/pwa/data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          action: 'check-checkin-status'
-        })
-      })
-
-      const result = await response.json()
-      
-      if (result.success) {
-        setHasCheckedInToday(result.hasCheckedIn)
-        console.log(`[checkTodayCheckIn] 今日打卡状态: ${result.hasCheckedIn}`)
-        
-        // 同步更新localStorage（用于离线状态参考）
-        if (result.hasCheckedIn) {
-          localStorage.setItem('lastCheckInDate', result.today)
-        }
-      } else {
-        console.error('检查打卡状态失败:', result.error)
-        // 降级到localStorage检查
-        const today = new Date().toISOString().slice(0, 10)
-        const lastCheckIn = localStorage.getItem('lastCheckInDate')
-        setHasCheckedInToday(lastCheckIn === today)
-      }
-    } catch (error) {
-      console.error('检查打卡状态失败:', error)
-      // 降级到localStorage检查
-      const today = new Date().toISOString().slice(0, 10)
-      const lastCheckIn = localStorage.getItem('lastCheckInDate')
-      setHasCheckedInToday(lastCheckIn === today)
-    }
+    const today = new Date().toISOString().slice(0, 10)
+    const lastCheckIn = localStorage.getItem('lastCheckInDate')
+    setHasCheckedInToday(lastCheckIn === today)
   }
   
   // 页面加载时检查打卡状态

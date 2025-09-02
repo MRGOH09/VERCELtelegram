@@ -211,7 +211,7 @@ export default async function handler(req, res) {
         return await updateRecordNative(dbUser.id, params, res)
         
       case 'checkin':
-        return await handleCheckIn(dbUser.id, res)
+        return await simpleCheckIn(dbUser.id, res)
         
       case 'check-checkin-status':
         return await checkCheckInStatus(dbUser.id, res)
@@ -1752,6 +1752,56 @@ async function updateRecordNative(userId, params, res) {
     console.error('[updateRecordNative] 系统错误:', error)
     return res.status(500).json({
       error: error.message || '修改记录失败'
+    })
+  }
+}
+
+// KISS: 极简打卡功能
+async function simpleCheckIn(userId, res) {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    
+    // 检查今日是否已打卡
+    const { data: existing } = await supabase
+      .from('records')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('category_code', 'checkin')
+      .eq('ymd', today)
+      .eq('is_voided', false)
+      .maybeSingle()
+    
+    if (existing) {
+      return res.status(200).json({ 
+        success: false, 
+        message: '今日已打卡' 
+      })
+    }
+    
+    // 插入打卡记录
+    const { data } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: 'A',
+        category_code: 'checkin',
+        amount: 0,
+        note: '每日打卡',
+        ymd: today
+      }])
+      .select()
+      .single()
+    
+    return res.status(200).json({ 
+      success: true, 
+      message: '打卡成功',
+      record: data 
+    })
+    
+  } catch (error) {
+    console.error('[simpleCheckIn] 错误:', error)
+    return res.status(500).json({ 
+      error: '打卡失败' 
     })
   }
 }
