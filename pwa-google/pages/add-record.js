@@ -346,7 +346,10 @@ export default function AddRecordPage() {
             baseScore: result.score.base_score,
             streakScore: result.score.streak_score || 0,
             bonusScore: result.score.bonus_score || 0,
-            scoreMessage: result.scoreMessage || `🎉 打卡获得 ${result.score.total_score} 分！`
+            currentStreak: result.score.current_streak || 1,
+            bonusDetails: result.score.bonus_details || [],
+            scoreMessage: result.scoreMessage || `🎉 打卡获得 ${result.score.total_score} 分！`,
+            streakMessage: result.streakMessage || `连续打卡 ${result.score.current_streak || 1} 天`
           })
           setShowScoreFeedback(true)
           setTimeout(() => {

@@ -1780,23 +1780,8 @@ async function simpleCheckIn(userId, res) {
       })
     }
     
-    // KISS积分计算：固定10分基础分
-    const baseScore = 10
-    const totalScore = baseScore
-    
-    // 插入积分记录
-    await supabase
-      .from('user_daily_scores')
-      .insert([{
-        user_id: userId,
-        ymd: today,
-        base_score: baseScore,
-        streak_score: 0,
-        bonus_score: 0,
-        total_score: totalScore,
-        current_streak: 1,
-        record_type: 'checkin'
-      }])
+    // 正确的积分算法：复用现有calculateCheckInScore
+    const scoreResult = await calculateCheckInScore(userId, today)
     
     // 插入打卡记录
     await supabase
@@ -1814,12 +1799,15 @@ async function simpleCheckIn(userId, res) {
       success: true, 
       message: '打卡成功',
       score: {
-        total_score: totalScore,
-        base_score: baseScore,
-        streak_score: 0,
-        bonus_score: 0
+        total_score: scoreResult.total_score,
+        base_score: scoreResult.base_score,
+        streak_score: scoreResult.streak_score,
+        bonus_score: scoreResult.bonus_score,
+        current_streak: scoreResult.current_streak,
+        bonus_details: scoreResult.bonus_details
       },
-      scoreMessage: `🎉 打卡获得 ${totalScore} 分！`
+      scoreMessage: `🎉 打卡获得 ${scoreResult.total_score} 分！`,
+      streakMessage: `连续打卡 ${scoreResult.current_streak} 天`
     })
     
   } catch (error) {
