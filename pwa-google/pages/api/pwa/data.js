@@ -86,11 +86,14 @@ async function createMonthlyAutoRecords(userId, profile) {
 }
 
 export default async function handler(req, res) {
+  console.log(`[PWA Data API] 收到请求: ${req.method} ${req.url}`)
+  console.log(`[PWA Data API] Headers:`, Object.keys(req.headers))
+  
   try {
     // CORS和缓存控制处理
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Pragma')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cache-Control, Pragma, Authorization')
     
     // 强制无缓存 - 特别针对Safari PWA
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private')
@@ -160,6 +163,7 @@ export default async function handler(req, res) {
     }
     
     const { action, ...params } = req.body
+    console.log(`[PWA Data] 收到body:`, req.body)
     console.log(`[PWA Data] 处理请求: action=${action}, user=${dbUser.id}`)
     
     switch (action) {
