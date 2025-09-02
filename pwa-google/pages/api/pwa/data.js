@@ -1289,12 +1289,16 @@ async function calculateCheckInScore(userId, ymd) {
       }
     }
     
+    // 🔧 计算总分
+    const totalScore = baseScore + streakScore + bonusScore
+
     const scoreData = {
       user_id: userId,
       ymd: ymd,
       base_score: baseScore,
       streak_score: streakScore,
       bonus_score: bonusScore,
+      total_score: totalScore, // 🔧 添加总分字段
       current_streak: currentStreak,
       record_type: 'checkin',
       bonus_details: bonusDetails
@@ -1312,7 +1316,7 @@ async function calculateCheckInScore(userId, ymd) {
       throw error
     }
     
-    console.log(`[calculateCheckInScore] 积分计算完成: ${totalScore}分`)
+    console.log(`[calculateCheckInScore] 积分计算完成: ${totalScore}分`) // 🔧 使用正确的变量名
     return savedScore
     
   } catch (error) {
