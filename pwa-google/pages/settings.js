@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [userData, setUserData] = useState(null)
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [profileMessage, setProfileMessage] = useState('')
+  const [updatingFields, setUpdatingFields] = useState(new Set())
   
   // 🔧 表单字段状态 - 用于实时更新显示
   const [formFields, setFormFields] = useState({
@@ -94,6 +95,9 @@ export default function SettingsPage() {
   const updateField = async (field, value, tableName = 'user_profile', fieldName = null) => {
     setProfileMessage(`正在更新 ${field}...`)
     
+    // 添加到更新中字段集合
+    setUpdatingFields(prev => new Set([...prev, field]))
+    
     try {
       // 映射字段名到数据库字段
       const fieldMapping = {
@@ -150,6 +154,13 @@ export default function SettingsPage() {
       }
     } catch (error) {
       setProfileMessage(`❌ 更新错误: ${error.message}`)
+    } finally {
+      // 从更新中字段集合移除
+      setUpdatingFields(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(field)
+        return newSet
+      })
     }
   }
 
@@ -489,9 +500,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('显示名称', formFields.display_name)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('显示名称')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('显示名称') ? '保存中...' : '保存'}
                             </button>
                           </div>
                         </div>
@@ -508,9 +520,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('电话', formFields.phone_e164)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('电话')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('电话') ? '保存中...' : '保存'}
                             </button>
                           </div>
                         </div>
@@ -529,9 +542,10 @@ export default function SettingsPage() {
                             onClick={() => {
                               updateField('邮箱', formFields.email)
                             }}
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                            disabled={updatingFields.has('邮箱')}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            保存
+                            {updatingFields.has('邮箱') ? '保存中...' : '保存'}
                           </button>
                         </div>
                       </div>
@@ -554,9 +568,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('月收入', formFields.monthly_income)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('月收入')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('月收入') ? '保存中...' : '保存'}
                             </button>
                           </div>
                         </div>
@@ -574,9 +589,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('A类百分比', formFields.a_pct)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('A类百分比')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('A类百分比') ? '保存中...' : '保存'}
                             </button>
                           </div>
                         </div>
@@ -596,9 +612,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('旅游预算', formFields.travel_budget_annual)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('旅游预算')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('旅游预算') ? '保存中...' : '保存'}
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -625,9 +642,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('年度医疗保险', formFields.annual_medical_insurance)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('年度医疗保险')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('年度医疗保险') ? '保存中...' : '保存'}
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
@@ -647,9 +665,10 @@ export default function SettingsPage() {
                               onClick={() => {
                                 updateField('年度车险', formFields.annual_car_insurance)
                               }}
-                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+                              disabled={updatingFields.has('年度车险')}
+                              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              保存
+                              {updatingFields.has('年度车险') ? '保存中...' : '保存'}
                             </button>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
