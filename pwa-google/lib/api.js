@@ -322,7 +322,8 @@ export const CATEGORIES = {
     utilities: { name: '水电', icon: '💡' },
     mobile: { name: '手机', icon: '📱' },
     home: { name: '家用', icon: '🏠' },
-    other: { name: '其他', icon: '📦' }
+    other: { name: '其他', icon: '📦' },
+    checkin: { name: '每日打卡', icon: '✅' }
   },
   B: {
     books: { name: '书籍', icon: '📖' },
