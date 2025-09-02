@@ -1759,7 +1759,9 @@ async function updateRecordNative(userId, params, res) {
 // KISS: 极简打卡功能 + 基础积分
 async function simpleCheckIn(userId, res) {
   try {
+    console.log('[DEBUG simpleCheckIn] 用户ID:', userId)
     const today = new Date().toISOString().split('T')[0]
+    console.log('[DEBUG simpleCheckIn] 今日日期:', today)
     
     // 检查今日是否已打卡
     const { data: existing } = await supabase
@@ -1781,7 +1783,9 @@ async function simpleCheckIn(userId, res) {
     }
     
     // 正确的积分算法：复用现有calculateCheckInScore
+    console.log('[DEBUG simpleCheckIn] 开始计算积分')
     const scoreResult = await calculateCheckInScore(userId, today)
+    console.log('[DEBUG simpleCheckIn] 积分计算完成:', scoreResult)
     
     // 插入打卡记录
     await supabase

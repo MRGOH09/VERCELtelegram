@@ -329,11 +329,20 @@ export default function AddRecordPage() {
   
   // KISS: 极简打卡功能 + 积分反馈
   const handleCheckIn = async () => {
-    if (hasCheckedInToday) return
+    console.log('[DEBUG] 打卡按钮被点击')
+    console.log('[DEBUG] hasCheckedInToday:', hasCheckedInToday)
     
+    if (hasCheckedInToday) {
+      console.log('[DEBUG] 今日已打卡，直接返回')
+      return
+    }
+    
+    console.log('[DEBUG] 开始打卡流程')
     setIsCheckingIn(true)
     try {
+      console.log('[DEBUG] 调用PWAClient.call')
       const result = await PWAClient.call('data', 'checkin')
+      console.log('[DEBUG] API返回结果:', result)
       
       if (result.success) {
         setHasCheckedInToday(true)
@@ -365,9 +374,11 @@ export default function AddRecordPage() {
       }
       
     } catch (error) {
-      console.error('打卡失败:', error)
+      console.error('[DEBUG] 打卡失败:', error)
+      console.error('[DEBUG] 错误详情:', error.message, error.stack)
       setCheckInMessage('❌ 打卡失败，请重试')
     } finally {
+      console.log('[DEBUG] 打卡流程结束')
       setIsCheckingIn(false)
       setTimeout(() => setCheckInMessage(''), 3000)
     }
