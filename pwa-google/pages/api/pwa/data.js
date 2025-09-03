@@ -195,7 +195,7 @@ export default async function handler(req, res) {
         return await verifyPushSubscription(dbUser.id, res)
         
       case 'add-record':
-        return await addRecord(dbUser.id, params, res)
+        return await addRecordPWA(dbUser.id, params, res)
         
       case 'batch-add-records':
         return await batchAddRecords(dbUser.id, params, res)
@@ -1298,68 +1298,54 @@ async function handleCheckIn(userId, res) {
       })
     }
     
-    // 2. 🔧 修复：使用统一的主系统积分计算（与addRecord相同模式）
-    const baseURL = process.env.NODE_ENV === 'production' 
-      ? 'https://verceteleg.vercel.app'  
-      : 'http://localhost:3000'
+    // 2. PWA独立积分计算 - 使用修复后的本地逻辑
+    const scoreResult = await calculateCheckInScorePWA(userId, today)
     
-    console.log(`[handleCheckIn] 调用主系统积分API: ${baseURL}/api/records/record-system`)
+    console.log(`[handleCheckIn] 积分计算结果:`, scoreResult)
     
-    const response = await fetch(`${baseURL}/api/records/record-system`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'User-Agent': 'PWA-Client'
-      },
-      body: JSON.stringify({
-        action: 'create',
-        userId: userId,
-        data: {
-          category_group: 'A',
-          category_code: 'daily_checkin',
-          amount: 0,
-          note: '每日打卡 - PWA',
-          ymd: today
-        }
-      })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.text().catch(() => 'Unknown error')
-      console.error(`[handleCheckIn] 主系统API调用失败:`, {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
-      })
-      throw new Error(`打卡失败: ${response.status} ${response.statusText}`)
+    // 3. 创建records表记录
+    const { data: checkinRecord, error: insertError } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: 'A',
+        category_code: 'daily_checkin',
+        amount: 0,
+        note: '每日打卡 - PWA',
+        ymd: today
+      }])
+      .select()
+      .single()
+      
+    if (insertError) {
+      console.error('[handleCheckIn] 插入打卡记录失败 (但积分已计算):', insertError)
+      // 即使records插入失败，积分已经记录，仍然返回成功
     }
-
-    const result = await response.json()
     
-    console.log(`[handleCheckIn] 用户 ${userId} 打卡成功，获得 ${result.score?.total_score || 0} 分`)
+    console.log(`[handleCheckIn] 用户 ${userId} 打卡成功，获得 ${scoreResult.total_score} 分`)
     
     // 构建响应，包含积分信息
     const responseData = {
       success: true,
       message: '打卡成功！',
       hasCheckedIn: true,
-      record: result.record,
-      score: result.score
+      record: checkinRecord,
+      score: scoreResult
     }
     
-    // 如果主系统返回了积分信息，包含详细消息
-    if (result.score && result.score.total_score > 0) {
+    // 如果有积分信息，包含详细消息
+    if (scoreResult && scoreResult.total_score > 0) {
       const scoreDetails = []
-      if (result.score.base_score > 0) scoreDetails.push(`基础${result.score.base_score}分`)
-      if (result.score.streak_score > 0) scoreDetails.push(`连续${result.score.streak_score}分`)
-      if (result.score.bonus_score > 0) scoreDetails.push(`奖励${result.score.bonus_score}分`)
+      if (scoreResult.base_score > 0) scoreDetails.push(`基础${scoreResult.base_score}分`)
+      if (scoreResult.streak_score > 0) scoreDetails.push(`连续${scoreResult.streak_score}分`)
+      if (scoreResult.bonus_score > 0) scoreDetails.push(`奖励${scoreResult.bonus_score}分`)
       
-      responseData.scoreMessage = `🎉 获得 ${result.score.total_score} 分！(${scoreDetails.join(' + ')})`
-      responseData.streakMessage = `连续打卡 ${result.score.current_streak} 天`
+      responseData.scoreMessage = `🎉 获得 ${scoreResult.total_score} 分！(${scoreDetails.join(' + ')})`
+      responseData.streakMessage = `连续打卡 ${scoreResult.current_streak} 天`
       
       // 里程碑成就提示
-      if (result.score.bonus_details && result.score.bonus_details.length > 0) {
-        const achievements = result.score.bonus_details.map(bonus => bonus.name).join('、')
+      if (scoreResult.bonus_details && scoreResult.bonus_details.length > 0) {
+        const achievements = scoreResult.bonus_details.map(bonus => bonus.name).join('、')
         responseData.achievementMessage = `🏆 达成成就：${achievements}！`
       }
     }
@@ -1379,12 +1365,10 @@ async function handleCheckIn(userId, res) {
   }
 }
 
-// 🚫 已弃用：PWA内置积分计算 - 已改为统一使用主系统积分计算
-// 保留代码仅供参考，实际已不再使用
-/*
-async function calculateCheckInScore(userId, ymd) {
+// PWA独立积分计算 - 与主系统逻辑保持一致
+async function calculateCheckInScorePWA(userId, ymd) {
   try {
-    console.log(`[calculateCheckInScore] 计算用户 ${userId} 在 ${ymd} 的打卡积分`)
+    console.log(`[calculateCheckInScorePWA] 计算用户 ${userId} 在 ${ymd} 的打卡积分`)
     
     // 1. 计算基础分
     const baseScore = 1
@@ -1399,24 +1383,25 @@ async function calculateCheckInScore(userId, ymd) {
     const bonusDetails = []
     let bonusScore = 0
     
-    // 使用正确的里程碑配置 (与数据库一致)
-    const milestones = [
-      { streak_days: 3, bonus_score: 2, milestone_name: '坚持三天' },
-      { streak_days: 5, bonus_score: 3, milestone_name: '持续五天' },
-      { streak_days: 10, bonus_score: 5, milestone_name: '稳定十天' },
-      { streak_days: 15, bonus_score: 8, milestone_name: '半月坚持' },
-      { streak_days: 21, bonus_score: 12, milestone_name: '三周习惯' },
-      { streak_days: 31, bonus_score: 20, milestone_name: '月度冠军' }
-    ]
+    // 🔧 从数据库获取里程碑配置 (确保与主系统同步)
+    const { data: milestones } = await supabase
+      .from('score_milestones')
+      .select('streak_days, bonus_score, milestone_name')
+      .order('streak_days')
     
-    for (const milestone of milestones) {
-      if (currentStreak === milestone.streak_days) {
-        bonusDetails.push({
-          score: milestone.bonus_score,
-          name: milestone.milestone_name
-        })
-        bonusScore += milestone.bonus_score
-        console.log(`[PWA积分] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+    console.log(`[PWA积分] 获取到 ${milestones?.length || 0} 个里程碑配置`)
+    
+    // 如果有里程碑配置，检查是否达成
+    if (milestones && milestones.length > 0) {
+      for (const milestone of milestones) {
+        if (currentStreak === milestone.streak_days) {
+          bonusDetails.push({
+            score: milestone.bonus_score,
+            name: milestone.milestone_name
+          })
+          bonusScore += milestone.bonus_score
+          console.log(`[PWA积分] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+        }
       }
     }
     
@@ -1443,19 +1428,32 @@ async function calculateCheckInScore(userId, ymd) {
       .single()
     
     if (error) {
-      console.error('[calculateCheckInScore] 保存积分失败:', error)
+      console.error('[calculateCheckInScorePWA] 保存积分失败:', error)
       throw error
     }
     
-    console.log(`[calculateCheckInScore] 积分计算完成: ${totalScore}分`) // 🔧 使用正确的变量名
+    // 🔧 更新 user_profile 的最后记录时间（与主系统保持一致）
+    try {
+      await supabase
+        .from('user_profile')
+        .update({ 
+          last_record: ymd
+        })
+        .eq('user_id', userId)
+      
+      console.log(`[calculateCheckInScorePWA] 已更新最后记录时间`)
+    } catch (syncError) {
+      console.error('[calculateCheckInScorePWA] 同步 user_profile 失败 (不影响积分):', syncError)
+    }
+    
+    console.log(`[calculateCheckInScorePWA] 积分计算完成: ${totalScore}分`)
     return savedScore
     
   } catch (error) {
-    console.error('[calculateCheckInScore] 积分计算失败:', error)
+    console.error('[calculateCheckInScorePWA] 积分计算失败:', error)
     throw error
   }
 }
-*/
 
 // PWA内置连续天数计算 - 模仿主系统逻辑
 async function calculateCurrentStreakPWA(userId, todayYmd) {
@@ -1988,5 +1986,195 @@ async function simpleCheckIn(userId, res) {
       details: error.message,
       userId: userId
     })
+  }
+}
+
+// 🚀 PWA独立记录添加 - 完全独立，不依赖主系统API
+async function addRecordPWA(userId, recordData, res) {
+  try {
+    console.log(`[addRecordPWA] 用户 ${userId} 添加记录:`, recordData)
+
+    if (!recordData.group || !recordData.category || !recordData.amount || !recordData.date) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: group, category, amount, date' 
+      })
+    }
+
+    const ymd = recordData.date
+    
+    // 1. 检查今日是否已有积分记录
+    const { data: existingScore } = await supabase
+      .from('user_daily_scores')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ymd', ymd)
+      .maybeSingle()
+    
+    // 2. 创建records表记录
+    const { data: record, error: recordError } = await supabase
+      .from('records')
+      .insert([{
+        user_id: userId,
+        category_group: recordData.group,
+        category_code: recordData.category,
+        amount: parseFloat(recordData.amount),
+        note: recordData.note || '',
+        ymd: ymd
+      }])
+      .select()
+      .single()
+
+    if (recordError) {
+      console.error('[addRecordPWA] 创建记录失败:', recordError)
+      return res.status(500).json({ 
+        error: '记录保存失败' 
+      })
+    }
+
+    // 3. 如果今天还没有积分记录，则计算积分
+    let scoreResult = null
+    if (!existingScore) {
+      try {
+        const recordDate = new Date(ymd + 'T00:00:00')
+        scoreResult = await calculateRecordScorePWA(userId, recordDate, 'record')
+        console.log(`[addRecordPWA] 积分计算结果:`, scoreResult)
+      } catch (scoreError) {
+        console.error('[addRecordPWA] 积分计算失败，但记录已保存:', scoreError)
+      }
+    } else {
+      console.log(`[addRecordPWA] 今日已有积分记录，跳过积分计算`)
+      scoreResult = existingScore
+    }
+    
+    // 4. 构建响应
+    const responseData = {
+      success: true,
+      message: '记录添加成功',
+      record: record,
+      score: scoreResult
+    }
+    
+    // 5. 如果有积分信息，包含详细消息
+    if (scoreResult && scoreResult.total_score > 0) {
+      const scoreDetails = []
+      if (scoreResult.base_score > 0) scoreDetails.push(`基础${scoreResult.base_score}分`)
+      if (scoreResult.streak_score > 0) scoreDetails.push(`连续${scoreResult.streak_score}分`)
+      if (scoreResult.bonus_score > 0) scoreDetails.push(`奖励${scoreResult.bonus_score}分`)
+      
+      responseData.scoreMessage = `🎉 获得 ${scoreResult.total_score} 分！(${scoreDetails.join(' + ')})`
+      responseData.streakMessage = `连续记录 ${scoreResult.current_streak} 天`
+      
+      // 里程碑成就提示
+      if (scoreResult.bonus_details && scoreResult.bonus_details.length > 0) {
+        const achievements = scoreResult.bonus_details.map(bonus => bonus.name).join('、')
+        responseData.achievementMessage = `🏆 达成成就：${achievements}！`
+      }
+    }
+    
+    return res.json(responseData)
+
+  } catch (error) {
+    console.error('[addRecordPWA] 错误:', error)
+    return res.status(500).json({ 
+      error: '添加记录失败，请重试',
+      details: error.message
+    })
+  }
+}
+
+// PWA独立记录积分计算 - 与主系统逻辑保持一致
+async function calculateRecordScorePWA(userId, date, recordType = 'record') {
+  try {
+    const ymd = date.toISOString().slice(0, 10)
+    console.log(`[calculateRecordScorePWA] 用户${userId} 日期${ymd} 类型${recordType}`)
+    
+    // 1. 检查今天是否已经有积分记录
+    const { data: existingScore } = await supabase
+      .from('user_daily_scores')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('ymd', ymd)
+      .maybeSingle()
+    
+    if (existingScore) {
+      console.log(`[calculateRecordScorePWA] 今日已有记录，跳过重复计算`)
+      return existingScore
+    }
+    
+    // 2. 计算积分
+    const baseScore = 1  // 基础分固定1分
+    
+    // 计算连续天数
+    const currentStreak = await calculateCurrentStreakPWA(userId, ymd)
+    
+    // 连续分计算 - 连续记录获得1分 (固定1分，不累加)
+    const streakScore = currentStreak > 1 ? 1 : 0
+    
+    // 里程碑奖励计算 - 从数据库获取配置
+    const { data: milestones } = await supabase
+      .from('score_milestones')
+      .select('streak_days, bonus_score, milestone_name')
+      .order('streak_days')
+      
+    const bonusDetails = []
+    let bonusScore = 0
+    
+    if (milestones && milestones.length > 0) {
+      for (const milestone of milestones) {
+        if (currentStreak === milestone.streak_days) {
+          bonusDetails.push({
+            score: milestone.bonus_score,
+            name: milestone.milestone_name
+          })
+          bonusScore += milestone.bonus_score
+          console.log(`[calculateRecordScorePWA] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+        }
+      }
+    }
+    
+    const scoreData = {
+      user_id: userId,
+      ymd: ymd,
+      base_score: baseScore,
+      streak_score: streakScore,
+      bonus_score: bonusScore,
+      current_streak: currentStreak,
+      record_type: recordType,
+      bonus_details: bonusDetails
+    }
+    
+    // 3. 保存积分记录
+    const { data: savedScore, error } = await supabase
+      .from('user_daily_scores')
+      .insert(scoreData)
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('[calculateRecordScorePWA] 保存失败:', error)
+      throw error
+    }
+    
+    // 4. 更新 user_profile 的最后记录时间
+    try {
+      await supabase
+        .from('user_profile')
+        .update({ 
+          last_record: ymd
+        })
+        .eq('user_id', userId)
+      
+      console.log(`[calculateRecordScorePWA] 已更新最后记录时间`)
+    } catch (syncError) {
+      console.error('[calculateRecordScorePWA] 同步 user_profile 失败 (不影响积分):', syncError)
+    }
+    
+    console.log(`[calculateRecordScorePWA] 积分保存成功: ${savedScore.total_score}分`)
+    
+    return savedScore
+    
+  } catch (error) {
+    console.error('[calculateRecordScorePWA] 错误:', error)
+    throw error
   }
 }
