@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import PWAClient from '../lib/api'
 import Head from 'next/head'
 
 export default function AdminPanel() {
-  const { user, loading } = useAuth()
   const [activeTab, setActiveTab] = useState('overview')
-  const [isAuthorized, setIsAuthorized] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [adminData, setAdminData] = useState({
     totalUsers: 0,
     totalScores: 0,
@@ -14,34 +12,36 @@ export default function AdminPanel() {
     systemHealth: 'good'
   })
 
-  // 简单的管理员验证 - 可以改为更安全的方式
-  const ADMIN_USERS = ['admin@learnerclub.com', 'goh@learnerclub.com'] // 替换为实际管理员邮箱
-
+  // 检查是否已登录
   useEffect(() => {
-    if (user && user.email) {
-      setIsAuthorized(ADMIN_USERS.includes(user.email))
+    const adminToken = localStorage.getItem('admin_token')
+    if (adminToken === 'admin_logged_in') {
+      setIsLoggedIn(true)
     }
-  }, [user])
+    setIsLoading(false)
+  }, [])
 
   useEffect(() => {
-    if (isAuthorized) {
+    if (isLoggedIn) {
       loadAdminData()
     }
-  }, [isAuthorized])
+  }, [isLoggedIn])
 
   const loadAdminData = async () => {
     try {
-      // 获取基础统计信息
-      const stats = await PWAClient.request('/api/pwa/data', 'POST', {
-        action: 'admin-stats'
+      // 模拟加载数据 - 实际项目中可以调用真实的API
+      setAdminData({
+        totalUsers: 125,
+        totalScores: 1843,
+        recentIssues: [],
+        systemHealth: 'good'
       })
-      setAdminData(stats)
     } catch (error) {
       console.error('加载管理员数据失败:', error)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -52,39 +52,8 @@ export default function AdminPanel() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">需要登录</h1>
-          <p className="text-gray-600">请先登录以访问管理面板</p>
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            返回首页
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">访问被拒绝</h1>
-          <p className="text-gray-600">您没有权限访问管理面板</p>
-          <p className="text-sm text-gray-500 mt-2">当前用户: {user.email}</p>
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="mt-4 bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-          >
-            返回首页
-          </button>
-        </div>
-      </div>
-    )
+  if (!isLoggedIn) {
+    return <AdminLoginForm setIsLoggedIn={setIsLoggedIn} />
   }
 
   return (
@@ -101,7 +70,16 @@ export default function AdminPanel() {
               <h1 className="text-xl font-bold text-gray-900">LEARNER CLUB 管理面板</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">👋 {user.email}</span>
+              <span className="text-sm text-gray-600">👋 管理员 AUSTIN</span>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('admin_token')
+                  setIsLoggedIn(false)
+                }}
+                className="text-sm bg-red-100 hover:bg-red-200 px-3 py-1 rounded text-red-700"
+              >
+                退出登录
+              </button>
               <button
                 onClick={() => window.location.href = '/'}
                 className="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded"
@@ -472,5 +450,141 @@ function QuickAction({ title, description, icon, onClick }) {
       </div>
       <p className="text-sm text-gray-600">{description}</p>
     </button>
+  )
+}
+
+// Admin登录表单组件
+function AdminLoginForm({ setIsLoggedIn }) {
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: ''
+  })
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    // 硬编码的管理员凭证
+    const ADMIN_CREDENTIALS = {
+      username: 'AUSTIN',
+      password: 'Abcd1234'
+    }
+
+    try {
+      // 验证用户名和密码
+      if (credentials.username === ADMIN_CREDENTIALS.username && 
+          credentials.password === ADMIN_CREDENTIALS.password) {
+        
+        // 登录成功，保存token到localStorage
+        localStorage.setItem('admin_token', 'admin_logged_in')
+        setIsLoggedIn(true)
+        
+      } else {
+        setError('用户名或密码错误')
+      }
+    } catch (error) {
+      setError('登录失败，请重试')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setCredentials(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Head>
+        <title>管理员登录 - LEARNER CLUB</title>
+      </Head>
+      
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-blue-100">
+            <span className="text-2xl">🛡️</span>
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            LEARNER CLUB
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            管理员登录
+          </p>
+        </div>
+        
+        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+              <label htmlFor="username" className="sr-only">
+                用户名
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="用户名"
+                value={credentials.username}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="sr-only">
+                密码
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="密码"
+                value={credentials.password}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
+              ❌ {error}
+            </div>
+          )}
+
+          <div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  登录中...
+                </>
+              ) : (
+                '登录管理面板'
+              )}
+            </button>
+          </div>
+
+          <div className="text-center text-xs text-gray-500 mt-4">
+            <p>🔐 安全提示：请使用授权的管理员账户登录</p>
+            <div className="mt-2 text-blue-600">
+              <p>用户名: AUSTIN</p>
+              <p>密码: Abcd1234</p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
