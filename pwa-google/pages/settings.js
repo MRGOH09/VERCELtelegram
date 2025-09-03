@@ -146,8 +146,8 @@ export default function SettingsPage() {
           [formField]: value
         }))
         
-        // 也重新加载完整数据以确保数据一致性
-        setTimeout(loadUserProfile, 500)
+        // 不再需要重新加载，因为已经实时更新了formFields
+        console.log('[updateField] 实时更新完成，无需重新加载')
       } else {
         console.error('[updateField] 更新失败:', result)
         setProfileMessage(`❌ 更新失败: ${result?.error || result?.details || '未知错误'}`)
@@ -475,26 +475,51 @@ export default function SettingsPage() {
                 </div>
                 
                 {profileMessage && (
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
-                    {profileMessage}
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 flex items-center">
+                    <span className="mr-2">💡</span>
+                    {profileMessage === '✅ 个人资料已加载' ? '点击任何输入框即可编辑，修改后点击保存按钮' : profileMessage}
                   </div>
                 )}
 
                 {userData && (
                   <div className="space-y-4">
                     
-                    {/* 基本信息 */}
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-blue-900 mb-3">基本信息</h4>
+                    {/* 用户概览卡片 - 新增 */}
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-5 rounded-xl text-white">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
+                            <span className="text-3xl">👤</span>
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-bold">{formFields.display_name || '未设置姓名'}</h2>
+                            <p className="text-white/80">{formFields.email || '未设置邮箱'}</p>
+                            <p className="text-white/80">{formFields.phone_e164 || '未设置电话'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-white/70">月收入</p>
+                          <p className="text-2xl font-bold">RM {formFields.monthly_income.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* 基本信息 - 增强可编辑提示 */}
+                    <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg relative">
+                      <div className="absolute -top-3 left-4 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                        可编辑区域
+                      </div>
+                      <h4 className="font-semibold text-blue-900 mb-3 mt-1">基本信息</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">显示名称</label>
                           <div className="flex gap-2">
                             <input 
                               type="text"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.display_name}
                               onChange={(e) => setFormFields(prev => ({...prev, display_name: e.target.value}))}
+                              placeholder="请输入姓名"
                             />
                             <button
                               onClick={() => {
@@ -512,9 +537,10 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="text"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.phone_e164}
                               onChange={(e) => setFormFields(prev => ({...prev, phone_e164: e.target.value}))}
+                              placeholder="如：+60123456789"
                             />
                             <button
                               onClick={() => {
@@ -534,9 +560,10 @@ export default function SettingsPage() {
                         <div className="flex gap-2">
                           <input 
                             type="email"
-                            className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                            className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                             value={formFields.email}
                             onChange={(e) => setFormFields(prev => ({...prev, email: e.target.value}))}
+                            placeholder="如：user@example.com"
                           />
                           <button
                             onClick={() => {
@@ -552,17 +579,21 @@ export default function SettingsPage() {
                     </div>
 
                     {/* 财务设置 */}
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-green-900 mb-3">财务设置</h4>
+                    <div className="bg-green-50 border-2 border-green-200 p-4 rounded-lg relative">
+                      <div className="absolute -top-3 left-4 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                        可编辑区域
+                      </div>
+                      <h4 className="font-semibold text-green-900 mb-3 mt-1">财务设置</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">月收入 (RM)</label>
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.monthly_income}
                               onChange={(e) => setFormFields(prev => ({...prev, monthly_income: parseFloat(e.target.value) || 0}))}
+                              placeholder="如：5000"
                             />
                             <button
                               onClick={() => {
@@ -581,9 +612,10 @@ export default function SettingsPage() {
                             <input 
                               type="number"
                               min="0" max="100"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.a_pct}
                               onChange={(e) => setFormFields(prev => ({...prev, a_pct: parseInt(e.target.value) || 0}))}
+                              placeholder="建议33"
                             />
                             <button
                               onClick={() => {
@@ -604,9 +636,10 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.travel_budget_annual}
                               onChange={(e) => setFormFields(prev => ({...prev, travel_budget_annual: parseFloat(e.target.value) || 0}))}
+                              placeholder="如：6000"
                             />
                             <button
                               onClick={() => {
@@ -626,17 +659,21 @@ export default function SettingsPage() {
                     </div>
 
                     {/* 保险设置 */}
-                    <div className="bg-orange-50 p-4 rounded-lg">
-                      <h4 className="font-semibold text-orange-900 mb-3">保险设置</h4>
+                    <div className="bg-orange-50 border-2 border-orange-200 p-4 rounded-lg relative">
+                      <div className="absolute -top-3 left-4 bg-orange-600 text-white text-xs px-2 py-1 rounded">
+                        可编辑区域
+                      </div>
+                      <h4 className="font-semibold text-orange-900 mb-3 mt-1">保险设置</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">年度医疗保险 (RM)</label>
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.annual_medical_insurance}
                               onChange={(e) => setFormFields(prev => ({...prev, annual_medical_insurance: parseFloat(e.target.value) || 0}))}
+                              placeholder="如：2400"
                             />
                             <button
                               onClick={() => {
@@ -657,9 +694,10 @@ export default function SettingsPage() {
                           <div className="flex gap-2">
                             <input 
                               type="number"
-                              className="flex-1 p-2 border border-gray-300 rounded-lg text-sm focus:border-blue-500"
+                              className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.annual_car_insurance}
                               onChange={(e) => setFormFields(prev => ({...prev, annual_car_insurance: parseFloat(e.target.value) || 0}))}
+                              placeholder="如：1800"
                             />
                             <button
                               onClick={() => {
