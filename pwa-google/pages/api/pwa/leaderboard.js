@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     
     const { data: profilesData, error: profilesError } = await supabase
       .from('user_profile')
-      .select('user_id, display_name')
+      .select('user_id, display_name, max_streak, current_streak')
       .in('user_id', userIds)
     
     // 合并数据
@@ -61,24 +61,34 @@ export default async function handler(req, res) {
       user_profile: profilesMap.get(score.user_id)
     })) || []
     
-    // 按用户汇总总积分
+    // 按用户汇总总积分，并获取当前连续天数
     const userTotalScores = new Map()
     
     if (mergedScores) {
       mergedScores.forEach(score => {
         const userId = score.user_id
+        
         if (!userTotalScores.has(userId)) {
           userTotalScores.set(userId, {
             user_id: userId,
             total_score: 0,
-            max_streak: 0,
+            current_streak: 0, // 改为当前连续天数
+            latest_record_date: null,
             users: score.users,
             user_profile: score.user_profile
           })
         }
+        
         const userTotal = userTotalScores.get(userId)
         userTotal.total_score += score.total_score || 0
-        userTotal.max_streak = Math.max(userTotal.max_streak, score.current_streak || 0)
+        
+        // 🔧 修复：获取最新记录的连续天数（而不是最大值）
+        if (!userTotal.latest_record_date || score.ymd > userTotal.latest_record_date) {
+          userTotal.latest_record_date = score.ymd
+          userTotal.current_streak = score.current_streak || 0
+        }
+        
+        console.log(`[leaderboard] 用户 ${userId} 记录日期: ${score.ymd}, 连续天数: ${score.current_streak}`)
       })
     }
     
@@ -108,7 +118,7 @@ export default async function handler(req, res) {
       display_name: score.user_profile?.display_name,
       branch_name: score.users?.branch_code,
       total_score: score.total_score,
-      max_streak: score.max_streak,
+      current_streak: score.current_streak, // 🔧 修复：使用当前连续天数
       rank: index + 1
     }))
 
@@ -118,7 +128,7 @@ export default async function handler(req, res) {
       name: score.users?.name,
       display_name: score.user_profile?.display_name,
       total_score: score.total_score,
-      max_streak: score.max_streak,
+      current_streak: score.current_streak, // 🔧 修复：使用当前连续天数
       rank: index + 1
     }))
 
