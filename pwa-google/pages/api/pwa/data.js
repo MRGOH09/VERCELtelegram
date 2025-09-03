@@ -1704,6 +1704,7 @@ async function getLeaderboardData(userId, userBranch, res) {
         branchRankings,
         userBranch,
         userRank,  // 添加用户排名信息
+        currentUserId: userId,  // 添加当前用户ID
         timeframe: 'all_time'
       }
     })

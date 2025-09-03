@@ -16,6 +16,7 @@ export default function LeaderboardPage() {
     branchRankings: [],
     userBranch: null,
     userRank: null,  // 添加用户排名
+    currentUserId: null,  // 添加当前用户ID
     timeframe: null,
     loading: true
   })
@@ -54,6 +55,7 @@ export default function LeaderboardPage() {
           branchRankings: result.data.branchRankings || [],
           userBranch: result.data.userBranch || null,
           userRank: result.data.userRank || null,  // 添加用户排名
+          currentUserId: result.data.currentUserId || null,  // 添加当前用户ID
           timeframe: result.data.timeframe || null,
           loading: false
         })
@@ -170,7 +172,7 @@ export default function LeaderboardPage() {
     </ModernCard>
   )
 
-  const LeaderboardCard = ({ title, users, showBranch = true }) => (
+  const LeaderboardCard = ({ title, users, showBranch = true, currentUserId }) => (
     <ModernCard className="p-6">
       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
         <span className="mr-2">🏆</span>
@@ -184,16 +186,21 @@ export default function LeaderboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {users.map((user, index) => (
-            <div
-              key={user.user_id}
-              className={`flex items-center p-4 rounded-xl transition-colors ${
-                index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200' :
-                index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200' :
-                index === 2 ? 'bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200' :
-                'bg-gray-50'
-              }`}
-            >
+          {users.map((user, index) => {
+            const isCurrentUser = user.user_id === currentUserId
+            
+            return (
+              <div
+                key={user.user_id}
+                className={`flex items-center p-4 rounded-xl transition-all relative ${
+                  isCurrentUser 
+                    ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-400 shadow-xl ring-2 ring-blue-300 ring-opacity-50 transform scale-[1.03]' 
+                    : index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200' 
+                    : index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200' 
+                    : index === 2 ? 'bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200' 
+                    : 'bg-gray-50'
+                }`}
+              >
               {/* 排名 */}
               <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center mr-4">
                 {index === 0 && <span className="text-xl">🥇</span>}
@@ -204,13 +211,27 @@ export default function LeaderboardPage() {
                 )}
               </div>
 
+              {/* 添加"你"的标识 */}
+              {isCurrentUser && (
+                <div className="absolute -top-2 -right-2 bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold animate-bounce shadow-lg">
+                  👉 你在这里
+                </div>
+              )}
+              
               {/* 用户信息 */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900 truncate">
-                      {user.display_name || user.name || '匿名用户'}
-                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className="font-medium text-gray-900 truncate">
+                        {user.display_name || user.name || '匿名用户'}
+                      </p>
+                      {isCurrentUser && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-600 text-white">
+                          YOU
+                        </span>
+                      )}
+                    </div>
                     {showBranch && user.branch_name && (
                       <p className="text-sm text-gray-500">
                         {user.branch_name}
@@ -230,7 +251,8 @@ export default function LeaderboardPage() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </ModernCard>
@@ -398,6 +420,7 @@ export default function LeaderboardPage() {
                       title={`${leaderboardData.userBranch}分院排行`} 
                       users={leaderboardData.branchUsers} 
                       showBranch={false}
+                      currentUserId={leaderboardData.currentUserId}
                     />
                   ) : (
                     <ModernCard className="p-8 text-center">
