@@ -29,15 +29,38 @@ export default function AdminPanel() {
 
   const loadAdminData = async () => {
     try {
-      // 模拟加载数据 - 实际项目中可以调用真实的API
+      console.log('[Admin] 加载仪表板数据...')
+      
+      // 调用真实的仪表板API
+      const response = await fetch('/api/admin/dashboard')
+      if (!response.ok) {
+        throw new Error(`API请求失败: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('[Admin] 仪表板数据加载成功:', data)
+      
       setAdminData({
-        totalUsers: 125,
-        totalScores: 1843,
-        recentIssues: [],
-        systemHealth: 'good'
+        totalUsers: data.totalUsers,
+        totalScores: data.totalScores,
+        recentIssues: data.issues || [],
+        systemHealth: data.systemHealth,
+        milestones: data.milestones || [],
+        recentStats: data.recentStats || [],
+        lastUpdated: data.lastUpdated
       })
+      
     } catch (error) {
       console.error('加载管理员数据失败:', error)
+      // 设置错误状态
+      setAdminData(prev => ({
+        ...prev,
+        systemHealth: 'error',
+        recentIssues: [{
+          type: 'api_error',
+          description: '无法加载仪表板数据: ' + error.message
+        }]
+      }))
     }
   }
 
@@ -219,19 +242,56 @@ function UserManagementPanel() {
   const [searchQuery, setSearchQuery] = useState('')
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
 
   const searchUsers = async () => {
-    if (!searchQuery.trim()) return
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      alert('请输入至少2个字符进行搜索')
+      return
+    }
     
     setLoading(true)
     try {
-      // 实现用户搜索逻辑
-      console.log('搜索用户:', searchQuery)
-      // 这里调用实际的用户搜索API
+      console.log('[Admin] 搜索用户:', searchQuery)
+      
+      const response = await fetch(`/api/admin/users?search=${encodeURIComponent(searchQuery)}`)
+      if (!response.ok) {
+        throw new Error(`搜索失败: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('[Admin] 搜索结果:', data)
+      
+      setUsers(data.users || [])
+      
     } catch (error) {
       console.error('搜索失败:', error)
+      alert('搜索失败: ' + error.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const viewUserScores = async (userId, username) => {
+    try {
+      console.log('[Admin] 查看用户积分:', userId)
+      
+      const response = await fetch(`/api/admin/scores?userId=${userId}&action=user-scores`)
+      if (!response.ok) {
+        throw new Error(`获取用户积分失败: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('[Admin] 用户积分数据:', data)
+      
+      setSelectedUser({
+        ...data,
+        username
+      })
+      
+    } catch (error) {
+      console.error('获取用户积分失败:', error)
+      alert('获取用户积分失败: ' + error.message)
     }
   }
 
@@ -263,12 +323,66 @@ function UserManagementPanel() {
       {/* 用户列表 */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">用户列表</h3>
-          <div className="text-center text-gray-500 py-8">
-            {searchQuery ? '请点击搜索按钮查找用户' : '请输入搜索条件查找用户'}
-          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            用户列表 {users.length > 0 && `(${users.length} 个结果)`}
+          </h3>
+          
+          {users.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">
+              {searchQuery ? '未找到匹配的用户' : '请输入搜索条件查找用户'}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {users.map(user => (
+                <div key={user.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {user.username || '未设置用户名'}
+                          </h4>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                          <p className="text-xs text-gray-500">
+                            ID: {user.id} | 分行: {user.branch_code || '未设置'}
+                          </p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <div className="text-gray-900 font-medium">
+                            总积分: {user.stats.totalScore}
+                          </div>
+                          <div className="text-gray-600">
+                            最大连续: {user.stats.maxStreak}天
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            活跃天数: {user.stats.activeDays}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => viewUserScores(user.id, user.username)}
+                        className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-300 rounded"
+                      >
+                        查看积分
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 用户积分详情弹窗 */}
+      {selectedUser && (
+        <UserScoreModal 
+          user={selectedUser} 
+          onClose={() => setSelectedUser(null)} 
+        />
+      )}
     </div>
   )
 }
@@ -584,6 +698,129 @@ function AdminLoginForm({ setIsLoggedIn }) {
             </div>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// 用户积分详情弹窗
+function UserScoreModal({ user, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-screen overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">
+                {user.username || '未知用户'} - 积分详情
+              </h2>
+              <p className="text-sm text-gray-600">{user.user?.email}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+          </div>
+
+          {/* 统计概览 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {user.analysis?.totalScore || 0}
+              </div>
+              <div className="text-sm text-gray-600">总积分</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {user.analysis?.totalDays || 0}
+              </div>
+              <div className="text-sm text-gray-600">活跃天数</div>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600">
+                {user.analysis?.maxStreak || 0}
+              </div>
+              <div className="text-sm text-gray-600">最长连续</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {user.analysis?.totalBonus || 0}
+              </div>
+              <div className="text-sm text-gray-600">奖励积分</div>
+            </div>
+          </div>
+
+          {/* 积分历史 */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">积分历史（最近30天）</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      日期
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      总分
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      基础分
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      连续分
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      奖励分
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      连续天数
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {user.scores?.slice(0, 10).map((score, index) => (
+                    <tr key={index} className={score.bonus_score > 0 ? 'bg-yellow-50' : ''}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {score.ymd}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {score.total_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {score.base_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {score.streak_score}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-orange-600">
+                        {score.bonus_score || 0}
+                        {score.bonus_score > 0 && score.bonus_details && (
+                          <div className="text-xs text-gray-500">
+                            {score.bonus_details.map(b => b.name).join(', ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {score.current_streak}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700"
+            >
+              关闭
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
