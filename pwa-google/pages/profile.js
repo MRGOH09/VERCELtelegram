@@ -325,7 +325,7 @@ function FunctionMenu() {
       icon: '🏆',
       label: '排行榜',
       description: '查看个人和分行排名',
-      action: () => alert('功能开发中，敬请期待！')
+      action: () => router.push('/leaderboard')
     },
     {
       icon: '📤',

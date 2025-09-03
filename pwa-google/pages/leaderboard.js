@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
+import ModernCard from '../components/ModernCard'
+import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
+import WebAppWrapper from '../components/WebAppWrapper'
+import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient from '../lib/api'
 
 export default function LeaderboardPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('all') // 'all' | 'branch' | 'myscore'
   const [leaderboardData, setLeaderboardData] = useState({
     allUsers: [],
@@ -81,7 +87,7 @@ export default function LeaderboardPage() {
   }
 
   const BranchRankingCard = ({ title, branches }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+    <ModernCard className="p-6">
       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
         <span className="mr-2">🏢</span>
         {title}
@@ -141,11 +147,11 @@ export default function LeaderboardPage() {
           ))}
         </div>
       )}
-    </div>
+    </ModernCard>
   )
 
   const LeaderboardCard = ({ title, users, showBranch = true }) => (
-    <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
+    <ModernCard className="p-6">
       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
         <span className="mr-2">🏆</span>
         {title}
@@ -207,7 +213,7 @@ export default function LeaderboardPage() {
           ))}
         </div>
       )}
-    </div>
+    </ModernCard>
   )
 
   const ScoreCard = ({ score }) => {
@@ -291,174 +297,189 @@ export default function LeaderboardPage() {
   if (leaderboardData.loading) {
     return (
       <Layout title="排行榜 - Learner Club">
-        <div className="p-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6">
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-gray-600">加载排行榜中...</p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PageSkeleton type="leaderboard" />
       </Layout>
     )
   }
 
   return (
-    <Layout title="排行榜 - Learner Club">
-      <div className="p-4">
-        {/* 头部标题 */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">🏆 积分排行榜</h1>
-          <p className="text-gray-600">看看谁是理财达人！</p>
-        </div>
+    <WebAppWrapper>
+      <Layout title="排行榜 - Learner Club">
+        <BrandHeader />
+        
+        <SmoothTransition>
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+            
+            <PageHeader
+              title={
+                <>
+                  <span>🏆</span>
+                  <span>LEARNER排行榜</span>
+                </>
+              }
+              subtitle="比拼理财实力 · 激发成长动力"
+              onBack={() => router.back()}
+            />
 
-        {/* 切换标签 */}
-        <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
-              activeTab === 'all'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            🌟 全国分院
-          </button>
-          <button
-            onClick={() => setActiveTab('branch')}
-            className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
-              activeTab === 'branch'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            🏢 我的分院
-          </button>
-          <button
-            onClick={() => setActiveTab('myscore')}
-            className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
-              activeTab === 'myscore'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600'
-            }`}
-          >
-            ⭐ 我的积分
-          </button>
-        </div>
-
-        {/* 内容区域 */}
-        {activeTab === 'all' && (
-          <BranchRankingCard 
-            title="全国分院排行榜" 
-            branches={leaderboardData.branchRankings} 
-          />
-        )}
-
-        {activeTab === 'branch' && (
-          <>
-            {leaderboardData.userBranch ? (
-              <LeaderboardCard 
-                title={`${leaderboardData.userBranch}分院排行`} 
-                users={leaderboardData.branchUsers} 
-                showBranch={false}
-              />
-            ) : (
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-                <div className="text-center py-8 text-gray-500">
-                  <div className="text-4xl mb-2">🏢</div>
-                  <p className="mb-2">您还未设置分院</p>
-                  <p className="text-sm">请先在个人资料中设置分院信息</p>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'myscore' && (
-          <>
-            {/* 积分概览 */}
-            <div className="bg-gradient-to-br from-primary to-blue-600 rounded-2xl p-6 mb-6 text-white">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-1">{scoreData.summary.totalScore || 0}</div>
-                  <div className="text-sm opacity-90">历史总分</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold mb-1">{scoreData.summary.currentStreak || 0}</div>
-                  <div className="text-sm opacity-90">连续天数</div>
-                </div>
-              </div>
+            <div className="px-4 pb-8 space-y-6">
               
-              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/20">
-                <div className="text-center">
-                  <div className="text-xl font-semibold mb-1">{scoreData.summary.thisMonthScore || 0}</div>
-                  <div className="text-xs opacity-90">本月积分</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xl font-semibold mb-1">{scoreData.summary.todayScore || 0}</div>
-                  <div className="text-xs opacity-90">今日积分</div>
-                </div>
+              {/* 切换标签 */}
+              <div className="-mt-16 relative z-10">
+                <ModernCard className="p-6">
+                  <div className="flex bg-gray-100 rounded-xl p-1">
+                    <button
+                      onClick={() => setActiveTab('all')}
+                      className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
+                        activeTab === 'all'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      🌟 全国分院
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('branch')}
+                      className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
+                        activeTab === 'branch'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      🏢 我的分院
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('myscore')}
+                      className={`flex-1 py-2 px-2 rounded-lg font-medium transition-colors text-sm ${
+                        activeTab === 'myscore'
+                          ? 'bg-white text-primary shadow-sm'
+                          : 'text-gray-600'
+                      }`}
+                    >
+                      ⭐ 我的积分
+                    </button>
+                  </div>
+                </ModernCard>
               </div>
-            </div>
 
-            {/* 每日积分记录 */}
-            <div className="mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">📅</span>
-                每日积分记录
-              </h2>
-              
-              {scoreData.loading ? (
-                <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-gray-600">加载中...</p>
-                </div>
-              ) : scoreData.dailyScores.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                  <div className="text-4xl mb-2">📊</div>
-                  <p className="text-gray-500 mb-2">还没有积分记录</p>
-                  <p className="text-sm text-gray-400">开始记录或打卡来获得积分吧！</p>
-                </div>
-              ) : (
-                <div className="space-y-0">
-                  {scoreData.dailyScores.map((score, index) => (
-                    <ScoreCard key={`${score.user_id}-${score.ymd}`} score={score} />
-                  ))}
-                </div>
+              {/* 内容区域 */}
+              {activeTab === 'all' && (
+                <BranchRankingCard 
+                  title="全国分院排行榜" 
+                  branches={leaderboardData.branchRankings} 
+                />
               )}
-            </div>
-          </>
-        )}
 
-        {/* 说明文字 */}
-        <div className="bg-blue-50 rounded-xl p-4 mt-6">
-          <div className="flex items-start">
-            <span className="text-blue-500 mr-2">💡</span>
-            <div className="text-sm text-blue-700">
-              <p className="font-medium mb-2">📋 积分规则详解：</p>
-              <div className="space-y-1 mb-3">
-                <p>• <strong>基础分</strong>：每次记录开销获得 1分</p>
-                <p>• <strong>连续分</strong>：连续记录获得 1分（中断重新计算）</p>
-                <p>• <strong>每日总分</strong>：基础分 + 连续分 + 里程碑奖励分</p>
-              </div>
-              <p className="font-medium mb-1">🏆 里程碑奖励：</p>
-              <div className="grid grid-cols-2 gap-1 text-xs">
-                <p>• 3天: +2分</p>
-                <p>• 5天: +3分</p>
-                <p>• 10天: +5分</p>
-                <p>• 15天: +8分</p>
-                <p>• 21天: +12分</p>
-                <p>• 31天: +20分</p>
-              </div>
-              <p className="text-xs text-blue-600 mt-2 italic">
-                * 排行榜每日2点更新，基于当天积分统计
-              </p>
+              {activeTab === 'branch' && (
+                <>
+                  {leaderboardData.userBranch ? (
+                    <LeaderboardCard 
+                      title={`${leaderboardData.userBranch}分院排行`} 
+                      users={leaderboardData.branchUsers} 
+                      showBranch={false}
+                    />
+                  ) : (
+                    <ModernCard className="p-8 text-center">
+                      <div className="text-6xl mb-4">🏢</div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">您还未设置分院</h3>
+                      <p className="text-gray-600 mb-6">请先在个人资料中设置分院信息</p>
+                      <button
+                        onClick={() => router.push('/profile')}
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all"
+                      >
+                        前往设置
+                      </button>
+                    </ModernCard>
+                  )}
+                </>
+              )}
+
+              {activeTab === 'myscore' && (
+                <>
+                  {/* 积分概览 */}
+                  <ModernCard className="bg-gradient-to-br from-primary to-blue-600 p-6 text-white">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-3xl font-bold mb-1">{scoreData.summary.totalScore || 0}</div>
+                        <div className="text-sm opacity-90">历史总分</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-3xl font-bold mb-1">{scoreData.summary.currentStreak || 0}</div>
+                        <div className="text-sm opacity-90">连续天数</div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-white/20">
+                      <div className="text-center">
+                        <div className="text-xl font-semibold mb-1">{scoreData.summary.thisMonthScore || 0}</div>
+                        <div className="text-xs opacity-90">本月积分</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-xl font-semibold mb-1">{scoreData.summary.todayScore || 0}</div>
+                        <div className="text-xs opacity-90">今日积分</div>
+                      </div>
+                    </div>
+                  </ModernCard>
+
+                  {/* 每日积分记录 */}
+                  <ModernCard className="p-6">
+                    <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                      <span className="mr-2">📅</span>
+                      每日积分记录
+                    </h2>
+                    
+                    {scoreData.loading ? (
+                      <div className="p-8 text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                        <p className="text-gray-600">加载中...</p>
+                      </div>
+                    ) : scoreData.dailyScores.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <div className="text-4xl mb-2">📊</div>
+                        <p className="text-gray-500 mb-2">还没有积分记录</p>
+                        <p className="text-sm text-gray-400">开始记录或打卡来获得积分吧！</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-0">
+                        {scoreData.dailyScores.map((score, index) => (
+                          <ScoreCard key={`${score.user_id}-${score.ymd}`} score={score} />
+                        ))}
+                      </div>
+                    )}
+                  </ModernCard>
+                </>
+              )}
+
+              {/* 说明文字 */}
+              <ModernCard className="bg-blue-50 p-4">
+                <div className="flex items-start">
+                  <span className="text-blue-500 mr-2">💡</span>
+                  <div className="text-sm text-blue-700">
+                    <p className="font-medium mb-2">📋 积分规则详解：</p>
+                    <div className="space-y-1 mb-3">
+                      <p>• <strong>基础分</strong>：每次记录开销获得 1分</p>
+                      <p>• <strong>连续分</strong>：连续记录获得 1分（中断重新计算）</p>
+                      <p>• <strong>每日总分</strong>：基础分 + 连续分 + 里程碑奖励分</p>
+                    </div>
+                    <p className="font-medium mb-1">🏆 里程碑奖励：</p>
+                    <div className="grid grid-cols-2 gap-1 text-xs">
+                      <p>• 3天: +2分</p>
+                      <p>• 5天: +3分</p>
+                      <p>• 10天: +5分</p>
+                      <p>• 15天: +8分</p>
+                      <p>• 21天: +12分</p>
+                      <p>• 31天: +20分</p>
+                    </div>
+                    <p className="text-xs text-blue-600 mt-2 italic">
+                      * 排行榜每日2点更新，基于当天积分统计
+                    </p>
+                  </div>
+                </div>
+              </ModernCard>
+
             </div>
           </div>
-        </div>
-      </div>
-    </Layout>
+        </SmoothTransition>
+      </Layout>
+    </WebAppWrapper>
   )
 }
