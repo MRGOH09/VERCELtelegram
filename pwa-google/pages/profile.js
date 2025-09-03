@@ -140,13 +140,10 @@ export default function ProfilePage() {
           
           <div className="px-4 pb-8 space-y-6">
             
-            {/* 统计数据卡片 */}
+            {/* 个人信息卡片 - 移到顶部 */}
             <div className="-mt-16 relative z-10">
-              <UserStatistics stats={data?.stats} />
+              <PersonalInfo profile={data?.profile} user={data?.user} />
             </div>
-            
-            {/* 个人信息卡片 */}
-            <PersonalInfo profile={data?.profile} user={data?.user} />
             
             {/* 功能菜单 */}
             <FunctionMenu />
@@ -202,50 +199,6 @@ function ProfileHeader({ user, profile }) {
   )
 }
 
-function UserStatistics({ stats }) {
-  if (!stats) {
-    return (
-      <ModernCard className="p-6 animate-pulse">
-        <div className="text-center">
-          <div className="w-8 h-8 bg-gray-300 rounded-full mx-auto mb-3"></div>
-          <p className="text-gray-500">加载统计数据...</p>
-        </div>
-      </ModernCard>
-    )
-  }
-  
-  return (
-    <ModernCard className="p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">我的统计</h3>
-      
-      <div className="grid grid-cols-3 gap-4">
-        <div className="text-center p-4 bg-blue-50 rounded-xl">
-          <div className="text-2xl mb-2">📅</div>
-          <div className="text-xl font-bold text-blue-600">{stats.record_days || 0}</div>
-          <div className="text-sm text-gray-600">记录天数</div>
-        </div>
-        <div className="text-center p-4 bg-green-50 rounded-xl">
-          <div className="text-2xl mb-2">📝</div>
-          <div className="text-xl font-bold text-green-600">{stats.total_records || 0}</div>
-          <div className="text-sm text-gray-600">总记录数</div>
-        </div>
-        <div className="text-center p-4 bg-orange-50 rounded-xl">
-          <div className="text-2xl mb-2">🔥</div>
-          <div className="text-xl font-bold text-orange-600">{stats.current_streak || 0}</div>
-          <div className="text-sm text-gray-600">连续记录</div>
-        </div>
-      </div>
-      
-      {stats.max_streak > 0 && (
-        <div className="mt-4 p-3 bg-blue-50 rounded-lg text-center">
-          <p className="text-blue-800 text-sm">
-            🏆 最长连续记录：<span className="font-semibold">{stats.max_streak}</span> 天
-          </p>
-        </div>
-      )}
-    </ModernCard>
-  )
-}
 
 function PersonalInfo({ profile, user }) {
   const infoItems = [
@@ -278,6 +231,16 @@ function PersonalInfo({ profile, user }) {
       label: '年度旅游预算',
       value: profile?.travel_budget ? formatCurrency(profile.travel_budget) : '-',
       icon: '✈️'
+    },
+    {
+      label: '年度医疗保险',
+      value: profile?.annual_medical_insurance ? formatCurrency(profile.annual_medical_insurance) : '-',
+      icon: '🏥'
+    },
+    {
+      label: '年度车险',
+      value: profile?.annual_car_insurance ? formatCurrency(profile.annual_car_insurance) : '-',
+      icon: '🚗'
     }
   ]
   
@@ -287,19 +250,19 @@ function PersonalInfo({ profile, user }) {
       
       <div className="space-y-4">
         {infoItems.map((item, index) => (
-          <div key={index} className="flex items-center justify-between py-2">
+          <div key={index} className="flex items-center justify-between py-2 hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors">
             <div className="flex items-center space-x-3">
               <span className="text-lg">{item.icon}</span>
               <span className="text-gray-700">{item.label}</span>
             </div>
-            <span className="font-medium text-gray-900">{item.value}</span>
+            <span className="font-medium text-gray-900 text-right">{item.value}</span>
           </div>
         ))}
       </div>
       
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <p className="text-sm text-gray-600 text-center">
-          💡 如需修改个人信息，请使用Telegram Bot的 /settings 命令
+      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <p className="text-sm text-blue-800 text-center font-medium">
+          💡 点击"应用设置"可以修改个人信息
         </p>
       </div>
     </ModernCard>
