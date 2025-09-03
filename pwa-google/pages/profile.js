@@ -16,7 +16,29 @@ export default function ProfilePage() {
   
   useEffect(() => {
     loadProfile()
-  }, [])
+    
+    // 监听页面获得焦点事件，自动刷新数据
+    const handleFocus = () => {
+      console.log('[Profile] 页面获得焦点，刷新数据')
+      loadProfile()
+    }
+    
+    // 监听路由变化，从settings返回时刷新
+    const handleRouteChange = (url) => {
+      if (url === '/profile' || url === '/') {
+        console.log('[Profile] 路由变化，刷新数据')
+        loadProfile()
+      }
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    router.events.on('routeChangeComplete', handleRouteChange)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      router.events.off('routeChangeComplete', handleRouteChange)
+    }
+  }, [router])
   
   const loadProfile = async () => {
     try {
@@ -201,6 +223,8 @@ function ProfileHeader({ user, profile }) {
 
 
 function PersonalInfo({ profile, user }) {
+  const router = useRouter()
+  
   const infoItems = [
     {
       label: '昵称',
@@ -260,10 +284,16 @@ function PersonalInfo({ profile, user }) {
         ))}
       </div>
       
-      <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-        <p className="text-sm text-blue-800 text-center font-medium">
-          💡 点击"应用设置"可以修改个人信息
-        </p>
+      <div className="mt-6">
+        <button
+          onClick={() => router.push('/settings')}
+          className="w-full p-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <p className="text-sm font-medium flex items-center justify-center">
+            <span className="mr-2">✏️</span>
+            点击这里修改个人信息
+          </p>
+        </button>
       </div>
     </ModernCard>
   )

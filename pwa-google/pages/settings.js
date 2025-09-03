@@ -5,6 +5,7 @@ import ModernCard from '../components/ModernCard'
 import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient from '../lib/api'
+import { smartCache } from '../lib/cache'
 import { InstallPWAButton } from '../components/PWAInstallPrompt'
 
 export default function SettingsPage() {
@@ -58,9 +59,9 @@ export default function SettingsPage() {
       setLoadingProfile(true)
       setProfileMessage('正在加载个人资料...')
       
-      // 🔧 修复：使用PWAClient来确保正确的认证
-      console.log('[loadUserProfile] 开始加载用户资料')
-      const result = await PWAClient.call('data', 'profile')
+      // 🔧 强制刷新，不使用缓存
+      console.log('[loadUserProfile] 开始加载用户资料（无缓存）')
+      const result = await PWAClient.call('data', 'profile', {}, { forceRefresh: true })
       console.log('[loadUserProfile] API响应:', result)
       
       if (result && !result.error) {
@@ -146,8 +147,9 @@ export default function SettingsPage() {
           [formField]: value
         }))
         
-        // 不再需要重新加载，因为已经实时更新了formFields
-        console.log('[updateField] 实时更新完成，无需重新加载')
+        // 清除profile页面的缓存，确保数据同步
+        smartCache.invalidate('data', 'profile')
+        console.log('[updateField] 已清除profile缓存，确保数据同步')
       } else {
         console.error('[updateField] 更新失败:', result)
         setProfileMessage(`❌ 更新失败: ${result?.error || result?.details || '未知错误'}`)
