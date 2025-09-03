@@ -1091,7 +1091,7 @@ function DataExportPanel() {
     try {
       console.log(`[Export] 开始导出: ${exportType} - ${exportFormat}`)
       
-      const response = await fetch('/api/admin/export', {
+      const response = await fetch('/api/admin/export-simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1239,9 +1239,15 @@ function DataExportPanel() {
         {/* 导出按钮 */}
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-gray-600">
-            💡 PDF格式包含专业图表和格式化布局<br/>
-            📊 Excel格式便于数据分析和编辑<br/>
-            📋 CSV格式适合导入其他系统
+            <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+              <div className="text-yellow-800 font-medium">📢 功能说明</div>
+              <div className="text-yellow-700 text-sm mt-1">
+                目前只支持CSV格式导出，PDF和Excel功能正在开发中
+              </div>
+            </div>
+            💡 PDF格式包含专业图表和格式化布局（开发中）<br/>
+            📊 Excel格式便于数据分析和编辑（开发中）<br/>
+            📋 CSV格式适合导入其他系统（✅ 可用）
           </div>
           <button
             onClick={handleExport}

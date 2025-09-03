@@ -1,8 +1,5 @@
 // Admin Data Export API - 数据导出工具
 import { createClient } from '@supabase/supabase-js'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
-import ExcelJS from 'exceljs'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -18,12 +15,12 @@ export default async function handler(req, res) {
     const { format, type, filters } = req.body
 
     switch (format) {
+      case 'csv':
+        return await generateCSVReport(req, res, type, filters)
       case 'pdf':
         return await generatePDFReport(req, res, type, filters)
       case 'excel':
         return await generateExcelReport(req, res, type, filters)
-      case 'csv':
-        return await generateCSVReport(req, res, type, filters)
       default:
         return res.status(400).json({ error: 'Invalid format' })
     }
@@ -37,63 +34,14 @@ export default async function handler(req, res) {
   }
 }
 
-// PDF报告生成
+// PDF报告生成（临时禁用，需要修复导入问题）
 async function generatePDFReport(req, res, type, filters) {
-  console.log(`[Admin Export] 生成PDF报告: ${type}`)
-
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
+  console.log(`[Admin Export] PDF功能暂时禁用，正在修复中...`)
+  
+  return res.status(501).json({ 
+    error: 'PDF导出功能正在维护中，请使用CSV格式',
+    suggestion: '建议选择CSV格式进行数据导出'
   })
-
-  // 设置中文字体支持
-  doc.addFont('/fonts/NotoSansCJK.ttf', 'NotoSans', 'normal')
-  doc.setFont('NotoSans')
-
-  // 报告封面
-  doc.setFontSize(24)
-  doc.setTextColor(31, 81, 255) // 蓝色标题
-  doc.text('LEARNER CLUB', 105, 50, { align: 'center' })
-  
-  doc.setFontSize(18)
-  doc.setTextColor(0, 0, 0)
-  doc.text('数据分析报告', 105, 70, { align: 'center' })
-
-  doc.setFontSize(12)
-  doc.setTextColor(100, 100, 100)
-  doc.text(`生成时间: ${new Date().toLocaleString('zh-CN')}`, 105, 85, { align: 'center' })
-
-  // 根据报告类型生成不同内容
-  switch (type) {
-    case 'branch-summary':
-      await generateBranchSummaryPDF(doc, filters)
-      break
-    case 'user-details':
-      await generateUserDetailsPDF(doc, filters)
-      break
-    case 'score-analysis':
-      await generateScoreAnalysisPDF(doc, filters)
-      break
-    default:
-      await generateComprehensivePDF(doc, filters)
-  }
-
-  // 页脚
-  const pageCount = doc.internal.getNumberOfPages()
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i)
-    doc.setFontSize(8)
-    doc.setTextColor(150, 150, 150)
-    doc.text(`第 ${i} 页 / 共 ${pageCount} 页`, 105, 290, { align: 'center' })
-    doc.text('LEARNER CLUB - 让学习成为习惯', 105, 295, { align: 'center' })
-  }
-
-  const pdfBuffer = doc.output('arraybuffer')
-  
-  res.setHeader('Content-Type', 'application/pdf')
-  res.setHeader('Content-Disposition', `attachment; filename="LEARNER_CLUB_报告_${type}_${new Date().toISOString().slice(0, 10)}.pdf"`)
-  res.send(Buffer.from(pdfBuffer))
 }
 
 // 分院汇总PDF
@@ -331,13 +279,14 @@ async function generateScoreAnalysisPDF(doc, filters) {
   doc.text(`• 单用户日均积分：${Math.round(avgDailyScore / avgUsers * 100) / 100} 分`, 25, doc.lastAutoTable.finalY + 50)
 }
 
-// Excel报告生成
+// Excel报告生成（临时禁用，需要修复导入问题）
 async function generateExcelReport(req, res, type, filters) {
-  console.log(`[Admin Export] 生成Excel报告: ${type}`)
-
-  const workbook = new ExcelJS.Workbook()
-  workbook.creator = 'LEARNER CLUB'
-  workbook.created = new Date()
+  console.log(`[Admin Export] Excel功能暂时禁用，正在修复中...`)
+  
+  return res.status(501).json({ 
+    error: 'Excel导出功能正在维护中，请使用CSV格式',
+    suggestion: '建议选择CSV格式进行数据导出'
+  })
 
   // 获取基础数据
   const { data: users } = await supabase
