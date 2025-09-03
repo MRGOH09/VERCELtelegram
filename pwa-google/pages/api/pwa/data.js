@@ -1298,45 +1298,73 @@ async function handleCheckIn(userId, res) {
       })
     }
     
-    // 2. 执行积分计算 - PWA内置简化版本
-    const scoreResult = await calculateCheckInScore(userId, today)
+    // 2. 🔧 修复：使用统一的主系统积分计算（与addRecord相同模式）
+    const baseURL = process.env.NODE_ENV === 'production' 
+      ? 'https://verceteleg.vercel.app'  
+      : 'http://localhost:3000'
     
-    console.log(`[handleCheckIn] 积分计算结果:`, scoreResult)
+    console.log(`[handleCheckIn] 调用主系统积分API: ${baseURL}/api/records/record-system`)
     
-    // 3. 创建records表记录
-    const { data: checkinRecord, error: insertError } = await supabase
-      .from('records')
-      .insert([{
-        user_id: userId,
-        category_group: 'A',
-        category_code: 'daily_checkin',
-        amount: 0,
-        note: '每日打卡 - PWA',
-        ymd: today
-      }])
-      .select()
-      .single()
-      
-    if (insertError) {
-      console.error('[handleCheckIn] 插入打卡记录失败 (但积分已计算):', insertError)
-      // 即使records插入失败，积分已经记录，仍然返回成功
+    const response = await fetch(`${baseURL}/api/records/record-system`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'User-Agent': 'PWA-Client'
+      },
+      body: JSON.stringify({
+        action: 'create',
+        userId: userId,
+        data: {
+          category_group: 'A',
+          category_code: 'daily_checkin',
+          amount: 0,
+          note: '每日打卡 - PWA',
+          ymd: today
+        }
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text().catch(() => 'Unknown error')
+      console.error(`[handleCheckIn] 主系统API调用失败:`, {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      })
+      throw new Error(`打卡失败: ${response.status} ${response.statusText}`)
     }
+
+    const result = await response.json()
     
-    console.log(`[handleCheckIn] 用户 ${userId} 打卡成功，获得 ${scoreResult.total_score} 分`)
+    console.log(`[handleCheckIn] 用户 ${userId} 打卡成功，获得 ${result.score?.total_score || 0} 分`)
     
-    return res.status(200).json({
+    // 构建响应，包含积分信息
+    const responseData = {
       success: true,
       message: '打卡成功！',
       hasCheckedIn: true,
-      score: {
-        total_score: scoreResult.total_score,
-        base_score: scoreResult.base_score,
-        streak_score: scoreResult.streak_score,
-        bonus_score: scoreResult.bonus_score
-      },
-      scoreMessage: `🎯 获得积分：${scoreResult.total_score}分\n• 基础分：${scoreResult.base_score}分\n• 连续分：${scoreResult.streak_score}分\n• 奖励分：${scoreResult.bonus_score}分`,
-      record: checkinRecord
-    })
+      record: result.record,
+      score: result.score
+    }
+    
+    // 如果主系统返回了积分信息，包含详细消息
+    if (result.score && result.score.total_score > 0) {
+      const scoreDetails = []
+      if (result.score.base_score > 0) scoreDetails.push(`基础${result.score.base_score}分`)
+      if (result.score.streak_score > 0) scoreDetails.push(`连续${result.score.streak_score}分`)
+      if (result.score.bonus_score > 0) scoreDetails.push(`奖励${result.score.bonus_score}分`)
+      
+      responseData.scoreMessage = `🎉 获得 ${result.score.total_score} 分！(${scoreDetails.join(' + ')})`
+      responseData.streakMessage = `连续打卡 ${result.score.current_streak} 天`
+      
+      // 里程碑成就提示
+      if (result.score.bonus_details && result.score.bonus_details.length > 0) {
+        const achievements = result.score.bonus_details.map(bonus => bonus.name).join('、')
+        responseData.achievementMessage = `🏆 达成成就：${achievements}！`
+      }
+    }
+    
+    return res.status(200).json(responseData)
       
   } catch (error) {
     console.error('[handleCheckIn] 处理失败:', error)
@@ -1351,7 +1379,9 @@ async function handleCheckIn(userId, res) {
   }
 }
 
-// PWA内置积分计算 - 完全模仿Telegram逻辑
+// 🚫 已弃用：PWA内置积分计算 - 已改为统一使用主系统积分计算
+// 保留代码仅供参考，实际已不再使用
+/*
 async function calculateCheckInScore(userId, ymd) {
   try {
     console.log(`[calculateCheckInScore] 计算用户 ${userId} 在 ${ymd} 的打卡积分`)
@@ -1425,6 +1455,7 @@ async function calculateCheckInScore(userId, ymd) {
     throw error
   }
 }
+*/
 
 // PWA内置连续天数计算 - 模仿主系统逻辑
 async function calculateCurrentStreakPWA(userId, todayYmd) {

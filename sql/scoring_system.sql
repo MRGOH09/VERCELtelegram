@@ -56,8 +56,7 @@ insert into score_milestones (streak_days, bonus_score, milestone_name, descript
 (5, 3, '持续五天', '连续打卡5天奖励'),
 (10, 5, '稳定十天', '连续打卡10天奖励'),
 (15, 8, '半月坚持', '连续打卡15天奖励'),
-(21, 12, '三周习惯', '连续打卡21天奖励'),
-(31, 20, '月度冠军', '连续打卡31天奖励')
+(21, 12, '三周习惯', '连续打卡21天奖励')
 on conflict (streak_days) do nothing;
 
 -- 创建索引
