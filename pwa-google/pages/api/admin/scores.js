@@ -43,7 +43,7 @@ async function getUserScores(req, res, userId) {
   // 获取用户基本信息
   const { data: user } = await supabase
     .from('users')
-    .select('id, username, email, branch_code')
+    .select('id, name, telegram_id, branch_code, status, created_at')
     .eq('id', userId)
     .single()
 
