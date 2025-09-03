@@ -81,14 +81,14 @@ export default function InstallGuide() {
                   <Step 
                     number="3"
                     title="添加到主屏幕"
-                    description="在分享菜单中向下滑动，找到"添加到主屏幕""
+                    description="在分享菜单中向下滑动，找到「添加到主屏幕」"
                     icon="➕"
                   />
                   
                   <Step 
                     number="4"
                     title="确认添加"
-                    description="可修改应用名称，然后点击右上角"添加""
+                    description="可修改应用名称，然后点击右上角「添加」"
                     icon="✅"
                   />
                   
@@ -139,7 +139,7 @@ export default function InstallGuide() {
                   <Step 
                     number="3"
                     title="点击安装"
-                    description="在弹出的对话框中点击"安装""
+                    description="在弹出的对话框中点击「安装」"
                     icon="➕"
                   />
                   
@@ -155,7 +155,7 @@ export default function InstallGuide() {
                   <h3 className="font-medium text-gray-900 mb-2">手动安装（如无自动提示）</h3>
                   <ol className="text-sm text-gray-600 space-y-1">
                     <li>1. 点击右上角三点菜单 ⋮</li>
-                    <li>2. 选择"安装应用"或"添加到主屏幕"</li>
+                    <li>2. 选择「安装应用」或「添加到主屏幕」</li>
                     <li>3. 确认安装</li>
                   </ol>
                 </div>
