@@ -1678,7 +1678,23 @@ async function getLeaderboardData(userId, userBranch, res) {
         top_users: branch.top_users
       }))
 
+    // 查找当前用户的排名信息
+    let userRank = null
+    const userIndex = allUsers.findIndex(u => u.user_id === userId)
+    if (userIndex !== -1) {
+      const branchUserIndex = branchUsers.findIndex(u => u.user_id === userId)
+      userRank = {
+        overall: userIndex + 1,  // 全国排名
+        inBranch: branchUserIndex !== -1 ? branchUserIndex + 1 : null,  // 分院内排名
+        totalScore: allUsers[userIndex].total_score,
+        currentStreak: allUsers[userIndex].current_streak
+      }
+    }
+
     console.log(`[getLeaderboardData] 返回排行榜数据: 全部${allUsers.length}人, 分院${branchUsers.length}人, ${branchRankings.length}个分院`)
+    if (userRank) {
+      console.log(`[getLeaderboardData] 用户排名: 全国第${userRank.overall}名, 分院第${userRank.inBranch}名`)
+    }
 
     return res.json({
       ok: true,
@@ -1687,6 +1703,7 @@ async function getLeaderboardData(userId, userBranch, res) {
         branchUsers,
         branchRankings,
         userBranch,
+        userRank,  // 添加用户排名信息
         timeframe: 'all_time'
       }
     })

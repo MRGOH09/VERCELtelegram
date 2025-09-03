@@ -15,6 +15,7 @@ export default function LeaderboardPage() {
     branchUsers: [],
     branchRankings: [],
     userBranch: null,
+    userRank: null,  // 添加用户排名
     timeframe: null,
     loading: true
   })
@@ -52,6 +53,7 @@ export default function LeaderboardPage() {
           branchUsers: result.data.branchUsers || [],
           branchRankings: result.data.branchRankings || [],
           userBranch: result.data.userBranch || null,
+          userRank: result.data.userRank || null,  // 添加用户排名
           timeframe: result.data.timeframe || null,
           loading: false
         })
@@ -86,7 +88,7 @@ export default function LeaderboardPage() {
     }
   }
 
-  const BranchRankingCard = ({ title, branches }) => (
+  const BranchRankingCard = ({ title, branches, userBranch, userRank }) => (
     <ModernCard className="p-6">
       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
         <span className="mr-2">🏢</span>
@@ -100,16 +102,21 @@ export default function LeaderboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {branches.map((branch, index) => (
-            <div
-              key={branch.branch_code}
-              className={`flex items-center p-4 rounded-xl transition-colors ${
-                index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200' :
-                index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200' :
-                index === 2 ? 'bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200' :
-                'bg-gray-50'
-              }`}
-            >
+          {branches.map((branch, index) => {
+            const isMyBranch = branch.branch_code === userBranch
+            
+            return (
+              <div
+                key={branch.branch_code}
+                className={`flex items-center p-4 rounded-xl transition-all ${
+                  isMyBranch 
+                    ? 'bg-gradient-to-r from-blue-100 to-indigo-100 border-2 border-blue-400 shadow-lg ring-2 ring-blue-300 ring-opacity-50 transform scale-[1.02]' 
+                    : index === 0 ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200' 
+                    : index === 1 ? 'bg-gradient-to-r from-gray-50 to-slate-50 border border-gray-200' 
+                    : index === 2 ? 'bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200' 
+                    : 'bg-gray-50'
+                }`}
+              >
               {/* 排名 */}
               <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center mr-4">
                 {index === 0 && <span className="text-xl">🥇</span>}
@@ -124,12 +131,24 @@ export default function LeaderboardPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-gray-900 truncate">
-                      {branch.branch_name}分院
-                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className="font-medium text-gray-900 truncate">
+                        {branch.branch_name}分院
+                      </p>
+                      {isMyBranch && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-600 text-white animate-pulse">
+                          ✨ 我的分院
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-500">
                       {branch.active_members}/{branch.total_members} 人参与
                     </p>
+                    {isMyBranch && userRank && (
+                      <p className="text-xs text-blue-600 font-medium mt-1">
+                        👤 你的排名: 分院内第{userRank.inBranch}名 | 全国第{userRank.overall}名
+                      </p>
+                    )}
                   </div>
                   
                   {/* 积分信息 */}
@@ -144,7 +163,8 @@ export default function LeaderboardPage() {
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </ModernCard>
@@ -365,7 +385,9 @@ export default function LeaderboardPage() {
               {activeTab === 'all' && (
                 <BranchRankingCard 
                   title="全国分院排行榜" 
-                  branches={leaderboardData.branchRankings} 
+                  branches={leaderboardData.branchRankings}
+                  userBranch={leaderboardData.userBranch}
+                  userRank={leaderboardData.userRank} 
                 />
               )}
 
