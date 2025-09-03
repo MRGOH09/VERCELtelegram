@@ -1621,18 +1621,35 @@ async function getLeaderboardData(userId, userBranch, res) {
       .filter(user => user.branch_code === userBranch)
       .slice(0, 20)
 
-    // 分院排行榜
+    // 分院排行榜 - 先获取所有分院，包括没有积分的
+    // 1. 获取所有用户（包括没有积分记录的）
+    const { data: allUsersData } = await supabase
+      .from('users')
+      .select('id, name, branch_code, status')
+      .neq('status', 'test') // 排除测试用户
+    
+    // 2. 初始化所有分院的统计数据
     const branchTotalScores = {}
-    allUsers.forEach(user => {
+    
+    // 先为所有用户的分院创建初始记录
+    allUsersData?.forEach(user => {
       if (user.branch_code) {
         if (!branchTotalScores[user.branch_code]) {
           branchTotalScores[user.branch_code] = {
             branch_code: user.branch_code,
             total_score: 0,
             user_count: 0,
+            total_members: 0, // 分院总人数
             top_users: []
           }
         }
+        branchTotalScores[user.branch_code].total_members += 1
+      }
+    })
+    
+    // 3. 再统计有积分用户的数据
+    allUsers.forEach(user => {
+      if (user.branch_code && branchTotalScores[user.branch_code]) {
         branchTotalScores[user.branch_code].total_score += user.total_score
         branchTotalScores[user.branch_code].user_count += 1
         if (branchTotalScores[user.branch_code].top_users.length < 3) {
@@ -1642,16 +1659,22 @@ async function getLeaderboardData(userId, userBranch, res) {
     })
 
     const branchRankings = Object.values(branchTotalScores)
-      .sort((a, b) => b.total_score - a.total_score)
+      .sort((a, b) => {
+        // 先按平均分排序，平均分相同时按总分排序
+        const avgA = a.total_members > 0 ? a.total_score / a.total_members : 0
+        const avgB = b.total_members > 0 ? b.total_score / b.total_members : 0
+        if (avgB !== avgA) return avgB - avgA
+        return b.total_score - a.total_score
+      })
       .map((branch, index) => ({
         rank: index + 1,
         branch_code: branch.branch_code,
         branch_name: BRANCH_NAMES[branch.branch_code] || branch.branch_code, // 添加分院名称
         total_score: branch.total_score,
-        active_members: branch.user_count, // 字段名匹配前端期望
-        total_members: branch.user_count,  // 暂时使用相同值，后续可区分活跃/总数
+        active_members: branch.user_count, // 有积分的用户数
+        total_members: branch.total_members, // 分院总人数
         user_count: branch.user_count,     // 保持原字段以防其他地方使用
-        avg_score: Math.round((branch.total_score / branch.user_count) * 10) / 10,
+        avg_score: branch.total_members > 0 ? Math.round((branch.total_score / branch.total_members) * 10) / 10 : 0,
         top_users: branch.top_users
       }))
 
