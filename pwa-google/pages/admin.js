@@ -239,38 +239,67 @@ function OverviewPanel({ adminData }) {
 
 // 用户管理面板
 function UserManagementPanel() {
-  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedBranch, setSelectedBranch] = useState('all')
   const [users, setUsers] = useState([])
+  const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
   const [selectedUser, setSelectedUser] = useState(null)
 
-  const searchUsers = async () => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
-      alert('请输入至少2个字符进行搜索')
-      return
-    }
-    
-    setLoading(true)
+  // 加载分院列表
+  const loadBranches = async () => {
     try {
-      console.log('[Admin] 搜索用户:', searchQuery)
-      
-      const response = await fetch(`/api/admin/users?search=${encodeURIComponent(searchQuery)}`)
+      const response = await fetch('/api/admin/users?action=branches')
       if (!response.ok) {
-        throw new Error(`搜索失败: ${response.status}`)
+        throw new Error(`获取分院列表失败: ${response.status}`)
       }
       
       const data = await response.json()
-      console.log('[Admin] 搜索结果:', data)
+      setBranches(data.branches || [])
+      
+    } catch (error) {
+      console.error('获取分院列表失败:', error)
+    }
+  }
+
+  // 加载用户列表
+  const loadUsers = async (branch = 'all') => {
+    setLoading(true)
+    try {
+      console.log('[Admin] 加载用户列表:', branch)
+      
+      const url = branch === 'all' 
+        ? '/api/admin/users' 
+        : `/api/admin/users?branch=${encodeURIComponent(branch)}`
+        
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`加载用户失败: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('[Admin] 用户列表:', data)
       
       setUsers(data.users || [])
       
     } catch (error) {
-      console.error('搜索失败:', error)
-      alert('搜索失败: ' + error.message)
+      console.error('加载用户失败:', error)
+      alert('加载用户失败: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
+
+  // 处理分院选择变化
+  const handleBranchChange = (branch) => {
+    setSelectedBranch(branch)
+    loadUsers(branch)
+  }
+
+  // 组件加载时自动加载数据
+  useEffect(() => {
+    loadBranches()
+    loadUsers('all')
+  }, [])
 
   const viewUserScores = async (userId, username) => {
     try {
@@ -299,23 +328,28 @@ function UserManagementPanel() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">用户管理</h2>
       
-      {/* 搜索栏 */}
+      {/* 分院筛选 */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            placeholder="搜索用户 (用户名/邮箱/用户ID)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && searchUsers()}
-            className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <button
-            onClick={searchUsers}
+        <div className="flex items-center space-x-4">
+          <label className="text-sm font-medium text-gray-700">按分院筛选:</label>
+          <select
+            value={selectedBranch}
+            onChange={(e) => handleBranchChange(e.target.value)}
             disabled={loading}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           >
-            {loading ? '搜索中...' : '搜索'}
+            {branches.map(branch => (
+              <option key={branch.code} value={branch.code}>
+                {branch.name} ({branch.userCount}人)
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => loadUsers(selectedBranch)}
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+          >
+            {loading ? '加载中...' : '刷新'}
           </button>
         </div>
       </div>
@@ -324,12 +358,12 @@ function UserManagementPanel() {
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
-            用户列表 {users.length > 0 && `(${users.length} 个结果)`}
+            用户列表 {users.length > 0 && `(${users.length} 个用户)`}
           </h3>
           
           {users.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
-              {searchQuery ? '未找到匹配的用户' : '请输入搜索条件查找用户'}
+              {loading ? '加载中...' : '暂无用户数据'}
             </div>
           ) : (
             <div className="space-y-3">
@@ -340,11 +374,16 @@ function UserManagementPanel() {
                       <div className="flex items-center space-x-4">
                         <div>
                           <h4 className="font-medium text-gray-900">
-                            {user.username || '未设置用户名'}
+                            {user.name}
                           </h4>
-                          <p className="text-sm text-gray-600">{user.email}</p>
                           <p className="text-xs text-gray-500">
-                            ID: {user.id} | 分行: {user.branch_code || '未设置'}
+                            ID: {user.id.slice(0, 8)}... | 分行: {user.branch_code || '未设置'}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            Telegram ID: {user.telegram_id || '未绑定'} | 状态: {user.status}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            注册时间: {new Date(user.created_at).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right text-sm">
@@ -362,7 +401,7 @@ function UserManagementPanel() {
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => viewUserScores(user.id, user.username)}
+                        onClick={() => viewUserScores(user.id, user.name)}
                         className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-300 rounded"
                       >
                         查看积分

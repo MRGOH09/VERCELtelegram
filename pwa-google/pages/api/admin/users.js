@@ -12,28 +12,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { search, limit = 10 } = req.query
+    const { action = 'list', branch, search, limit = 50 } = req.query
 
-    if (!search || search.trim().length < 2) {
-      return res.status(400).json({ 
-        error: '搜索关键词至少需要2个字符' 
-      })
+    if (action === 'branches') {
+      // 获取所有分行列表
+      return await getBranches(req, res)
     }
 
-    console.log(`[Admin Users] 搜索用户: "${search}"`)
+    console.log(`[Admin Users] 获取用户列表 - 分行: ${branch || '全部'}, 搜索: ${search || '无'}`)
 
-    // 搜索用户（模糊匹配用户名和邮箱）
-    const { data: users, error } = await supabase
+    // 先获取所有字段看看表结构
+    let query = supabase
       .from('users')
-      .select(`
-        id,
-        username,
-        email,
-        branch_code,
-        created_at
-      `)
-      .or(`username.ilike.%${search}%,email.ilike.%${search}%`)
+      .select('*')
+      .order('created_at', { ascending: false })
       .limit(parseInt(limit))
+
+    // 按分行筛选
+    if (branch && branch !== 'all') {
+      query = query.eq('branch_code', branch)
+    }
+
+    // 如果有搜索关键词，添加搜索条件
+    if (search && search.trim().length >= 2) {
+      query = query.or(`email.ilike.%${search}%,id.ilike.%${search}%`)
+    }
+
+    const { data: users, error } = await query
 
     if (error) {
       throw error
@@ -73,14 +78,80 @@ export default async function handler(req, res) {
     res.status(200).json({
       users: usersWithStats,
       total: usersWithStats.length,
-      searchQuery: search
+      filters: {
+        branch: branch || 'all',
+        search: search || null
+      }
     })
 
   } catch (error) {
     console.error('[Admin Users] 错误:', error)
     res.status(500).json({ 
-      error: '搜索用户失败',
+      error: '获取用户列表失败',
       details: error.message 
+    })
+  }
+}
+
+// 获取所有分行列表
+async function getBranches(req, res) {
+  try {
+    console.log('[Admin Users] 获取分行列表')
+
+    // 获取所有用户的分行信息
+    const { data: allUsers } = await supabase
+      .from('users')
+      .select('branch_code')
+
+    // 统计每个分行的用户数
+    const branchStats = new Map()
+
+    // 统计每个分行的用户数
+    allUsers?.forEach(user => {
+      const branch = user.branch_code || '未分配'
+      branchStats.set(branch, (branchStats.get(branch) || 0) + 1)
+    })
+
+    // 构建分行列表
+    const branchList = [
+      {
+        code: 'all',
+        name: '全部分行',
+        userCount: allUsers?.length || 0
+      }
+    ]
+
+    // 添加具体分行
+    const uniqueBranches = [...new Set(allUsers?.map(u => u.branch_code).filter(Boolean))]
+    uniqueBranches.sort().forEach(branchCode => {
+      branchList.push({
+        code: branchCode,
+        name: branchCode,
+        userCount: branchStats.get(branchCode) || 0
+      })
+    })
+
+    // 添加未分配分行
+    const unassignedCount = branchStats.get('未分配') || (allUsers?.filter(u => !u.branch_code).length || 0)
+    if (unassignedCount > 0) {
+      branchList.push({
+        code: 'null',
+        name: '未分配',
+        userCount: unassignedCount
+      })
+    }
+
+    console.log(`[Admin Users] 找到 ${branchList.length} 个分行`)
+
+    res.status(200).json({
+      branches: branchList
+    })
+
+  } catch (error) {
+    console.error('[Admin Users] 获取分行列表失败:', error)
+    res.status(500).json({
+      error: '获取分行列表失败',
+      details: error.message
     })
   }
 }
