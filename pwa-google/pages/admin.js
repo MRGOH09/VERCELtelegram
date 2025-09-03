@@ -428,28 +428,223 @@ function UserManagementPanel() {
 
 // 积分管理面板
 function ScoreManagementPanel() {
+  const [analyzing, setAnalyzing] = useState(false)
+  const [errorUsers, setErrorUsers] = useState([])
+  const [selectedUsers, setSelectedUsers] = useState([])
+  const [fixing, setFixing] = useState(false)
+  const [analysisResult, setAnalysisResult] = useState(null)
+
+  // 分析积分错误
+  const analyzeScoreErrors = async () => {
+    setAnalyzing(true)
+    try {
+      console.log('[Admin] 开始分析积分错误...')
+      
+      const response = await fetch('/api/admin/fix-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'analyze' })
+      })
+
+      if (!response.ok) {
+        throw new Error(`分析失败: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('[Admin] 分析结果:', data)
+      
+      setErrorUsers(data.errorUsers || [])
+      setAnalysisResult(data.summary)
+      setSelectedUsers([]) // 重置选择
+
+      if (data.errorUsers.length === 0) {
+        alert('🎉 恭喜！没有发现积分计算错误')
+      } else {
+        alert(`发现 ${data.errorUsers.length} 个用户存在积分错误，请检查并选择需要修复的用户`)
+      }
+
+    } catch (error) {
+      console.error('分析积分错误失败:', error)
+      alert('分析失败: ' + error.message)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  // 选择/取消选择用户
+  const toggleUserSelection = (userId) => {
+    setSelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId)
+      } else {
+        return [...prev, userId]
+      }
+    })
+  }
+
+  // 全选/全不选
+  const toggleAllSelection = () => {
+    if (selectedUsers.length === errorUsers.length) {
+      setSelectedUsers([])
+    } else {
+      setSelectedUsers(errorUsers.map(u => u.user.id))
+    }
+  }
+
+  // 修复选定用户
+  const fixSelectedUsers = async () => {
+    if (selectedUsers.length === 0) {
+      alert('请选择要修复的用户')
+      return
+    }
+
+    const confirmed = confirm(`确认修复选定的 ${selectedUsers.length} 个用户的积分？\n\n⚠️ 注意：这将删除现有积分记录并重新计算，此操作不可撤销！`)
+    
+    if (!confirmed) return
+
+    setFixing(true)
+    try {
+      console.log('[Admin] 开始修复积分:', selectedUsers)
+      
+      const response = await fetch('/api/admin/fix-scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'fix-selected',
+          userIds: selectedUsers 
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`修复失败: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('[Admin] 修复结果:', data)
+      
+      alert(`修复完成！\n成功: ${data.summary.success} 个用户\n失败: ${data.summary.errors} 个用户`)
+      
+      // 重新分析以更新列表
+      if (data.summary.success > 0) {
+        await analyzeScoreErrors()
+      }
+
+    } catch (error) {
+      console.error('修复积分失败:', error)
+      alert('修复失败: ' + error.message)
+    } finally {
+      setFixing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">积分管理</h2>
+      <h2 className="text-2xl font-bold text-gray-900">积分修复工具</h2>
       
+      {/* 操作控制 */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">积分操作</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="border rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">手动调整积分</h4>
-            <p className="text-sm text-gray-600 mb-4">为特定用户增加或减少积分</p>
-            <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-              调整积分
+        <h3 className="text-lg font-medium text-gray-900 mb-4">积分错误检测与修复</h3>
+        
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex space-x-4">
+            <button
+              onClick={analyzeScoreErrors}
+              disabled={analyzing}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {analyzing ? '分析中...' : '🔍 分析积分错误'}
             </button>
+            
+            {errorUsers.length > 0 && (
+              <button
+                onClick={fixSelectedUsers}
+                disabled={fixing || selectedUsers.length === 0}
+                className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {fixing ? '修复中...' : `🔧 修复选定用户 (${selectedUsers.length})`}
+              </button>
+            )}
           </div>
           
-          <div className="border rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">重新计算积分</h4>
-            <p className="text-sm text-gray-600 mb-4">重新计算指定时间段的积分</p>
-            <button className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700">
-              重新计算
-            </button>
+          {analysisResult && (
+            <div className="text-sm text-gray-600">
+              共 {analysisResult.total} 用户，发现 {analysisResult.errors} 个错误用户
+            </div>
+          )}
+        </div>
+
+        {/* 分析结果 */}
+        {errorUsers.length > 0 && (
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium text-gray-900">
+                发现 {errorUsers.length} 个用户存在积分计算错误
+              </h4>
+              <button
+                onClick={toggleAllSelection}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                {selectedUsers.length === errorUsers.length ? '全不选' : '全选'}
+              </button>
+            </div>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {errorUsers.map(errorUser => (
+                <div key={errorUser.user.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(errorUser.user.id)}
+                        onChange={() => toggleUserSelection(errorUser.user.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <div>
+                        <span className="font-medium text-gray-900">{errorUser.user.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">
+                          {errorUser.user.branch_code} | {errorUser.totalErrors} 个错误
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      记录: {errorUser.totalRecords} | 积分: {errorUser.totalScores}
+                    </div>
+                  </div>
+
+                  {/* 错误详情 */}
+                  <div className="ml-6 text-xs text-gray-600 space-y-1">
+                    {errorUser.errors.slice(0, 3).map((error, idx) => (
+                      <div key={idx} className="flex items-center space-x-2">
+                        <span className="text-red-500">•</span>
+                        <span>{error.date}: {error.description}</span>
+                        {error.type === 'calculation_error' && (
+                          <span className="text-gray-500">
+                            (当前: {error.current.total} → 应为: {error.expected.total})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    {errorUser.errors.length > 3 && (
+                      <div className="text-gray-500">
+                        还有 {errorUser.errors.length - 3} 个错误...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* 使用说明 */}
+        <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
+          <h4 className="font-medium text-yellow-800 mb-2">⚠️ 使用说明</h4>
+          <ul className="text-sm text-yellow-700 space-y-1">
+            <li>1. 点击"分析积分错误"检测所有用户的积分计算是否正确</li>
+            <li>2. 仔细检查发现的错误用户，确认需要修复的用户</li>
+            <li>3. 选择要修复的用户，点击"修复选定用户"</li>
+            <li>4. <strong>修复操作会删除现有积分记录并重新计算，不可撤销！</strong></li>
+          </ul>
         </div>
       </div>
     </div>
