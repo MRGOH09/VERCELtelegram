@@ -328,12 +328,6 @@ function FunctionMenu() {
       action: () => router.push('/leaderboard')
     },
     {
-      icon: '📤',
-      label: '数据导出',
-      description: '导出记账数据到Excel',
-      action: () => alert('功能开发中，敬请期待！')
-    },
-    {
       icon: '❓',
       label: '帮助反馈',
       description: '使用帮助和问题反馈',
