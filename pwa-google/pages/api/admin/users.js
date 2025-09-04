@@ -7,10 +7,16 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
+  if (req.method === 'GET') {
+    return await handleGet(req, res)
+  } else if (req.method === 'POST') {
+    return await handlePost(req, res)
+  } else {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+}
 
+async function handleGet(req, res) {
   try {
     const { action = 'list', branch, search, limit = 50 } = req.query
 
@@ -93,6 +99,25 @@ export default async function handler(req, res) {
   }
 }
 
+async function handlePost(req, res) {
+  try {
+    const { action, userId, newBranch } = req.body
+
+    if (action === 'change-branch') {
+      return await changeUserBranch(req, res, userId, newBranch)
+    }
+
+    return res.status(400).json({ error: 'Invalid action' })
+
+  } catch (error) {
+    console.error('[Admin Users] POST错误:', error)
+    res.status(500).json({
+      error: '操作失败',
+      details: error.message
+    })
+  }
+}
+
 // 获取所有分行列表
 async function getBranches(req, res) {
   try {
@@ -151,6 +176,45 @@ async function getBranches(req, res) {
     console.error('[Admin Users] 获取分行列表失败:', error)
     res.status(500).json({
       error: '获取分行列表失败',
+      details: error.message
+    })
+  }
+}
+
+// 修改用户分行
+async function changeUserBranch(req, res, userId, newBranch) {
+  try {
+    console.log(`[Admin Users] 修改用户分行 - 用户ID: ${userId}, 新分行: ${newBranch}`)
+
+    // 更新用户分行
+    const { data, error } = await supabase
+      .from('users')
+      .update({ branch_code: newBranch === 'null' ? null : newBranch })
+      .eq('id', userId)
+      .select()
+
+    if (error) {
+      throw error
+    }
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        error: '用户不存在'
+      })
+    }
+
+    console.log(`[Admin Users] 成功修改用户分行: ${userId} -> ${newBranch}`)
+
+    res.status(200).json({
+      success: true,
+      message: '分行修改成功',
+      user: data[0]
+    })
+
+  } catch (error) {
+    console.error('[Admin Users] 修改用户分行失败:', error)
+    res.status(500).json({
+      error: '修改分行失败',
       details: error.message
     })
   }

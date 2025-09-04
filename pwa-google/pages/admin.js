@@ -1580,7 +1580,7 @@ function BranchManagementPanel() {
   const loadBranches = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/pwa/data?action=get-all-branches')
+      const response = await fetch('/api/admin/users?action=branches')
       if (!response.ok) throw new Error('获取分院列表失败')
       
       const data = await response.json()
@@ -1600,7 +1600,9 @@ function BranchManagementPanel() {
     
     setUsersLoading(true)
     try {
-      const response = await fetch(`/api/pwa/data?action=get-branch-users&branchCode=${branchCode}`)
+      const branchParam = branchCode === 'null' ? '' : branchCode
+      const response = await fetch(`/api/admin/users?action=list&branch=${branchParam}&limit=100`)
+      
       if (!response.ok) throw new Error('获取分院用户失败')
       
       const data = await response.json()
@@ -1625,16 +1627,22 @@ function BranchManagementPanel() {
     }
 
     try {
-      const response = await fetch('/api/pwa/data?action=change-user-branch', {
+      const response = await fetch('/api/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
+          action: 'change-branch',
           userId: userId,
-          newBranchCode: newBranchCode
+          newBranch: newBranchCode
         })
       })
       
-      if (!response.ok) throw new Error('修改用户分院失败')
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '修改用户分院失败')
+      }
       
       alert(`✅ 用户 "${userName}" 已转移到 "${newBranchName}"`)
       setEditingUserId(null)
