@@ -49,23 +49,76 @@ export default async function handler(req, res) {
           amount: r.amount
         })) || [],
         validRecords: records?.filter(record => {
-          // 签到记录是有效的
-          if (record.category_code === 'daily_checkin') return true
-          
-          // 排除自动生成的测试数据
+          // 排除明显的自动生成测试数据
           if (record.description?.includes('自动生成')) return false
-          if (record.description?.includes('测试') && record.description?.includes('自动')) return false
           
-          // 有金额的记录也是有效的（财务记录）
-          if (record.amount && record.amount !== 0) return true
-          
-          return false
+          // 其他所有记录都认为是有效的
+          return true
         }).map(r => ({
           ymd: r.ymd,
           category_code: r.category_code,
           description: r.description,
           amount: r.amount
-        })) || []
+        })) || [],
+        
+        // 连续天数计算详情
+        streakCalculation: (() => {
+          const validRecords = records?.filter(record => {
+            if (record.description?.includes('自动生成')) return false
+            return true
+          }) || []
+          
+          if (validRecords.length === 0) return { step: 'no_valid_records', streak: 0 }
+          
+          const dates = [...new Set(validRecords.map(r => r.ymd))].sort().reverse()
+          const today = new Date().toISOString().slice(0, 10)
+          const lastValidDate = dates[0]
+          const daysSinceLastRecord = Math.floor((new Date(today) - new Date(lastValidDate)) / (1000 * 60 * 60 * 24))
+          
+          if (daysSinceLastRecord > 1) {
+            return { 
+              step: 'streak_broken', 
+              streak: 0, 
+              today,
+              lastValidDate,
+              daysSinceLastRecord,
+              dates
+            }
+          }
+          
+          let streak = 1
+          const calculations = []
+          
+          for (let i = 1; i < dates.length; i++) {
+            const currentDate = new Date(dates[i])
+            const prevDate = new Date(dates[i - 1])
+            const diff = Math.floor((prevDate - currentDate) / (1000 * 60 * 60 * 24))
+            
+            calculations.push({
+              i,
+              currentDate: dates[i],
+              prevDate: dates[i - 1],
+              diff,
+              continued: diff === 1
+            })
+            
+            if (diff === 1) {
+              streak++
+            } else {
+              break
+            }
+          }
+          
+          return {
+            step: 'calculated',
+            streak,
+            today,
+            lastValidDate,
+            daysSinceLastRecord,
+            dates,
+            calculations
+          }
+        })()
       }
     })
 
