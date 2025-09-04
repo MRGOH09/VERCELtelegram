@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
 export default async function handler(req, res) {
@@ -168,8 +168,9 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
     // 获取用户所有有效记录的日期
     const { data: records } = await supabase
       .from('records')
-      .select('ymd, category_code, description, amount')
+      .select('ymd, category_code, note, amount')
       .eq('user_id', userId)
+      .eq('is_voided', false)
       .order('ymd', { ascending: false })
     
     if (!records || records.length === 0) {
@@ -190,7 +191,7 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
     // 过滤出有效记录 - 更宽松的条件，主要排除明显的测试数据
     const validRecords = records.filter(record => {
       // 排除明显的自动生成测试数据
-      if (record.description?.includes('自动生成')) return false
+      if (record.note?.includes('自动生成')) return false
       
       // 其他所有记录都认为是有效的，包括：
       // - 签到记录 (daily_checkin)
@@ -295,19 +296,22 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
 // 计算用户的实际连续天数
 async function calculateActualStreak(userId) {
   try {
-    // 获取用户所有记录的日期
+    // 获取用户所有记录的日期 - 使用正确的列名
     const { data: records } = await supabase
       .from('records')
-      .select('ymd, category_code, description, amount')
+      .select('ymd, category_code, note, amount')
       .eq('user_id', userId)
+      .eq('is_voided', false)  // 只查询未作废的记录
       .order('ymd', { ascending: false })
     
-    if (!records || records.length === 0) return 0
+    if (!records || records.length === 0) {
+      return 0
+    }
     
     // 过滤出有效记录 - 更宽松的条件，主要排除明显的测试数据
     const validRecords = records.filter(record => {
       // 排除明显的自动生成测试数据
-      if (record.description?.includes('自动生成')) return false
+      if (record.note?.includes('自动生成')) return false
       
       // 其他所有记录都认为是有效的，包括：
       // - 签到记录 (daily_checkin)
@@ -316,12 +320,16 @@ async function calculateActualStreak(userId) {
       return true
     })
     
-    if (validRecords.length === 0) return 0
+    if (validRecords.length === 0) {
+      return 0
+    }
     
     // 获取唯一日期并排序
     const dates = [...new Set(validRecords.map(r => r.ymd))].sort().reverse()
     
-    if (dates.length === 0) return 0
+    if (dates.length === 0) {
+      return 0
+    }
     
     // 从最近的日期开始计算连续天数
     let streak = 1
@@ -330,7 +338,9 @@ async function calculateActualStreak(userId) {
     // 如果最近的记录不是今天或昨天，连续天数为0
     const daysDiff = calculateDateDifference(dates[0], today)
     
-    if (daysDiff > 1) return 0
+    if (daysDiff > 1) {
+      return 0
+    }
     
     // 计算连续天数
     for (let i = 1; i < dates.length; i++) {
