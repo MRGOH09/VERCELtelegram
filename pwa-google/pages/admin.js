@@ -122,6 +122,7 @@ export default function AdminPanel() {
               {[
                 { id: 'overview', name: '概览', icon: '📊' },
                 { id: 'users', name: '用户管理', icon: '👥' },
+                { id: 'branches', name: '分院管理', icon: '🏢' },
                 { id: 'scores', name: '积分管理', icon: '🏆' },
                 { id: 'streaks', name: '连续天数管理', icon: '📅' },
                 { id: 'milestones', name: '里程碑配置', icon: '⚡' },
@@ -147,6 +148,7 @@ export default function AdminPanel() {
         {/* 内容区域 */}
         {activeTab === 'overview' && <OverviewPanel adminData={adminData} />}
         {activeTab === 'users' && <UserManagementPanel />}
+        {activeTab === 'branches' && <BranchManagementPanel />}
         {activeTab === 'scores' && <ScoreManagementPanel />}
         {activeTab === 'streaks' && <StreakManagementPanel />}
         {activeTab === 'milestones' && <MilestoneConfigPanel />}
@@ -326,6 +328,43 @@ function UserManagementPanel() {
     }
   }
 
+  // 删除用户
+  const deleteUser = async (userId, userName) => {
+    if (!confirm(`⚠️ 确定要删除用户 "${userName}" 吗？\n\n此操作将：\n- 删除用户账户和资料\n- 删除所有记录和积分数据\n- 此操作不可撤销！`)) {
+      return
+    }
+
+    try {
+      console.log('[Admin] 删除用户:', userId)
+      
+      const response = await fetch('/api/pwa/data?action=delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: userId,
+          reason: '管理员删除',
+          adminUser: 'AUSTIN'
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`删除用户失败: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      console.log('[Admin] 删除结果:', result)
+      
+      alert(`✅ 用户 "${userName}" 已成功删除`)
+      
+      // 重新加载用户列表
+      loadUsers(selectedBranch)
+      
+    } catch (error) {
+      console.error('删除用户失败:', error)
+      alert('删除用户失败: ' + error.message)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-900">用户管理</h2>
@@ -404,9 +443,16 @@ function UserManagementPanel() {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => viewUserScores(user.id, user.name)}
-                        className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-300 rounded"
+                        className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-300 rounded hover:bg-blue-50"
                       >
                         查看积分
+                      </button>
+                      <button
+                        onClick={() => deleteUser(user.id, user.name)}
+                        className="text-red-600 hover:text-red-800 text-sm px-3 py-1 border border-red-300 rounded hover:bg-red-50"
+                        title="删除用户"
+                      >
+                        删除
                       </button>
                     </div>
                   </div>
@@ -1515,6 +1561,343 @@ function UserScoreModal({ user, onClose }) {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// 分院管理面板
+function BranchManagementPanel() {
+  const [branches, setBranches] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [editingBranch, setEditingBranch] = useState(null)
+  const [newBranch, setNewBranch] = useState({ name: '', code: '', description: '' })
+  const [showAddForm, setShowAddForm] = useState(false)
+
+  // 加载分院列表
+  const loadBranches = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/pwa/data?action=branch-list')
+      if (!response.ok) throw new Error('获取分院列表失败')
+      
+      const data = await response.json()
+      setBranches(data.branches || [])
+      
+    } catch (error) {
+      console.error('加载分院失败:', error)
+      alert('加载分院失败: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 添加新分院
+  const addBranch = async () => {
+    if (!newBranch.name.trim() || !newBranch.code.trim()) {
+      alert('请填写分院名称和代码')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/pwa/data?action=add-branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newBranch.name.trim(),
+          code: newBranch.code.trim().toUpperCase(),
+          description: newBranch.description.trim()
+        })
+      })
+      
+      if (!response.ok) throw new Error('添加分院失败')
+      
+      alert('✅ 分院已添加')
+      setNewBranch({ name: '', code: '', description: '' })
+      setShowAddForm(false)
+      loadBranches()
+      
+    } catch (error) {
+      console.error('添加分院失败:', error)
+      alert('添加分院失败: ' + error.message)
+    }
+  }
+
+  // 更新分院信息
+  const updateBranch = async (branchId) => {
+    if (!editingBranch.name.trim()) {
+      alert('请填写分院名称')
+      return
+    }
+
+    try {
+      const response = await fetch('/api/pwa/data?action=update-branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          branchId: branchId,
+          name: editingBranch.name.trim(),
+          description: editingBranch.description.trim()
+        })
+      })
+      
+      if (!response.ok) throw new Error('更新分院失败')
+      
+      alert('✅ 分院信息已更新')
+      setEditingBranch(null)
+      loadBranches()
+      
+    } catch (error) {
+      console.error('更新分院失败:', error)
+      alert('更新分院失败: ' + error.message)
+    }
+  }
+
+  // 删除分院
+  const deleteBranch = async (branchId, branchName) => {
+    if (!confirm(`⚠️ 确定要删除分院 "${branchName}" 吗？\n\n注意：如果有用户属于该分院，删除操作会失败。`)) {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/pwa/data?action=delete-branch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branchId: branchId })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || '删除分院失败')
+      }
+      
+      alert(`✅ 分院 "${branchName}" 已删除`)
+      loadBranches()
+      
+    } catch (error) {
+      console.error('删除分院失败:', error)
+      alert('删除分院失败: ' + error.message)
+    }
+  }
+
+  useEffect(() => {
+    loadBranches()
+  }, [])
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">分院管理</h2>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+        >
+          {showAddForm ? '取消添加' : '+ 添加分院'}
+        </button>
+      </div>
+
+      {/* 添加分院表单 */}
+      {showAddForm && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-semibold mb-4">添加新分院</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                分院代码 *
+              </label>
+              <input
+                type="text"
+                value={newBranch.code}
+                onChange={(e) => setNewBranch({...newBranch, code: e.target.value.toUpperCase()})}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="如: PJY, BLS"
+                maxLength="10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                分院名称 *
+              </label>
+              <input
+                type="text"
+                value={newBranch.name}
+                onChange={(e) => setNewBranch({...newBranch, name: e.target.value})}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="如: 八打灵再也分院"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                描述（可选）
+              </label>
+              <input
+                type="text"
+                value={newBranch.description}
+                onChange={(e) => setNewBranch({...newBranch, description: e.target.value})}
+                className="w-full border rounded-lg px-3 py-2"
+                placeholder="简要描述"
+              />
+            </div>
+          </div>
+          <div className="flex space-x-3 mt-4">
+            <button
+              onClick={addBranch}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              确认添加
+            </button>
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 分院列表 */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              分院列表 {branches.length > 0 && `(${branches.length} 个分院)`}
+            </h3>
+            <button
+              onClick={loadBranches}
+              disabled={loading}
+              className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            >
+              {loading ? '加载中...' : '🔄 刷新'}
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="text-center text-gray-500 py-8">加载中...</div>
+          ) : branches.length === 0 ? (
+            <div className="text-center text-gray-500 py-8">暂无分院数据</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      分院代码
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      分院名称
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      描述
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      用户数量
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      创建时间
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      操作
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {branches.map(branch => (
+                    <tr key={branch.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                          {branch.code}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {editingBranch && editingBranch.id === branch.id ? (
+                          <input
+                            type="text"
+                            value={editingBranch.name}
+                            onChange={(e) => setEditingBranch({...editingBranch, name: e.target.value})}
+                            className="border rounded px-2 py-1"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-900">
+                            {branch.name || branch.code}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingBranch && editingBranch.id === branch.id ? (
+                          <input
+                            type="text"
+                            value={editingBranch.description || ''}
+                            onChange={(e) => setEditingBranch({...editingBranch, description: e.target.value})}
+                            className="border rounded px-2 py-1 w-full"
+                          />
+                        ) : (
+                          <span className="text-sm text-gray-600">
+                            {branch.description || '-'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {branch.userCount || 0}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {branch.created_at ? new Date(branch.created_at).toLocaleDateString() : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                        {editingBranch && editingBranch.id === branch.id ? (
+                          <>
+                            <button
+                              onClick={() => updateBranch(branch.id)}
+                              className="text-green-600 hover:text-green-800"
+                            >
+                              保存
+                            </button>
+                            <button
+                              onClick={() => setEditingBranch(null)}
+                              className="text-gray-600 hover:text-gray-800"
+                            >
+                              取消
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => setEditingBranch({
+                                id: branch.id,
+                                name: branch.name || branch.code,
+                                description: branch.description || ''
+                              })}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={() => deleteBranch(branch.id, branch.name || branch.code)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              删除
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 使用说明 */}
+      <div className="bg-blue-50 rounded-lg p-4">
+        <h4 className="font-medium text-blue-800 mb-2">📋 分院管理说明</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• <strong>添加分院</strong>：分院代码必须唯一，建议使用简短的英文缩写</li>
+          <li>• <strong>编辑分院</strong>：可以修改分院名称和描述，但不能修改代码</li>
+          <li>• <strong>删除分院</strong>：只有没有用户的分院才能删除</li>
+          <li>• <strong>用户数量</strong>：显示当前属于该分院的用户数量</li>
+        </ul>
       </div>
     </div>
   )
