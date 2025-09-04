@@ -660,19 +660,103 @@ async function updateProfileData(userId, params, res) {
       }
     }
     
-    // 🔧 创建月度自动记录（单字段更新）
-    const annualFields = ['travel_budget_annual', 'annual_medical_insurance', 'annual_car_insurance']
-    if (annualFields.includes(fieldName)) {
-      // 先获取用户资料以便重新生成记录
-      const { data: profile } = await supabase
-        .from('user_profile')
-        .select('travel_budget_annual, annual_medical_insurance, annual_car_insurance')
-        .eq('user_id', userId)
-        .single()
+    // 🎯 重要字段更新时触发积分计算
+    const importantFields = [
+      'income', 'monthly_income', // 月收入
+      'a_pct', // A类百分比
+      'travel_budget_annual', // 年度旅游预算
+      'annual_medical_insurance', // 年度医疗保险
+      'annual_car_insurance' // 年度车险
+    ]
+    
+    if (importantFields.includes(fieldName)) {
+      console.log(`[updateProfileData] 重要字段 ${fieldName} 已更新，触发积分计算`)
       
-      // 更新该字段的值
-      const updatedProfile = { ...profile, [fieldName]: value }
-      await createMonthlyAutoRecords(userId, updatedProfile)
+      try {
+        // 获取完整的用户资料
+        const { data: profile } = await supabase
+          .from('user_profile')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+        
+        if (profile) {
+          // 检查设置完成度
+          const isProfileComplete = checkProfileCompleteness(profile)
+          console.log(`[updateProfileData] 用户 ${userId} 资料完成度: ${isProfileComplete ? '完整' : '不完整'}`)
+          
+          // 创建/更新月度自动记录
+          await createMonthlyAutoRecords(userId, profile)
+          
+          // 触发当月积分计算
+          const today = new Date()
+          const currentYmd = today.toISOString().slice(0, 10)
+          
+          // 检查当月是否已有积分记录
+          const { data: existingScore } = await supabase
+            .from('user_daily_scores')
+            .select('ymd, record_type')
+            .eq('user_id', userId)
+            .eq('ymd', currentYmd)
+            .single()
+          
+          if (!existingScore) {
+            // 如果资料完整且没有积分记录，创建设置完成奖励积分
+            const recordType = isProfileComplete ? 'profile_complete' : 'profile_partial'
+            console.log(`[updateProfileData] 为用户 ${userId} 创建积分记录，类型: ${recordType}`)
+            
+            await calculateRecordScorePWA(userId, currentYmd, recordType)
+            
+            // 更新用户资料的记录统计
+            const { data: recordCount } = await supabase
+              .from('records')
+              .select('id', { count: 'exact' })
+              .eq('user_id', userId)
+            
+            await supabase
+              .from('user_profile')
+              .update({ 
+                total_records: recordCount.length || 0,
+                last_record_date: currentYmd,
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', userId)
+            
+            console.log(`[updateProfileData] 用户 ${userId} 的积分记录已创建`)
+          } else if (isProfileComplete && existingScore.record_type === 'profile_partial') {
+            // 如果之前是部分完成，现在完整了，升级积分记录
+            console.log(`[updateProfileData] 用户 ${userId} 资料已完整，升级积分记录`)
+            
+            // 重新计算完整资料积分
+            const upgradeBonus = 10 // 完整资料升级奖励10分
+            const newBonusScore = (existingScore.bonus_score || 0) + upgradeBonus
+            const newTotalScore = existingScore.base_score + existingScore.streak_score + newBonusScore
+            
+            await supabase
+              .from('user_daily_scores')
+              .update({ 
+                record_type: 'profile_complete',
+                bonus_score: newBonusScore,
+                total_score: newTotalScore,
+                bonus_details: [
+                  ...(existingScore.bonus_details || []),
+                  { score: upgradeBonus, name: '完整资料升级奖励' }
+                ],
+                updated_at: new Date().toISOString()
+              })
+              .eq('user_id', userId)
+              .eq('ymd', currentYmd)
+            
+            console.log(`[updateProfileData] 用户 ${userId} 积分记录已升级，新增${upgradeBonus}分，总分${newTotalScore}`)
+          } else {
+            console.log(`[updateProfileData] 用户 ${userId} 当月已有积分记录，跳过创建`)
+          }
+        }
+        
+      } catch (scoreError) {
+        console.error(`[updateProfileData] 积分计算失败 (不影响字段更新):`, scoreError)
+        // 积分计算失败不影响字段更新的成功
+      }
     }
     
     console.log(`[updateProfileData] 更新成功: ${fieldName} = ${value}`)
@@ -2175,33 +2259,56 @@ async function calculateRecordScorePWA(userId, date, recordType = 'record') {
       return existingScore
     }
     
-    // 2. 计算积分
-    const baseScore = 1  // 基础分固定1分
+    // 2. 计算积分 - 根据记录类型区分处理
+    let baseScore, streakScore, bonusScore = 0
+    const bonusDetails = []
     
     // 计算连续天数
     const currentStreak = await calculateCurrentStreakPWA(userId, ymd)
     
-    // 连续分计算 - 连续记录获得1分 (固定1分，不累加)
-    const streakScore = currentStreak > 1 ? 1 : 0
-    
-    // 里程碑奖励计算 - 从数据库获取配置
-    const { data: milestones } = await supabase
-      .from('score_milestones')
-      .select('streak_days, bonus_score, milestone_name')
-      .order('streak_days')
+    if (recordType === 'profile_complete') {
+      // 完整个人资料奖励
+      baseScore = 5  // 完整资料基础分5分
+      streakScore = 0 // 资料设置不计算连续分
+      bonusScore = 15 // 完整资料奖励15分
+      bonusDetails.push({
+        score: bonusScore,
+        name: '完整个人资料奖励'
+      })
+      console.log(`[calculateRecordScorePWA] 完整个人资料设置，获得${baseScore + bonusScore}分奖励`)
       
-    const bonusDetails = []
-    let bonusScore = 0
-    
-    if (milestones && milestones.length > 0) {
-      for (const milestone of milestones) {
-        if (currentStreak === milestone.streak_days) {
-          bonusDetails.push({
-            score: milestone.bonus_score,
-            name: milestone.milestone_name
-          })
-          bonusScore += milestone.bonus_score
-          console.log(`[calculateRecordScorePWA] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+    } else if (recordType === 'profile_partial') {
+      // 部分个人资料奖励
+      baseScore = 2  // 部分资料基础分2分
+      streakScore = 0 // 资料设置不计算连续分
+      bonusScore = 5  // 部分资料奖励5分
+      bonusDetails.push({
+        score: bonusScore,
+        name: '个人资料设置奖励'
+      })
+      console.log(`[calculateRecordScorePWA] 个人资料部分设置，获得${baseScore + bonusScore}分奖励`)
+      
+    } else {
+      // 普通记录积分计算
+      baseScore = 1  // 基础分固定1分
+      streakScore = currentStreak > 1 ? 1 : 0 // 连续记录获得1分
+      
+      // 里程碑奖励计算 - 从数据库获取配置
+      const { data: milestones } = await supabase
+        .from('score_milestones')
+        .select('streak_days, bonus_score, milestone_name')
+        .order('streak_days')
+        
+      if (milestones && milestones.length > 0) {
+        for (const milestone of milestones) {
+          if (currentStreak === milestone.streak_days) {
+            bonusDetails.push({
+              score: milestone.bonus_score,
+              name: milestone.milestone_name
+            })
+            bonusScore += milestone.bonus_score
+            console.log(`[calculateRecordScorePWA] 达成${milestone.streak_days}天里程碑，获得${milestone.bonus_score}分奖励`)
+          }
         }
       }
     }
@@ -2251,6 +2358,28 @@ async function calculateRecordScorePWA(userId, date, recordType = 'record') {
     console.error('[calculateRecordScorePWA] 错误:', error)
     throw error
   }
+}
+
+// ========================================
+// 辅助函数
+// ========================================
+
+// 检查用户资料完成度
+function checkProfileCompleteness(profile) {
+  if (!profile) return false
+  
+  const requiredFields = [
+    'monthly_income', // 月收入
+    'a_pct', // A类百分比
+    'travel_budget_annual', // 年度旅游预算
+    'annual_medical_insurance', // 年度医疗保险
+    'annual_car_insurance' // 年度车险
+  ]
+  
+  return requiredFields.every(field => {
+    const value = profile[field]
+    return value !== null && value !== undefined && value !== '' && value > 0
+  })
 }
 
 // ========================================
