@@ -167,22 +167,28 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
       return result
     }
 
-    // 过滤出有效记录
-    const validRecords = records.filter(record => 
-      record.category_code !== 'daily_checkin' &&
-      !record.description?.includes('自动生成') &&
-      !record.description?.includes('测试') &&
-      record.amount && record.amount !== 0
-    )
+    // 过滤出有效记录 - 签到记录和真实财务记录都算有效
+    const validRecords = records.filter(record => {
+      // 签到记录是有效的
+      if (record.category_code === 'daily_checkin') return true
+      
+      // 排除自动生成的测试数据
+      if (record.description?.includes('自动生成')) return false
+      if (record.description?.includes('测试') && record.description?.includes('自动')) return false
+      
+      // 有金额的记录也是有效的（财务记录）
+      if (record.amount && record.amount !== 0) return true
+      
+      return false
+    })
 
     if (validRecords.length === 0) {
       if (currentStreak > 0) {
-        result.issueReason = '只有测试/签到记录，不应计算连续天数'
+        result.issueReason = '只有测试数据，不应计算连续天数'
         result.issueDetails = {
-          type: 'ONLY_TEST_OR_CHECKIN',
+          type: 'ONLY_TEST_DATA',
           totalRecords: records.length,
           testRecords: records.filter(r => r.description?.includes('测试') || r.description?.includes('自动生成')).length,
-          checkinRecords: records.filter(r => r.category_code === 'daily_checkin').length,
           currentStreak,
           expectedStreak: 0
         }
@@ -271,20 +277,34 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
 // 计算用户的实际连续天数
 async function calculateActualStreak(userId) {
   try {
-    // 获取用户所有有效记录的日期
+    // 获取用户所有记录的日期
     const { data: records } = await supabase
       .from('records')
-      .select('ymd')
+      .select('ymd, category_code, description, amount')
       .eq('user_id', userId)
-      .neq('category_code', 'daily_checkin')
-      .not('description', 'like', '%自动生成%')
-      .not('description', 'like', '%测试%')
       .order('ymd', { ascending: false })
     
     if (!records || records.length === 0) return 0
     
+    // 过滤出有效记录 - 签到记录和真实财务记录都算有效
+    const validRecords = records.filter(record => {
+      // 签到记录是有效的
+      if (record.category_code === 'daily_checkin') return true
+      
+      // 排除自动生成的测试数据
+      if (record.description?.includes('自动生成')) return false
+      if (record.description?.includes('测试') && record.description?.includes('自动')) return false
+      
+      // 有金额的记录也是有效的（财务记录）
+      if (record.amount && record.amount !== 0) return true
+      
+      return false
+    })
+    
+    if (validRecords.length === 0) return 0
+    
     // 获取唯一日期并排序
-    const dates = [...new Set(records.map(r => r.ymd))].sort().reverse()
+    const dates = [...new Set(validRecords.map(r => r.ymd))].sort().reverse()
     
     if (dates.length === 0) return 0
     
