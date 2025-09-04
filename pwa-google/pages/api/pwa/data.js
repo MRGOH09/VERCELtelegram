@@ -1458,42 +1458,59 @@ async function calculateCheckInScorePWA(userId, ymd) {
 // PWA内置连续天数计算 - 模仿主系统逻辑
 async function calculateCurrentStreakPWA(userId, todayYmd) {
   try {
-    const today = new Date(todayYmd)
-    const yesterday = new Date(today.getTime() - 86400000)
-    const yesterdayYmd = yesterday.toISOString().slice(0, 10)
+    console.log(`[PWA连续计算] 开始计算用户${userId} 在${todayYmd}的连续天数`)
     
-    console.log(`[PWA连续计算] 用户${userId} 今天${todayYmd} 昨天${yesterdayYmd}`)
-    
-    // 查询用户最近的积分记录(按日期降序)
-    const { data: recentScores } = await supabase
+    // 获取用户所有积分记录，按日期降序排列
+    const { data: allScores } = await supabase
       .from('user_daily_scores')
       .select('ymd, current_streak')
       .eq('user_id', userId)
       .lt('ymd', todayYmd)  // 小于今天的记录
       .order('ymd', { ascending: false })
-      .limit(1)
     
     // 如果没有历史记录，今天是第1天
-    if (!recentScores || recentScores.length === 0) {
+    if (!allScores || allScores.length === 0) {
       console.log('[PWA连续计算] 无历史记录，今天是第1天')
       return 1
     }
     
-    const lastRecord = recentScores[0]
-    console.log(`[PWA连续计算] 最近记录: ${lastRecord.ymd}, 连续${lastRecord.current_streak}天`)
+    // 计算从今天往前推的连续天数
+    const today = new Date(todayYmd)
+    let currentStreak = 1  // 今天算1天
+    let checkDate = new Date(today.getTime() - 86400000)  // 从昨天开始检查
     
-    // 如果昨天有记录，连续天数+1
-    if (lastRecord.ymd === yesterdayYmd) {
-      const newStreak = lastRecord.current_streak + 1
-      console.log(`[PWA连续计算] 昨天有记录，连续天数: ${lastRecord.current_streak} + 1 = ${newStreak}`)
-      return newStreak
-    } else {
-      // 如果昨天没记录，重新开始，今天是第1天
-      console.log('[PWA连续计算] 昨天无记录，重新开始，今天是第1天')
-      return 1
+    console.log(`[PWA连续计算] 开始检查连续序列，从${checkDate.toISOString().slice(0, 10)}往前`)
+    
+    // 检查连续的日期序列
+    for (let i = 0; i < allScores.length; i++) {
+      const checkYmd = checkDate.toISOString().slice(0, 10)
+      const scoreRecord = allScores.find(s => s.ymd === checkYmd)
+      
+      if (scoreRecord) {
+        // 找到这一天的记录，连续天数+1
+        currentStreak++
+        console.log(`[PWA连续计算] 找到${checkYmd}的记录，当前连续: ${currentStreak}天`)
+        
+        // 继续检查前一天
+        checkDate = new Date(checkDate.getTime() - 86400000)
+      } else {
+        // 没有找到这一天的记录，连续序列中断
+        console.log(`[PWA连续计算] ${checkYmd}无记录，连续序列中断`)
+        break
+      }
+      
+      // 安全检查：最多检查90天，避免无限循环
+      if (i >= 89) {
+        console.log(`[PWA连续计算] 已检查90天，停止计算`)
+        break
+      }
     }
+    
+    console.log(`[PWA连续计算] 最终连续天数: ${currentStreak}天`)
+    return currentStreak
+    
   } catch (error) {
-    console.error('[PWA连续计算] 失败:', error)
+    console.error('[PWA连续计算] 计算失败:', error)
     return 1  // 出错时返回1天
   }
 }
