@@ -1724,196 +1724,118 @@ function BranchManagementPanel() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">分院管理</h2>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-        >
-          {showAddForm ? '取消添加' : '+ 添加分院'}
-        </button>
+        <div className="text-sm text-gray-500">
+          选择分院查看用户，然后可以修改用户的分院归属
+        </div>
       </div>
 
-      {/* 添加分院表单 */}
-      {showAddForm && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">添加新分院</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                分院代码 *
-              </label>
-              <input
-                type="text"
-                value={newBranch.code}
-                onChange={(e) => setNewBranch({...newBranch, code: e.target.value.toUpperCase()})}
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="如: PJY, BLS"
-                maxLength="10"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                分院名称 *
-              </label>
-              <input
-                type="text"
-                value={newBranch.name}
-                onChange={(e) => setNewBranch({...newBranch, name: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="如: 八打灵再也分院"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                描述（可选）
-              </label>
-              <input
-                type="text"
-                value={newBranch.description}
-                onChange={(e) => setNewBranch({...newBranch, description: e.target.value})}
-                className="w-full border rounded-lg px-3 py-2"
-                placeholder="简要描述"
-              />
-            </div>
-          </div>
-          <div className="flex space-x-3 mt-4">
-            <button
-              onClick={addBranch}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              确认添加
-            </button>
-            <button
-              onClick={() => setShowAddForm(false)}
-              className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400"
-            >
-              取消
-            </button>
-          </div>
+      {/* 分院选择器 */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">选择分院：</label>
+          <select
+            value={selectedBranch}
+            onChange={(e) => handleBranchChange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">-- 请选择分院 --</option>
+            {branches.map((branch) => (
+              <option key={branch.code} value={branch.code}>
+                {branch.name || branch.code} ({branch.code})
+              </option>
+            ))}
+          </select>
+          {loading && <div className="text-gray-500">加载分院中...</div>}
         </div>
-      )}
+      </div>
 
-      {/* 分院列表 */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
+      {/* 分院用户列表 */}
+      {selectedBranch && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">
-              分院列表 {branches.length > 0 && `(${branches.length} 个分院)`}
+              {branches.find(b => b.code === selectedBranch)?.name || selectedBranch} - 用户列表
             </h3>
-            <button
-              onClick={loadBranches}
-              disabled={loading}
-              className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
-            >
-              {loading ? '加载中...' : '🔄 刷新'}
-            </button>
           </div>
-
-          {loading ? (
-            <div className="text-center text-gray-500 py-8">加载中...</div>
-          ) : branches.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">暂无分院数据</div>
+          
+          {usersLoading ? (
+            <div className="p-6 text-center text-gray-500">
+              加载用户中...
+            </div>
+          ) : branchUsers.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              该分院暂无用户
+            </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      分院代码
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      分院名称
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      描述
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      用户数量
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      创建时间
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      操作
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">用户名</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telegram ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">当前分院</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">注册时间</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {branches.map(branch => (
-                    <tr key={branch.id} className="hover:bg-gray-50">
+                <tbody className="divide-y divide-gray-200">
+                  {branchUsers.map((user) => (
+                    <tr key={user.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                          {branch.code}
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">{user.telegram_id}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {user.branch_code}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {editingBranch && editingBranch.id === branch.id ? (
-                          <input
-                            type="text"
-                            value={editingBranch.name}
-                            onChange={(e) => setEditingBranch({...editingBranch, name: e.target.value})}
-                            className="border rounded px-2 py-1"
-                          />
-                        ) : (
-                          <span className="text-sm font-medium text-gray-900">
-                            {branch.name || branch.code}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {editingBranch && editingBranch.id === branch.id ? (
-                          <input
-                            type="text"
-                            value={editingBranch.description || ''}
-                            onChange={(e) => setEditingBranch({...editingBranch, description: e.target.value})}
-                            className="border rounded px-2 py-1 w-full"
-                          />
-                        ) : (
-                          <span className="text-sm text-gray-600">
-                            {branch.description || '-'}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {branch.userCount || 0}
-                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {branch.created_at ? new Date(branch.created_at).toLocaleDateString() : '-'}
+                        {new Date(user.created_at).toLocaleDateString('zh-CN')}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                        {editingBranch && editingBranch.id === branch.id ? (
-                          <>
-                            <button
-                              onClick={() => updateBranch(branch.id)}
-                              className="text-green-600 hover:text-green-800"
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {editingUserId === user.id ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={newBranchForUser}
+                              onChange={(e) => setNewBranchForUser(e.target.value)}
+                              className="px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
                             >
-                              保存
+                              <option value="">选择新分院</option>
+                              {branches.filter(b => b.code !== user.branch_code).map((branch) => (
+                                <option key={branch.code} value={branch.code}>
+                                  {branch.name || branch.code}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => changeUserBranch(user.id, user.name, user.branch_code, newBranchForUser)}
+                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                            >
+                              确认
                             </button>
                             <button
-                              onClick={() => setEditingBranch(null)}
-                              className="text-gray-600 hover:text-gray-800"
+                              onClick={() => {
+                                setEditingUserId(null)
+                                setNewBranchForUser('')
+                              }}
+                              className="px-2 py-1 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
                             >
                               取消
                             </button>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <button
-                              onClick={() => setEditingBranch({
-                                id: branch.id,
-                                name: branch.name || branch.code,
-                                description: branch.description || ''
-                              })}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              编辑
-                            </button>
-                            <button
-                              onClick={() => deleteBranch(branch.id, branch.name || branch.code)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              删除
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              setEditingUserId(user.id)
+                              setNewBranchForUser('')
+                            }}
+                            className="text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            修改分院
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -1923,20 +1845,18 @@ function BranchManagementPanel() {
             </div>
           )}
         </div>
-      </div>
+      )}
 
       {/* 使用说明 */}
       <div className="bg-blue-50 rounded-lg p-4">
         <h4 className="font-medium text-blue-800 mb-2">📋 分院管理说明</h4>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>添加分院</strong>：分院代码必须唯一，建议使用简短的英文缩写</li>
-          <li>• <strong>编辑分院</strong>：可以修改分院名称和描述，但不能修改代码</li>
-          <li>• <strong>删除分院</strong>：只有没有用户的分院才能删除</li>
-          <li>• <strong>用户数量</strong>：显示当前属于该分院的用户数量</li>
+          <li>• <strong>选择分院</strong>：从下拉菜单选择要管理的分院</li>
+          <li>• <strong>查看用户</strong>：显示该分院下的所有用户信息</li>
+          <li>• <strong>修改分院</strong>：点击"修改分院"可以将用户转移到其他分院</li>
+          <li>• <strong>确认操作</strong>：修改前会弹出确认对话框，确保操作正确</li>
         </ul>
       </div>
     </div>
   )
 }
-
-// 数据导出面板组件已被移除 - 功能暂时关闭
