@@ -49,11 +49,14 @@ async function analyzeScoreErrors(req, res) {
     const errorUsers = []
 
     for (const user of users) {
-      // 获取用户所有记录（按日期分组）
+      // 获取用户所有记录（按日期分组，排除测试和自动生成数据）
       const { data: records } = await supabase
         .from('records')
-        .select('ymd, category_group, amount')
+        .select('ymd, category_group, category_code, amount, description')
         .eq('user_id', user.id)
+        .neq('category_code', 'daily_checkin') // 排除签到记录
+        .not('description', 'like', '%自动生成%') // 排除自动生成的测试数据
+        .not('description', 'like', '%测试%') // 排除测试数据
         .order('ymd')
 
       // 获取用户当前积分
@@ -84,6 +87,21 @@ async function analyzeScoreErrors(req, res) {
       const errors = []
       let streak = 0
       const dates = Object.keys(recordsByDate).sort()
+      
+      // 过滤出有有效记录的日期，用于连续天数计算
+      const validDates = []
+      for (const date of dates) {
+        const dayRecords = recordsByDate[date]
+        const validRecords = dayRecords.filter(record => {
+          return record.category_code !== 'daily_checkin' && 
+                 !record.description?.includes('自动生成') && 
+                 !record.description?.includes('测试') &&
+                 record.amount && record.amount !== 0
+        })
+        if (validRecords.length > 0) {
+          validDates.push(date)
+        }
+      }
 
       for (let i = 0; i < dates.length; i++) {
         const date = dates[i]
@@ -91,31 +109,54 @@ async function analyzeScoreErrors(req, res) {
         const currentScore = scoresByDate[date]
 
         if (!currentScore) {
-          errors.push({
-            date,
-            type: 'missing_score',
-            description: `缺少积分记录`,
-            records: dayRecords.length
+          // 只有有有效记录的日期才报告缺少积分记录的错误
+          const validRecords = dayRecords.filter(record => {
+            return record.category_code !== 'daily_checkin' && 
+                   !record.description?.includes('自动生成') && 
+                   !record.description?.includes('测试') &&
+                   record.amount && record.amount !== 0
           })
+          
+          if (validRecords.length > 0) {
+            errors.push({
+              date,
+              type: 'missing_score',
+              description: `缺少积分记录 (有效记录: ${validRecords.length})`,
+              records: dayRecords.length
+            })
+          }
           continue
         }
 
-        // 计算预期积分
-        const expectedBaseScore = dayRecords.length > 0 ? 1 : 0
+        // 计算预期积分 - 只有有效的财务记录才给基础分
+        const validRecords = dayRecords.filter(record => {
+          // 排除签到记录、测试数据、自动生成数据
+          return record.category_code !== 'daily_checkin' && 
+                 !record.description?.includes('自动生成') && 
+                 !record.description?.includes('测试') &&
+                 record.amount && record.amount !== 0
+        })
+        const expectedBaseScore = validRecords.length > 0 ? 1 : 0
         
-        // 计算连续天数
-        if (i === 0) {
-          streak = 1
-        } else {
-          const prevDate = new Date(dates[i - 1])
-          const currDate = new Date(date)
-          const dayDiff = Math.floor((currDate - prevDate) / (1000 * 60 * 60 * 24))
-          
-          if (dayDiff === 1) {
-            streak++
-          } else {
+        // 计算连续天数 - 基于有效日期
+        const validDateIndex = validDates.indexOf(date)
+        if (validDateIndex >= 0) {
+          if (validDateIndex === 0) {
             streak = 1
+          } else {
+            const prevValidDate = new Date(validDates[validDateIndex - 1])
+            const currDate = new Date(date)
+            const dayDiff = Math.floor((currDate - prevValidDate) / (1000 * 60 * 60 * 24))
+            
+            if (dayDiff === 1) {
+              streak++
+            } else {
+              streak = 1
+            }
           }
+        } else {
+          // 如果当前日期没有有效记录，streak应该为0
+          streak = 0
         }
 
         const expectedStreakScore = streak > 1 ? 1 : 0
@@ -246,15 +287,18 @@ async function fixSelectedUsers(req, res, userIds) {
 
 // 修复单个用户的积分
 async function fixUserScores(userId) {
-  // 获取用户所有记录
+  // 获取用户所有记录，排除测试和自动生成数据
   const { data: records } = await supabase
     .from('records')
     .select('*')
     .eq('user_id', userId)
+    .neq('category_code', 'daily_checkin') // 排除签到记录
+    .not('description', 'like', '%自动生成%') // 排除自动生成的测试数据
+    .not('description', 'like', '%测试%') // 排除测试数据
     .order('ymd')
 
   if (!records || records.length === 0) {
-    return { message: '用户无记录，无需修复' }
+    return { message: '用户无有效记录，无需修复' }
   }
 
   // 删除现有积分记录
@@ -275,28 +319,55 @@ async function fixUserScores(userId) {
   const dates = Object.keys(recordsByDate).sort()
   const newScores = []
   let streak = 0
+  
+  // 过滤出有有效记录的日期
+  const validDates = []
+  for (const date of dates) {
+    const dayRecords = recordsByDate[date]
+    const validRecords = dayRecords.filter(record => {
+      return record.category_code !== 'daily_checkin' && 
+             !record.description?.includes('自动生成') && 
+             !record.description?.includes('测试') &&
+             record.amount && record.amount !== 0
+    })
+    if (validRecords.length > 0) {
+      validDates.push(date)
+    }
+  }
 
   // 重新计算每日积分
   for (let i = 0; i < dates.length; i++) {
     const date = dates[i]
     const dayRecords = recordsByDate[date]
 
-    // 基础分
-    const baseScore = dayRecords.length > 0 ? 1 : 0
+    // 基础分 - 只有有效记录才给分
+    const validRecords = dayRecords.filter(record => {
+      return record.category_code !== 'daily_checkin' && 
+             !record.description?.includes('自动生成') && 
+             !record.description?.includes('测试') &&
+             record.amount && record.amount !== 0
+    })
+    const baseScore = validRecords.length > 0 ? 1 : 0
 
-    // 计算连续天数
-    if (i === 0) {
-      streak = 1
-    } else {
-      const prevDate = new Date(dates[i - 1])
-      const currDate = new Date(date)
-      const dayDiff = Math.floor((currDate - prevDate) / (1000 * 60 * 60 * 24))
-      
-      if (dayDiff === 1) {
-        streak++
-      } else {
+    // 计算连续天数 - 基于有效日期
+    const validDateIndex = validDates.indexOf(date)
+    if (validDateIndex >= 0) {
+      if (validDateIndex === 0) {
         streak = 1
+      } else {
+        const prevValidDate = new Date(validDates[validDateIndex - 1])
+        const currDate = new Date(date)
+        const dayDiff = Math.floor((currDate - prevValidDate) / (1000 * 60 * 60 * 24))
+        
+        if (dayDiff === 1) {
+          streak++
+        } else {
+          streak = 1
+        }
       }
+    } else {
+      // 如果当前日期没有有效记录，不生成积分记录
+      continue
     }
 
     // 连续分
@@ -338,6 +409,7 @@ async function fixUserScores(userId) {
       base_score: baseScore,
       streak_score: streakScore,
       bonus_score: bonusScore,
+      total_score: totalScore,
       current_streak: streak,
       record_type: recordType,
       bonus_details: bonusDetails
