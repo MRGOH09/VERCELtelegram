@@ -214,19 +214,20 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
     
     // 检查最近记录日期
     const lastValidDate = dates[0]
-    const lastDate = new Date(lastValidDate)
-    const todayDate = new Date(today)
-    const daysSinceLastRecord = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24))
+    
+    // 使用简单的字符串比较来计算日期差异，避免时区问题
+    const todayString = today
+    const daysDiff = calculateDateDifference(lastValidDate, todayString)
     
     // 如果最近的记录超过1天，连续天数应该归零
-    if (daysSinceLastRecord > 1) {
+    if (daysDiff > 1) {
       result.actualStreak = 0
       if (currentStreak > 0) {
         result.issueReason = '连续记录已中断，应重置为0'
         result.issueDetails = {
           type: 'STREAK_BROKEN',
           lastRecordDate: lastValidDate,
-          daysSinceLastRecord,
+          daysSinceLastRecord: daysDiff,
           currentStreak,
           expectedStreak: 0
         }
@@ -321,9 +322,7 @@ async function calculateActualStreak(userId) {
     const today = new Date().toISOString().slice(0, 10)
     
     // 如果最近的记录不是今天或昨天，连续天数为0
-    const lastDate = new Date(dates[0])
-    const todayDate = new Date(today)
-    const daysDiff = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24))
+    const daysDiff = calculateDateDifference(dates[0], today)
     
     if (daysDiff > 1) return 0
     
@@ -530,4 +529,15 @@ async function adjustStreak(req, res) {
       details: error.message
     })
   }
+}
+// 计算两个日期字符串之间的天数差异
+function calculateDateDifference(date1, date2) {
+  const d1 = new Date(date1)
+  const d2 = new Date(date2)
+  
+  // 重置为UTC午夜，避免时区问题
+  d1.setUTCHours(0, 0, 0, 0)
+  d2.setUTCHours(0, 0, 0, 0)
+  
+  return Math.floor((d2 - d1) / (1000 * 60 * 60 * 24))
 }
