@@ -77,9 +77,15 @@ async function getStreakData(req, res) {
       
       const maxStreak = allScores?.current_streak || 0
       
-      // 计算实际连续天数（基于记录）
-      const streakAnalysis = await analyzeUserStreak(user.id, currentStreak, lastRecordDate)
-      const actualStreak = streakAnalysis.actualStreak
+      // 计算实际连续天数（基于记录）- 使用简化逻辑
+      const actualStreak = await calculateActualStreak(user.id)
+      const streakAnalysis = { 
+        actualStreak,
+        issueReason: actualStreak !== currentStreak ? 
+          (actualStreak > currentStreak ? '实际连续天数高于记录值' : '实际连续天数低于记录值') : '',
+        issueDetails: { difference: Math.abs(actualStreak - currentStreak) },
+        hasAnyRecords: true
+      }
       
       // 只有当真的有不合理的情况才报告异常
       // 关键逻辑：如果用户有积分记录（lastRecordDate存在），说明他一定有过有效记录
