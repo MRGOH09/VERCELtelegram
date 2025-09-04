@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 
+// 管理员面板 - 最后更新: 2025-09-04
+
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState('overview')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
