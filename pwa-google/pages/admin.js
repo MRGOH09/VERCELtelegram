@@ -123,6 +123,7 @@ export default function AdminPanel() {
                 { id: 'overview', name: '概览', icon: '📊' },
                 { id: 'users', name: '用户管理', icon: '👥' },
                 { id: 'branches', name: '分院管理', icon: '🏢' },
+                { id: 'branch-stats', name: '分院统计', icon: '📈' },
                 { id: 'scores', name: '积分管理', icon: '🏆' },
                 { id: 'streaks', name: '连续天数管理', icon: '📅' },
                 { id: 'milestones', name: '里程碑配置', icon: '⚡' },
@@ -149,6 +150,7 @@ export default function AdminPanel() {
         {activeTab === 'overview' && <OverviewPanel adminData={adminData} />}
         {activeTab === 'users' && <UserManagementPanel />}
         {activeTab === 'branches' && <BranchManagementPanel />}
+        {activeTab === 'branch-stats' && <BranchStatsPanel />}
         {activeTab === 'scores' && <ScoreManagementPanel />}
         {activeTab === 'streaks' && <StreakManagementPanel />}
         {activeTab === 'milestones' && <MilestoneConfigPanel />}
@@ -1893,6 +1895,207 @@ function BranchManagementPanel() {
           <li>• <strong>查看用户</strong>：显示该分院下的所有用户信息</li>
           <li>• <strong>修改分院</strong>：点击"修改分院"可以将用户转移到其他分院</li>
           <li>• <strong>确认操作</strong>：修改前会弹出确认对话框，确保操作正确</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+// 分院统计面板 - 显示各分院登录用户情况
+function BranchStatsPanel() {
+  const [branchStats, setBranchStats] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [lastUpdate, setLastUpdate] = useState(null)
+
+  // 分院信息配置
+  const branchConfig = {
+    'MAIN': { name: 'MAIN分院', color: '#3B82F6', icon: '🏛️' },
+    '小天使': { name: '小天使分院', color: '#EC4899', icon: '👼' },
+    '未分配': { name: '未分配', color: '#6B7280', icon: '❓' }
+  }
+
+  // 加载分院统计数据
+  const loadBranchStats = async () => {
+    setLoading(true)
+    try {
+      // 使用现有的用户API获取分院数据
+      const response = await fetch('/api/admin/users?action=branches')
+      if (!response.ok) throw new Error('获取分院数据失败')
+      
+      const data = await response.json()
+      setBranchStats(data.branches || [])
+      setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
+    } catch (error) {
+      console.error('加载分院统计失败:', error)
+      alert('加载失败: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadBranchStats()
+    // 每30秒自动刷新
+    const interval = setInterval(loadBranchStats, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const totalUsers = branchStats.reduce((sum, branch) => 
+    branch.code !== 'all' ? sum + branch.userCount : sum, 0)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900">分院统计</h2>
+        <div className="flex items-center space-x-4">
+          {lastUpdate && (
+            <span className="text-sm text-gray-500">
+              最后更新: {lastUpdate}
+            </span>
+          )}
+          <button
+            onClick={loadBranchStats}
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? '刷新中...' : '🔄 刷新'}
+          </button>
+        </div>
+      </div>
+
+      {/* 概览统计 */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+          <div className="flex items-center">
+            <div>
+              <p className="text-blue-100">总登录用户</p>
+              <p className="text-3xl font-bold">{totalUsers}</p>
+            </div>
+            <div className="ml-auto">
+              <div className="w-8 h-8 bg-blue-400 rounded-full flex items-center justify-center">
+                👥
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
+          <div className="flex items-center">
+            <div>
+              <p className="text-green-100">活跃分院</p>
+              <p className="text-3xl font-bold">{branchStats.filter(b => b.code !== 'all' && b.userCount > 0).length}</p>
+            </div>
+            <div className="ml-auto">
+              <div className="w-8 h-8 bg-green-400 rounded-full flex items-center justify-center">
+                🏢
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
+          <div className="flex items-center">
+            <div>
+              <p className="text-purple-100">最大分院</p>
+              <p className="text-3xl font-bold">
+                {Math.max(...branchStats.filter(b => b.code !== 'all').map(b => b.userCount), 0)}
+              </p>
+            </div>
+            <div className="ml-auto">
+              <div className="w-8 h-8 bg-purple-400 rounded-full flex items-center justify-center">
+                👑
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white">
+          <div className="flex items-center">
+            <div>
+              <p className="text-orange-100">平均用户数</p>
+              <p className="text-3xl font-bold">
+                {Math.round(totalUsers / Math.max(branchStats.filter(b => b.code !== 'all' && b.userCount > 0).length, 1))}
+              </p>
+            </div>
+            <div className="ml-auto">
+              <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center">
+                📊
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 分院详细统计 */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">各分院登录情况</h3>
+          
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {branchStats
+                .filter(branch => branch.code !== 'all')
+                .sort((a, b) => b.userCount - a.userCount)
+                .map((branch) => {
+                  const config = branchConfig[branch.code] || branchConfig['未分配']
+                  const maxUsers = Math.max(...branchStats.filter(b => b.code !== 'all').map(b => b.userCount), 1)
+                  const percentage = Math.round((branch.userCount / totalUsers) * 100)
+                  
+                  return (
+                    <div key={branch.code} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{config.icon}</span>
+                          <div>
+                            <h4 className="font-medium text-gray-900">{config.name}</h4>
+                            <p className="text-sm text-gray-500">代码: {branch.code}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold" style={{ color: config.color }}>
+                            {branch.userCount}
+                          </div>
+                          <div className="text-sm text-gray-500">{percentage}%</div>
+                        </div>
+                      </div>
+                      
+                      {/* 进度条 */}
+                      <div className="mt-3">
+                        <div className="flex justify-between text-sm text-gray-600 mb-1">
+                          <span>用户数量</span>
+                          <span>{branch.userCount} / {totalUsers}</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="h-2 rounded-full transition-all duration-300"
+                            style={{ 
+                              width: `${(branch.userCount / maxUsers) * 100}%`,
+                              backgroundColor: config.color
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 使用说明 */}
+      <div className="bg-blue-50 rounded-lg p-4">
+        <h4 className="font-medium text-blue-800 mb-2">📋 分院统计说明</h4>
+        <ul className="text-sm text-blue-700 space-y-1">
+          <li>• <strong>实时统计</strong>：显示各分院已登录PWA-Google系统的用户数量</li>
+          <li>• <strong>自动刷新</strong>：数据每30秒自动更新，也可手动刷新</li>
+          <li>• <strong>排序显示</strong>：按用户数量从多到少排列</li>
+          <li>• <strong>百分比</strong>：显示各分院用户占总用户的比例</li>
+          <li>• <strong>进度条</strong>：可视化显示各分院的用户数量对比</li>
         </ul>
       </div>
     </div>
