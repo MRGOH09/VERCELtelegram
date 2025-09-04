@@ -123,6 +123,7 @@ export default function AdminPanel() {
                 { id: 'overview', name: '概览', icon: '📊' },
                 { id: 'users', name: '用户管理', icon: '👥' },
                 { id: 'scores', name: '积分管理', icon: '🏆' },
+                { id: 'streaks', name: '连续天数管理', icon: '📅' },
                 { id: 'milestones', name: '里程碑配置', icon: '⚡' },
                 { id: 'tools', name: '修复工具', icon: '🛠️' }
               ].map(tab => (
@@ -147,6 +148,7 @@ export default function AdminPanel() {
         {activeTab === 'overview' && <OverviewPanel adminData={adminData} />}
         {activeTab === 'users' && <UserManagementPanel />}
         {activeTab === 'scores' && <ScoreManagementPanel />}
+        {activeTab === 'streaks' && <StreakManagementPanel />}
         {activeTab === 'milestones' && <MilestoneConfigPanel />}
         {activeTab === 'tools' && <RepairToolsPanel />}
       </div>
@@ -422,6 +424,464 @@ function UserManagementPanel() {
           onClose={() => setSelectedUser(null)} 
         />
       )}
+    </div>
+  )
+}
+
+// 连续天数管理面板
+function StreakManagementPanel() {
+  const [users, setUsers] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [editingStreak, setEditingStreak] = useState(false)
+  const [newStreakValue, setNewStreakValue] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [streakIssues, setStreakIssues] = useState([])
+  const [fixingStreaks, setFixingStreaks] = useState(false)
+  const [selectedBranch, setSelectedBranch] = useState('all')
+  const [adjustmentReason, setAdjustmentReason] = useState('')
+  
+  // 加载用户连续天数数据
+  const loadStreakData = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/streak-analysis')
+      if (!response.ok) {
+        // 如果专用API不存在，使用现有数据API
+        const fallbackResponse = await fetch('/api/pwa/data?action=admin-streak-data')
+        if (!fallbackResponse.ok) throw new Error('获取连续天数数据失败')
+        const data = await fallbackResponse.json()
+        setUsers(data.users || [])
+        setStreakIssues(data.issues || [])
+        return
+      }
+      const data = await response.json()
+      setUsers(data.users || [])
+      setStreakIssues(data.issues || [])
+    } catch (error) {
+      console.error('加载失败:', error)
+      alert('加载失败: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  // 分析连续天数问题
+  const analyzeStreaks = async () => {
+    setAnalyzing(true)
+    try {
+      const response = await fetch('/api/pwa/data?action=analyze-streaks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      if (!response.ok) throw new Error('分析失败')
+      const data = await response.json()
+      setStreakIssues(data.issues || [])
+      alert(`分析完成！发现 ${data.issues.length} 个连续天数问题`)
+    } catch (error) {
+      console.error('分析失败:', error)
+      alert('分析失败: ' + error.message)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+  
+  // 批量修复连续天数
+  const fixAllStreaks = async () => {
+    if (!confirm('确定要批量修复所有连续天数问题吗？此操作不可撤销！')) return
+    
+    setFixingStreaks(true)
+    try {
+      const response = await fetch('/api/pwa/data?action=fix-all-streaks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userIds: streakIssues.map(issue => issue.userId)
+        })
+      })
+      if (!response.ok) throw new Error('修复失败')
+      const data = await response.json()
+      alert(`成功修复 ${data.fixed} 个用户的连续天数`)
+      await loadStreakData()
+    } catch (error) {
+      console.error('修复失败:', error)
+      alert('修复失败: ' + error.message)
+    } finally {
+      setFixingStreaks(false)
+    }
+  }
+  
+  // 手动调整用户连续天数
+  const adjustUserStreak = async (userId) => {
+    if (!newStreakValue || !adjustmentReason) {
+      alert('请输入新的连续天数和调整原因')
+      return
+    }
+    
+    try {
+      const response = await fetch('/api/pwa/data?action=adjust-streak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          newStreak: parseInt(newStreakValue),
+          reason: adjustmentReason
+        })
+      })
+      if (!response.ok) throw new Error('调整失败')
+      alert('连续天数已调整')
+      setEditingStreak(false)
+      setSelectedUser(null)
+      setNewStreakValue('')
+      setAdjustmentReason('')
+      await loadStreakData()
+    } catch (error) {
+      console.error('调整失败:', error)
+      alert('调整失败: ' + error.message)
+    }
+  }
+  
+  // 修复单个用户连续天数
+  const fixSingleUserStreak = async (userId, userName) => {
+    if (!confirm(`确定要重新计算用户 ${userName} 的连续天数吗？`)) return
+    
+    try {
+      const response = await fetch('/api/pwa/data?action=fix-user-streak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      })
+      if (!response.ok) throw new Error('修复失败')
+      const data = await response.json()
+      alert(`用户 ${userName} 的连续天数已重新计算: ${data.newStreak} 天`)
+      await loadStreakData()
+    } catch (error) {
+      console.error('修复失败:', error)
+      alert('修复失败: ' + error.message)
+    }
+  }
+  
+  useEffect(() => {
+    loadStreakData()
+  }, [])
+  
+  // 过滤用户列表
+  const filteredUsers = selectedBranch === 'all' 
+    ? users 
+    : users.filter(u => u.branch === selectedBranch)
+  
+  // 获取所有分院
+  const branches = [...new Set(users.map(u => u.branch).filter(Boolean))]
+  
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-900">连续天数管理</h2>
+      
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="border-b pb-4 mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            📅 连续签到天数监控与修复
+          </h3>
+          <p className="text-gray-600">
+            管理和修复用户的连续签到天数，确保积分计算准确。系统会自动检测连续天数异常并提供修复工具。
+          </p>
+        </div>
+        
+        {/* 操作按钮 */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex space-x-4">
+            <button
+              onClick={loadStreakData}
+              disabled={loading}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+            >
+              {loading ? '加载中...' : '🔄 刷新数据'}
+            </button>
+            
+            <button
+              onClick={analyzeStreaks}
+              disabled={analyzing}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {analyzing ? '分析中...' : '🔍 检测问题'}
+            </button>
+            
+            {streakIssues.length > 0 && (
+              <button
+                onClick={fixAllStreaks}
+                disabled={fixingStreaks}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {fixingStreaks ? '修复中...' : `🔧 批量修复 (${streakIssues.length})`}
+              </button>
+            )}
+          </div>
+          
+          {/* 分院筛选 */}
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="border rounded-lg px-3 py-2"
+          >
+            <option value="all">所有分院 ({users.length})</option>
+            {branches.map(branch => {
+              const count = users.filter(u => u.branch === branch).length
+              return (
+                <option key={branch} value={branch}>
+                  {branch} ({count})
+                </option>
+              )
+            })}
+          </select>
+        </div>
+        
+        {/* 统计信息 */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">
+              {filteredUsers.length}
+            </div>
+            <div className="text-sm text-gray-600">总用户数</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-green-600">
+              {filteredUsers.filter(u => u.isActive).length}
+            </div>
+            <div className="text-sm text-gray-600">活跃用户</div>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-orange-600">
+              {Math.round(filteredUsers.reduce((sum, u) => sum + (u.currentStreak || 0), 0) / filteredUsers.length) || 0}
+            </div>
+            <div className="text-sm text-gray-600">平均连续天数</div>
+          </div>
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="text-2xl font-bold text-red-600">
+              {streakIssues.filter(issue => filteredUsers.some(u => u.id === issue.userId)).length}
+            </div>
+            <div className="text-sm text-gray-600">异常用户</div>
+          </div>
+        </div>
+        
+        {/* 问题用户列表 */}
+        {streakIssues.length > 0 && (
+          <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <h4 className="font-medium text-yellow-800 mb-3 flex items-center">
+              ⚠️ 发现连续天数异常 ({streakIssues.length} 个)
+              <button 
+                onClick={() => setStreakIssues([])}
+                className="ml-2 text-yellow-600 hover:text-yellow-800"
+              >
+                ✕
+              </button>
+            </h4>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {streakIssues.map(issue => (
+                <div key={issue.userId} className="flex justify-between items-center text-sm bg-white p-2 rounded">
+                  <span className="text-yellow-700">
+                    {issue.userName} - {issue.branch}
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-yellow-600">
+                      当前: {issue.currentStreak} → 应为: {issue.expectedStreak}
+                    </span>
+                    <button
+                      onClick={() => fixSingleUserStreak(issue.userId, issue.userName)}
+                      className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                    >
+                      修复
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* 用户列表 */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  用户
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  分院
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  当前连续
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  历史最长
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  最后记录
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  状态
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  操作
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredUsers.map(user => {
+                const hasIssue = streakIssues.some(issue => issue.userId === user.id)
+                return (
+                  <tr key={user.id} className={hasIssue ? 'bg-yellow-50' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                      <div className="text-sm text-gray-500">{user.telegram_id}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {user.branch || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-lg font-bold text-blue-600">
+                        {user.currentStreak || 0}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-1">天</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <span className="font-medium">{user.maxStreak || 0}</span>
+                      <span className="text-xs text-gray-500 ml-1">天</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {user.lastRecordDate || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {hasIssue ? (
+                        <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded">
+                          ⚠️ 异常
+                        </span>
+                      ) : user.isActive ? (
+                        <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+                          ✅ 正常
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                          💤 未激活
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user)
+                          setEditingStreak(true)
+                          setNewStreakValue(user.currentStreak?.toString() || '0')
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        手动调整
+                      </button>
+                      <button
+                        onClick={() => fixSingleUserStreak(user.id, user.name)}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        重新计算
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* 手动调整弹窗 */}
+        {editingStreak && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-4">
+                调整连续天数 - {selectedUser.name}
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-3 rounded">
+                  <div className="text-sm text-gray-600 mb-1">用户信息</div>
+                  <div className="text-sm">
+                    <span className="font-medium">{selectedUser.name}</span>
+                    <span className="text-gray-500 ml-2">{selectedUser.branch}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    当前连续天数
+                  </label>
+                  <div className="text-lg font-bold text-gray-900">
+                    {selectedUser.currentStreak || 0} 天
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    新的连续天数 *
+                  </label>
+                  <input
+                    type="number"
+                    value={newStreakValue}
+                    onChange={(e) => setNewStreakValue(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                    min="0"
+                    max="365"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    调整原因 *
+                  </label>
+                  <textarea
+                    value={adjustmentReason}
+                    onChange={(e) => setAdjustmentReason(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                    rows="3"
+                    placeholder="请详细说明调整原因，如：数据迁移、系统错误修正、用户申诉等..."
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setEditingStreak(false)
+                    setSelectedUser(null)
+                    setNewStreakValue('')
+                    setAdjustmentReason('')
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => adjustUserStreak(selectedUser.id)}
+                  disabled={!newStreakValue || !adjustmentReason}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  确认调整
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* 使用说明 */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <h4 className="font-medium text-blue-800 mb-2">📋 使用说明</h4>
+          <ul className="text-sm text-blue-700 space-y-1">
+            <li>• <strong>检测问题</strong>：自动分析所有用户的连续天数计算是否正确</li>
+            <li>• <strong>批量修复</strong>：一键修复所有检测到的连续天数异常</li>
+            <li>• <strong>重新计算</strong>：根据用户的记录历史重新计算连续天数</li>
+            <li>• <strong>手动调整</strong>：直接设置用户的连续天数（需要填写调整原因）</li>
+            <li>• <strong>数据同步</strong>：修复后的连续天数会立即影响积分计算</li>
+            <li>• ⚠️ <strong>注意</strong>：手动调整会覆盖系统计算结果，请谨慎操作</li>
+          </ul>
+        </div>
+      </div>
     </div>
   )
 }

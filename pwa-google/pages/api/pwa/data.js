@@ -225,6 +225,22 @@ export default async function handler(req, res) {
       case 'scores':
         return await getScoresData(dbUser.id, res)
         
+      // 管理员连续天数管理功能
+      case 'admin-streak-data':
+        return await getAdminStreakData(res)
+        
+      case 'analyze-streaks':
+        return await analyzeStreaks(res)
+        
+      case 'fix-all-streaks':
+        return await fixAllStreaks(params.userIds, res)
+        
+      case 'fix-user-streak':
+        return await fixUserStreak(params.userId, res)
+        
+      case 'adjust-streak':
+        return await adjustUserStreak(params.userId, params.newStreak, params.reason, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -2234,5 +2250,351 @@ async function calculateRecordScorePWA(userId, date, recordType = 'record') {
   } catch (error) {
     console.error('[calculateRecordScorePWA] 错误:', error)
     throw error
+  }
+}
+
+// ========================================
+// 管理员连续天数管理功能
+// ========================================
+
+// 获取所有用户的连续天数数据
+async function getAdminStreakData(res) {
+  try {
+    console.log('[getAdminStreakData] 加载用户连续天数数据')
+    
+    // 获取所有用户基本信息和连续天数
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select(`
+        id,
+        name,
+        telegram_id,
+        branch_code,
+        joined_date,
+        user_profile!left (
+          current_streak,
+          total_records,
+          last_record_date
+        ),
+        user_daily_scores!left (
+          current_streak,
+          ymd
+        )
+      `)
+      .order('name')
+    
+    if (usersError) throw usersError
+    
+    // 处理每个用户的连续天数数据
+    const processedUsers = await Promise.all(users.map(async user => {
+      // 从 user_profile 获取当前连续天数
+      const profileStreak = user.user_profile?.current_streak || 0
+      
+      // 获取该用户最新的积分记录中的连续天数
+      const { data: latestScore } = await supabase
+        .from('user_daily_scores')
+        .select('current_streak, ymd')
+        .eq('user_id', user.id)
+        .order('ymd', { ascending: false })
+        .limit(1)
+        .single()
+      
+      const scoreStreak = latestScore?.current_streak || 0
+      
+      // 计算实际连续天数（重新计算）
+      const actualStreak = await calculateCurrentStreakPWA(user.id, new Date().toISOString().slice(0, 10))
+      
+      // 获取历史最长连续天数
+      const { data: maxStreakRecord } = await supabase
+        .from('user_daily_scores')
+        .select('current_streak')
+        .eq('user_id', user.id)
+        .order('current_streak', { ascending: false })
+        .limit(1)
+        .single()
+      
+      const maxStreak = maxStreakRecord?.current_streak || 0
+      
+      // 检查是否活跃（最近7天内有记录）
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      const { data: recentRecords } = await supabase
+        .from('records')
+        .select('id')
+        .eq('user_id', user.id)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .limit(1)
+      
+      const isActive = recentRecords && recentRecords.length > 0
+      
+      return {
+        id: user.id,
+        name: user.name,
+        telegram_id: user.telegram_id,
+        branch: user.branch_code,
+        currentStreak: profileStreak, // 使用 profile 中的值作为显示
+        actualStreak: actualStreak,   // 实际计算的值
+        scoreStreak: scoreStreak,     // 积分记录中的值
+        maxStreak: maxStreak,
+        lastRecordDate: user.user_profile?.last_record_date,
+        isActive: isActive,
+        joinedDate: user.joined_date
+      }
+    }))
+    
+    // 分析连续天数异常
+    const issues = processedUsers
+      .filter(user => user.currentStreak !== user.actualStreak)
+      .map(user => ({
+        userId: user.id,
+        userName: user.name,
+        branch: user.branch,
+        currentStreak: user.currentStreak,
+        expectedStreak: user.actualStreak,
+        type: 'calculation_mismatch'
+      }))
+    
+    return res.status(200).json({
+      success: true,
+      users: processedUsers,
+      issues: issues,
+      summary: {
+        totalUsers: processedUsers.length,
+        activeUsers: processedUsers.filter(u => u.isActive).length,
+        issuesFound: issues.length
+      }
+    })
+    
+  } catch (error) {
+    console.error('[getAdminStreakData] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 分析所有用户的连续天数问题
+async function analyzeStreaks(res) {
+  try {
+    console.log('[analyzeStreaks] 开始分析连续天数问题')
+    
+    const { data: users, error } = await supabase
+      .from('users')
+      .select(`
+        id,
+        name,
+        branch_code,
+        user_profile!left (current_streak)
+      `)
+    
+    if (error) throw error
+    
+    const issues = []
+    const today = new Date().toISOString().slice(0, 10)
+    
+    // 检查每个用户
+    for (const user of users) {
+      const profileStreak = user.user_profile?.current_streak || 0
+      const actualStreak = await calculateCurrentStreakPWA(user.id, today)
+      
+      if (profileStreak !== actualStreak) {
+        issues.push({
+          userId: user.id,
+          userName: user.name,
+          branch: user.branch_code,
+          currentStreak: profileStreak,
+          expectedStreak: actualStreak,
+          type: 'calculation_mismatch',
+          description: `连续天数不匹配: 记录${profileStreak}天 vs 实际${actualStreak}天`
+        })
+      }
+    }
+    
+    console.log(`[analyzeStreaks] 完成分析，发现 ${issues.length} 个问题`)
+    
+    return res.status(200).json({
+      success: true,
+      issues: issues,
+      summary: {
+        totalUsers: users.length,
+        issuesFound: issues.length
+      }
+    })
+    
+  } catch (error) {
+    console.error('[analyzeStreaks] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 批量修复连续天数
+async function fixAllStreaks(userIds, res) {
+  try {
+    console.log('[fixAllStreaks] 开始批量修复连续天数', userIds)
+    
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ error: '无效的用户ID列表' })
+    }
+    
+    let fixed = 0
+    const today = new Date().toISOString().slice(0, 10)
+    
+    for (const userId of userIds) {
+      try {
+        // 重新计算连续天数
+        const actualStreak = await calculateCurrentStreakPWA(userId, today)
+        
+        // 更新 user_profile 中的连续天数
+        const { error: updateError } = await supabase
+          .from('user_profile')
+          .update({ current_streak: actualStreak })
+          .eq('user_id', userId)
+        
+        if (updateError) {
+          console.error(`[fixAllStreaks] 用户 ${userId} 更新失败:`, updateError)
+        } else {
+          fixed++
+          console.log(`[fixAllStreaks] 用户 ${userId} 连续天数已修复为 ${actualStreak}`)
+        }
+        
+      } catch (userError) {
+        console.error(`[fixAllStreaks] 修复用户 ${userId} 失败:`, userError)
+      }
+    }
+    
+    return res.status(200).json({
+      success: true,
+      fixed: fixed,
+      total: userIds.length,
+      message: `成功修复 ${fixed}/${userIds.length} 个用户的连续天数`
+    })
+    
+  } catch (error) {
+    console.error('[fixAllStreaks] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 修复单个用户的连续天数
+async function fixUserStreak(userId, res) {
+  try {
+    console.log('[fixUserStreak] 修复用户连续天数:', userId)
+    
+    if (!userId) {
+      return res.status(400).json({ error: '缺少用户ID' })
+    }
+    
+    const today = new Date().toISOString().slice(0, 10)
+    
+    // 重新计算连续天数
+    const actualStreak = await calculateCurrentStreakPWA(userId, today)
+    
+    // 更新 user_profile
+    const { error: updateError } = await supabase
+      .from('user_profile')
+      .update({ current_streak: actualStreak })
+      .eq('user_id', userId)
+    
+    if (updateError) throw updateError
+    
+    // 更新最新的积分记录（如果存在）
+    const { data: latestScore } = await supabase
+      .from('user_daily_scores')
+      .select('ymd')
+      .eq('user_id', userId)
+      .order('ymd', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (latestScore) {
+      const { error: scoreUpdateError } = await supabase
+        .from('user_daily_scores')
+        .update({ current_streak: actualStreak })
+        .eq('user_id', userId)
+        .eq('ymd', latestScore.ymd)
+      
+      if (scoreUpdateError) {
+        console.error('[fixUserStreak] 更新积分记录失败:', scoreUpdateError)
+      }
+    }
+    
+    console.log(`[fixUserStreak] 用户 ${userId} 连续天数已修复为 ${actualStreak}`)
+    
+    return res.status(200).json({
+      success: true,
+      userId: userId,
+      newStreak: actualStreak,
+      message: '连续天数已重新计算并修复'
+    })
+    
+  } catch (error) {
+    console.error('[fixUserStreak] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 手动调整用户连续天数
+async function adjustUserStreak(userId, newStreak, reason, res) {
+  try {
+    console.log('[adjustUserStreak] 手动调整连续天数:', { userId, newStreak, reason })
+    
+    if (!userId || newStreak === undefined || !reason) {
+      return res.status(400).json({ error: '缺少必要参数：用户ID、新连续天数或调整原因' })
+    }
+    
+    if (newStreak < 0) {
+      return res.status(400).json({ error: '连续天数不能小于0' })
+    }
+    
+    // 获取用户信息
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('name, branch_code')
+      .eq('id', userId)
+      .single()
+    
+    if (userError) throw userError
+    
+    // 更新 user_profile
+    const { error: updateError } = await supabase
+      .from('user_profile')
+      .update({ 
+        current_streak: newStreak,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+    
+    if (updateError) throw updateError
+    
+    // 记录调整历史（如果有audit表的话）
+    try {
+      const auditRecord = {
+        user_id: userId,
+        action: 'manual_streak_adjustment',
+        old_value: null, // 可以查询获取旧值
+        new_value: newStreak,
+        reason: reason,
+        admin_user: 'AUSTIN', // 管理员用户
+        created_at: new Date().toISOString()
+      }
+      
+      // 如果有audit表就记录，没有就跳过
+      await supabase.from('admin_audit_log').insert(auditRecord)
+    } catch (auditError) {
+      console.log('[adjustUserStreak] 审计日志记录跳过:', auditError.message)
+    }
+    
+    console.log(`[adjustUserStreak] 用户 ${user.name} 的连续天数已手动调整为 ${newStreak}，原因：${reason}`)
+    
+    return res.status(200).json({
+      success: true,
+      userId: userId,
+      userName: user.name,
+      newStreak: newStreak,
+      reason: reason,
+      message: '连续天数已成功调整'
+    })
+    
+  } catch (error) {
+    console.error('[adjustUserStreak] 错误:', error)
+    return res.status(500).json({ error: error.message })
   }
 }
