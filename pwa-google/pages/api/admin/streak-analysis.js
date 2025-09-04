@@ -82,12 +82,14 @@ async function getStreakData(req, res) {
       const actualStreak = streakAnalysis.actualStreak
       
       // 只有当真的有不合理的情况才报告异常
-      // 如果用户没有任何记录且连续天数为0，这是正常的，不是异常
+      // 关键逻辑：如果用户有积分记录（lastRecordDate存在），说明他一定有过有效记录
+      const hasScoreRecord = lastRecordDate !== null
+      
       const shouldReportIssue = (actualStreak !== currentStreak) && (
-        // 情况1：用户有记录但连续天数不对
-        (streakAnalysis.hasAnyRecords) ||
-        // 情况2：用户没有记录但显示有连续天数 > 0
-        (!streakAnalysis.hasAnyRecords && currentStreak > 0)
+        // 情况1：用户有积分记录，说明有过有效记录，连续天数不对就是异常
+        hasScoreRecord ||
+        // 情况2：用户没有积分记录但显示有连续天数 > 0
+        (!hasScoreRecord && currentStreak > 0)
       )
       
       if (shouldReportIssue && streakAnalysis.issueReason) {
@@ -179,19 +181,16 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
 
     result.hasAnyRecords = true
 
-    // 过滤出有效记录 - 签到记录和真实财务记录都算有效
+    // 过滤出有效记录 - 更宽松的条件，主要排除明显的测试数据
     const validRecords = records.filter(record => {
-      // 签到记录是有效的
-      if (record.category_code === 'daily_checkin') return true
-      
-      // 排除自动生成的测试数据
+      // 排除明显的自动生成测试数据
       if (record.description?.includes('自动生成')) return false
-      if (record.description?.includes('测试') && record.description?.includes('自动')) return false
       
-      // 有金额的记录也是有效的（财务记录）
-      if (record.amount && record.amount !== 0) return true
-      
-      return false
+      // 其他所有记录都认为是有效的，包括：
+      // - 签到记录 (daily_checkin)
+      // - 有金额的财务记录
+      // - 手动添加的记录（即使金额为0）
+      return true
     })
 
     if (validRecords.length === 0) {
@@ -298,19 +297,16 @@ async function calculateActualStreak(userId) {
     
     if (!records || records.length === 0) return 0
     
-    // 过滤出有效记录 - 签到记录和真实财务记录都算有效
+    // 过滤出有效记录 - 更宽松的条件，主要排除明显的测试数据
     const validRecords = records.filter(record => {
-      // 签到记录是有效的
-      if (record.category_code === 'daily_checkin') return true
-      
-      // 排除自动生成的测试数据
+      // 排除明显的自动生成测试数据
       if (record.description?.includes('自动生成')) return false
-      if (record.description?.includes('测试') && record.description?.includes('自动')) return false
       
-      // 有金额的记录也是有效的（财务记录）
-      if (record.amount && record.amount !== 0) return true
-      
-      return false
+      // 其他所有记录都认为是有效的，包括：
+      // - 签到记录 (daily_checkin)
+      // - 有金额的财务记录
+      // - 手动添加的记录（即使金额为0）
+      return true
     })
     
     if (validRecords.length === 0) return 0
