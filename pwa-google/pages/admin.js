@@ -1566,19 +1566,21 @@ function UserScoreModal({ user, onClose }) {
   )
 }
 
-// 分院管理面板
+// 分院管理面板 - 选择分院查看和修改用户
 function BranchManagementPanel() {
   const [branches, setBranches] = useState([])
+  const [selectedBranch, setSelectedBranch] = useState('')
+  const [branchUsers, setBranchUsers] = useState([])
   const [loading, setLoading] = useState(false)
-  const [editingBranch, setEditingBranch] = useState(null)
-  const [newBranch, setNewBranch] = useState({ name: '', code: '', description: '' })
-  const [showAddForm, setShowAddForm] = useState(false)
+  const [usersLoading, setUsersLoading] = useState(false)
+  const [editingUserId, setEditingUserId] = useState(null)
+  const [newBranchForUser, setNewBranchForUser] = useState('')
 
   // 加载分院列表
   const loadBranches = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/pwa/data?action=branch-list')
+      const response = await fetch('/api/pwa/data?action=get-all-branches')
       if (!response.ok) throw new Error('获取分院列表失败')
       
       const data = await response.json()
@@ -1592,34 +1594,68 @@ function BranchManagementPanel() {
     }
   }
 
-  // 添加新分院
-  const addBranch = async () => {
-    if (!newBranch.name.trim() || !newBranch.code.trim()) {
-      alert('请填写分院名称和代码')
+  // 加载指定分院的用户
+  const loadBranchUsers = async (branchCode) => {
+    if (!branchCode) return
+    
+    setUsersLoading(true)
+    try {
+      const response = await fetch(`/api/pwa/data?action=get-branch-users&branchCode=${branchCode}`)
+      if (!response.ok) throw new Error('获取分院用户失败')
+      
+      const data = await response.json()
+      setBranchUsers(data.users || [])
+      
+    } catch (error) {
+      console.error('加载分院用户失败:', error)
+      alert('加载分院用户失败: ' + error.message)
+    } finally {
+      setUsersLoading(false)
+    }
+  }
+
+  // 修改用户的分院
+  const changeUserBranch = async (userId, userName, currentBranch, newBranchCode) => {
+    if (!newBranchCode || newBranchCode === currentBranch) return
+
+    const newBranchName = branches.find(b => b.code === newBranchCode)?.name || newBranchCode
+
+    if (!confirm(`确定要将用户 "${userName}" 从 "${currentBranch}" 转移到 "${newBranchName}" 吗？`)) {
       return
     }
 
     try {
-      const response = await fetch('/api/pwa/data?action=add-branch', {
+      const response = await fetch('/api/pwa/data?action=change-user-branch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newBranch.name.trim(),
-          code: newBranch.code.trim().toUpperCase(),
-          description: newBranch.description.trim()
+          userId: userId,
+          newBranchCode: newBranchCode
         })
       })
       
-      if (!response.ok) throw new Error('添加分院失败')
+      if (!response.ok) throw new Error('修改用户分院失败')
       
-      alert('✅ 分院已添加')
-      setNewBranch({ name: '', code: '', description: '' })
-      setShowAddForm(false)
-      loadBranches()
+      alert(`✅ 用户 "${userName}" 已转移到 "${newBranchName}"`)
+      setEditingUserId(null)
+      setNewBranchForUser('')
+      // 重新加载当前分院的用户列表
+      loadBranchUsers(selectedBranch)
       
     } catch (error) {
-      console.error('添加分院失败:', error)
-      alert('添加分院失败: ' + error.message)
+      console.error('修改用户分院失败:', error)
+      alert('修改用户分院失败: ' + error.message)
+    }
+  }
+
+  // 处理分院选择变化
+  const handleBranchChange = async (branchCode) => {
+    setSelectedBranch(branchCode)
+    setBranchUsers([])
+    setEditingUserId(null)
+    
+    if (branchCode) {
+      await loadBranchUsers(branchCode)
     }
   }
 

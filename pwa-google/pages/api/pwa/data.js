@@ -258,6 +258,16 @@ export default async function handler(req, res) {
       case 'delete-user':
         return await deleteUser(params.userId, params.reason, params.adminUser, res)
         
+      // 新的分院管理功能
+      case 'get-all-branches':
+        return await getAllBranches(res)
+        
+      case 'get-branch-users':
+        return await getBranchUsers(params.branchCode, res)
+        
+      case 'change-user-branch':
+        return await changeUserBranch(params.userId, params.newBranchCode, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -3091,6 +3101,140 @@ async function deleteUser(userId, reason, adminUser, res) {
     
   } catch (error) {
     console.error('[deleteUser] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 获取所有分院列表（简化版）
+async function getAllBranches(res) {
+  try {
+    console.log('[getAllBranches] 获取所有分院列表')
+    
+    // 从现有的branch-list逻辑复用，但返回格式简化
+    const { data: branches, error: branchError } = await supabase
+      .from('branches')
+      .select('id, code, name, description')
+      .order('code')
+    
+    if (branchError) throw branchError
+    
+    return res.status(200).json({
+      success: true,
+      branches: branches || []
+    })
+    
+  } catch (error) {
+    console.error('[getAllBranches] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 获取指定分院的用户列表
+async function getBranchUsers(branchCode, res) {
+  try {
+    console.log('[getBranchUsers] 获取分院用户:', branchCode)
+    
+    if (!branchCode) {
+      return res.status(400).json({ error: '分院代码不能为空' })
+    }
+    
+    // 获取该分院的所有用户
+    const { data: users, error: userError } = await supabase
+      .from('users')
+      .select('id, name, telegram_id, branch_code, created_at')
+      .eq('branch_code', branchCode)
+      .eq('status', 'active')  // 只显示活跃用户
+      .order('created_at', { ascending: false })
+    
+    if (userError) throw userError
+    
+    console.log(`[getBranchUsers] 找到 ${users?.length || 0} 个用户`)
+    
+    return res.status(200).json({
+      success: true,
+      users: users || []
+    })
+    
+  } catch (error) {
+    console.error('[getBranchUsers] 错误:', error)
+    return res.status(500).json({ error: error.message })
+  }
+}
+
+// 修改用户的分院
+async function changeUserBranch(userId, newBranchCode, res) {
+  try {
+    console.log('[changeUserBranch] 修改用户分院:', { userId, newBranchCode })
+    
+    if (!userId || !newBranchCode) {
+      return res.status(400).json({ error: '用户ID和新分院代码不能为空' })
+    }
+    
+    // 1. 验证新分院是否存在
+    const { data: branch, error: branchError } = await supabase
+      .from('branches')
+      .select('code, name')
+      .eq('code', newBranchCode)
+      .single()
+    
+    if (branchError || !branch) {
+      return res.status(400).json({ error: '目标分院不存在' })
+    }
+    
+    // 2. 获取用户信息
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('name, branch_code')
+      .eq('id', userId)
+      .single()
+    
+    if (userError || !user) {
+      return res.status(404).json({ error: '用户不存在' })
+    }
+    
+    // 3. 更新用户的分院
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        branch_code: newBranchCode,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+    
+    if (updateError) throw updateError
+    
+    // 4. 记录操作日志
+    try {
+      const auditRecord = {
+        user_id: userId,
+        action: 'change_branch',
+        old_value: user.branch_code,
+        new_value: newBranchCode,
+        reason: `管理员操作：将用户从 ${user.branch_code} 转移到 ${newBranchCode}`,
+        admin_user: 'ADMIN',
+        created_at: new Date().toISOString()
+      }
+      
+      await supabase.from('admin_audit_log').insert(auditRecord)
+    } catch (auditError) {
+      console.log('[changeUserBranch] 审计日志记录失败:', auditError.message)
+    }
+    
+    console.log(`[changeUserBranch] 用户 ${user.name} 从 ${user.branch_code} 转移到 ${newBranchCode}`)
+    
+    return res.status(200).json({
+      success: true,
+      message: `用户 "${user.name}" 已成功转移到 "${branch.name || newBranchCode}"`,
+      user: {
+        id: userId,
+        name: user.name,
+        oldBranch: user.branch_code,
+        newBranch: newBranchCode
+      }
+    })
+    
+  } catch (error) {
+    console.error('[changeUserBranch] 错误:', error)
     return res.status(500).json({ error: error.message })
   }
 }
