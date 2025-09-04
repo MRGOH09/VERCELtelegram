@@ -81,8 +81,16 @@ async function getStreakData(req, res) {
       const streakAnalysis = await analyzeUserStreak(user.id, currentStreak, lastRecordDate)
       const actualStreak = streakAnalysis.actualStreak
       
-      // 检查是否有不一致
-      if (actualStreak !== currentStreak && lastRecordDate) {
+      // 只有当真的有不合理的情况才报告异常
+      // 如果用户没有任何记录且连续天数为0，这是正常的，不是异常
+      const shouldReportIssue = (actualStreak !== currentStreak) && (
+        // 情况1：用户有记录但连续天数不对
+        (streakAnalysis.hasAnyRecords) ||
+        // 情况2：用户没有记录但显示有连续天数 > 0
+        (!streakAnalysis.hasAnyRecords && currentStreak > 0)
+      )
+      
+      if (shouldReportIssue && streakAnalysis.issueReason) {
         issues.push({
           userId: user.id,
           userName: user.name,
@@ -145,7 +153,8 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
     const result = {
       actualStreak: 0,
       issueReason: '',
-      issueDetails: {}
+      issueDetails: {},
+      hasAnyRecords: false
     }
 
     // 获取用户所有有效记录的日期
@@ -156,6 +165,7 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
       .order('ymd', { ascending: false })
     
     if (!records || records.length === 0) {
+      result.hasAnyRecords = false
       if (currentStreak > 0) {
         result.issueReason = '无有效记录但显示有连续天数'
         result.issueDetails = {
@@ -166,6 +176,8 @@ async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
       }
       return result
     }
+
+    result.hasAnyRecords = true
 
     // 过滤出有效记录 - 签到记录和真实财务记录都算有效
     const validRecords = records.filter(record => {
