@@ -18,6 +18,7 @@ export default function ModernDashboard() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [showSkeleton, setShowSkeleton] = useState(false)
+  // 版本更新标记 - v1.1.0 - 2025-09-04 新增分院统计功能
   // Telegram跳转已移除
   const { preloadPage } = useSmartPreload()
   
