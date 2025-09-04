@@ -721,19 +721,49 @@ function StreakManagementPanel() {
                 ✕
               </button>
             </h4>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
+            <div className="space-y-3 max-h-64 overflow-y-auto">
               {streakIssues.map(issue => (
-                <div key={issue.userId} className="flex justify-between items-center text-sm bg-white p-2 rounded">
-                  <span className="text-yellow-700">
-                    {issue.userName} - {issue.branch}
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-yellow-600">
-                      当前: {issue.currentStreak} → 应为: {issue.expectedStreak}
-                    </span>
+                <div key={issue.userId} className="bg-white p-3 rounded-lg border border-yellow-200">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div>
+                        <span className="font-medium text-gray-800">
+                          {issue.userName}
+                        </span>
+                        <span className="text-sm text-gray-500 ml-2">
+                          ({issue.branch || '未分配'})
+                        </span>
+                      </div>
+                      <div className="mt-1 text-sm">
+                        <span className="text-gray-600">连续天数: </span>
+                        <span className="text-red-600 font-medium">
+                          当前 {issue.currentStreak}
+                        </span>
+                        <span className="mx-2">→</span>
+                        <span className="text-green-600 font-medium">
+                          实际 {issue.actualStreak || issue.expectedStreak || 0}
+                        </span>
+                      </div>
+                      {issue.reason && (
+                        <div className="mt-2 text-sm bg-red-50 p-2 rounded">
+                          <span className="text-gray-600">❌ 异常原因: </span>
+                          <span className="text-red-700">{issue.reason}</span>
+                        </div>
+                      )}
+                      {issue.lastRecordDate && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          最后记录日期: {issue.lastRecordDate}
+                        </div>
+                      )}
+                      {issue.details && issue.details.daysSinceLastRecord > 0 && (
+                        <div className="text-xs text-orange-600 mt-1">
+                          ⚠️ 已{issue.details.daysSinceLastRecord}天未记录，连续已中断
+                        </div>
+                      )}
+                    </div>
                     <button
                       onClick={() => fixSingleUserStreak(issue.userId, issue.userName)}
-                      className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
+                      className="ml-3 text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 transition-colors"
                     >
                       修复
                     </button>

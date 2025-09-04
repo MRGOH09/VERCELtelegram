@@ -78,7 +78,8 @@ async function getStreakData(req, res) {
       const maxStreak = allScores?.current_streak || 0
       
       // 计算实际连续天数（基于记录）
-      const actualStreak = await calculateActualStreak(user.id)
+      const streakAnalysis = await analyzeUserStreak(user.id, currentStreak, lastRecordDate)
+      const actualStreak = streakAnalysis.actualStreak
       
       // 检查是否有不一致
       if (actualStreak !== currentStreak && lastRecordDate) {
@@ -88,7 +89,9 @@ async function getStreakData(req, res) {
           currentStreak,
           actualStreak,
           difference: actualStreak - currentStreak,
-          lastRecordDate
+          lastRecordDate,
+          reason: streakAnalysis.issueReason,
+          details: streakAnalysis.issueDetails
         })
       }
       
@@ -133,6 +136,135 @@ async function getStreakData(req, res) {
       error: '获取连续天数数据失败',
       details: error.message
     })
+  }
+}
+
+// 分析用户连续天数并返回异常原因
+async function analyzeUserStreak(userId, currentStreak, lastRecordDate) {
+  try {
+    const result = {
+      actualStreak: 0,
+      issueReason: '',
+      issueDetails: {}
+    }
+
+    // 获取用户所有有效记录的日期
+    const { data: records } = await supabase
+      .from('records')
+      .select('ymd, category_code, description, amount')
+      .eq('user_id', userId)
+      .order('ymd', { ascending: false })
+    
+    if (!records || records.length === 0) {
+      if (currentStreak > 0) {
+        result.issueReason = '无有效记录但显示有连续天数'
+        result.issueDetails = {
+          type: 'NO_RECORDS_BUT_HAS_STREAK',
+          currentStreak,
+          expectedStreak: 0
+        }
+      }
+      return result
+    }
+
+    // 过滤出有效记录
+    const validRecords = records.filter(record => 
+      record.category_code !== 'daily_checkin' &&
+      !record.description?.includes('自动生成') &&
+      !record.description?.includes('测试') &&
+      record.amount && record.amount !== 0
+    )
+
+    if (validRecords.length === 0) {
+      if (currentStreak > 0) {
+        result.issueReason = '只有测试/签到记录，不应计算连续天数'
+        result.issueDetails = {
+          type: 'ONLY_TEST_OR_CHECKIN',
+          totalRecords: records.length,
+          testRecords: records.filter(r => r.description?.includes('测试') || r.description?.includes('自动生成')).length,
+          checkinRecords: records.filter(r => r.category_code === 'daily_checkin').length,
+          currentStreak,
+          expectedStreak: 0
+        }
+      }
+      return result
+    }
+
+    // 获取唯一的有效日期并排序
+    const dates = [...new Set(validRecords.map(r => r.ymd))].sort().reverse()
+    const today = new Date().toISOString().slice(0, 10)
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+    
+    // 检查最近记录日期
+    const lastValidDate = dates[0]
+    const lastDate = new Date(lastValidDate)
+    const todayDate = new Date(today)
+    const daysSinceLastRecord = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24))
+    
+    // 如果最近的记录超过1天，连续天数应该归零
+    if (daysSinceLastRecord > 1) {
+      result.actualStreak = 0
+      if (currentStreak > 0) {
+        result.issueReason = '连续记录已中断，应重置为0'
+        result.issueDetails = {
+          type: 'STREAK_BROKEN',
+          lastRecordDate: lastValidDate,
+          daysSinceLastRecord,
+          currentStreak,
+          expectedStreak: 0
+        }
+      }
+      return result
+    }
+
+    // 计算实际连续天数
+    let streak = 1
+    for (let i = 1; i < dates.length; i++) {
+      const currentDate = new Date(dates[i])
+      const prevDate = new Date(dates[i - 1])
+      const diff = Math.floor((prevDate - currentDate) / (1000 * 60 * 60 * 24))
+      
+      if (diff === 1) {
+        streak++
+      } else {
+        break
+      }
+    }
+
+    result.actualStreak = streak
+
+    // 分析差异原因
+    if (result.actualStreak !== currentStreak) {
+      if (result.actualStreak > currentStreak) {
+        result.issueReason = '实际连续天数高于记录值，可能漏算'
+        result.issueDetails = {
+          type: 'UNDERCOUNT',
+          validDates: dates.slice(0, streak),
+          currentStreak,
+          actualStreak: result.actualStreak,
+          difference: result.actualStreak - currentStreak
+        }
+      } else {
+        result.issueReason = '记录的连续天数高于实际，可能误算'
+        result.issueDetails = {
+          type: 'OVERCOUNT',
+          validDates: dates.slice(0, streak),
+          currentStreak,
+          actualStreak: result.actualStreak,
+          difference: currentStreak - result.actualStreak
+        }
+      }
+    }
+
+    return result
+
+  } catch (error) {
+    console.error(`[analyzeUserStreak] 分析用户 ${userId} 失败:`, error)
+    return {
+      actualStreak: 0,
+      issueReason: '分析失败: ' + error.message,
+      issueDetails: { type: 'ERROR', error: error.message }
+    }
   }
 }
 
