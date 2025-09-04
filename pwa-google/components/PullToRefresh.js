@@ -29,10 +29,15 @@ export default function PullToRefresh({ onRefresh, children }) {
       currentY = e.touches[0].pageY
       const distance = currentY - startY
       
+      // 🔧 修复：只有在页面顶部且向下拉时才阻止默认行为和设置拉动距离
       if (distance > 0 && container.scrollTop === 0) {
+        // 只有向下拉动时才阻止默认滚动行为
         e.preventDefault()
         const actualDistance = Math.min(distance * 0.5, maxPull) // 添加阻尼效果
         setPullDistance(actualDistance)
+      } else if (distance <= 0) {
+        // 向上滑动时，重置拉动距离但不阻止默认行为，允许正常滚动
+        setPullDistance(0)
       }
     }
 

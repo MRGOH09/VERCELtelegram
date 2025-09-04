@@ -93,6 +93,7 @@ export default function EnhancedRegistrationPage() {
     switch (step) {
       case 1:
         return formData.displayName.trim().length >= 2 && 
+               formData.phone.trim().length >= 8 && // 手机号码至少8位
                formData.branchCode !== ''
       case 2:
         return formData.monthlyIncome > 0 && 
@@ -271,15 +272,19 @@ export default function EnhancedRegistrationPage() {
                   <div className="space-y-2">
                     <label className="flex items-center text-sm font-medium text-gray-700">
                       <span className="text-lg mr-2">📱</span>
-                      手机号码
+                      手机号码 <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="例如: +60123456789"
+                      placeholder="请输入至少8位数字，例如: +60123456789"
+                      required
                     />
+                    <p className="text-xs text-gray-500">
+                      💡 请输入完整的手机号码（含国家代码），至少8位数字
+                    </p>
                   </div>
 
                   <div className="space-y-2">
