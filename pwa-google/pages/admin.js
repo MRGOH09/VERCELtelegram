@@ -341,13 +341,15 @@ function UserManagementPanel() {
     try {
       console.log('[Admin] 删除用户:', userId)
       
-      const response = await fetch('/api/pwa/data?action=delete-user', {
+      const response = await fetch('/api/pwa/admin-user-management', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-admin-password': 'AUSTIN2025'
+        },
         body: JSON.stringify({ 
-          userId: userId,
-          reason: '管理员删除',
-          adminUser: 'AUSTIN'
+          action: 'delete_user',
+          userId: userId
         })
       })
       
