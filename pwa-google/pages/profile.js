@@ -338,9 +338,8 @@ function FunctionMenu() {
       label: '帮助反馈',
       description: '使用帮助和问题反馈',
       action: () => {
-        const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'learner_club_bot'
-        if (confirm('需要帮助？我们将跳转到Telegram Bot')) {
-          window.open(`https://t.me/${botUsername}`, '_blank')
+        if (confirm('需要帮助或反馈？我们将跳转到反馈表单')) {
+          window.open('https://forms.gle/i8v2ogSYTEzcJG2X9', '_blank')
         }
       }
     }
