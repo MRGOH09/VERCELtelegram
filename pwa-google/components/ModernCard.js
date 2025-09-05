@@ -52,27 +52,42 @@ export function DataCard({ icon, label, value, change, trend = 'neutral' }) {
     neutral: '➡️'
   }
   
+  // 处理长数字的显示格式
+  const formatValue = (val) => {
+    if (typeof val === 'string' && val.startsWith('RM')) {
+      const numStr = val.replace('RM ', '')
+      const num = parseFloat(numStr.replace(/,/g, ''))
+      if (num >= 10000) {
+        return `RM ${(num / 1000).toFixed(1)}k`
+      }
+      return val
+    }
+    return val
+  }
+  
   return (
-    <ModernCard variant="elevated" interactive className="p-6 text-center">
+    <ModernCard variant="elevated" interactive className="p-4 text-center min-h-[180px] flex flex-col justify-between">
       {/* 图标背景 */}
-      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl flex items-center justify-center">
-        <span className="text-2xl">{icon}</span>
+      <div className="w-12 h-12 mx-auto mb-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center">
+        <span className="text-xl">{icon}</span>
       </div>
       
-      {/* 数值 */}
-      <div className="mb-2">
-        <span className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-          {value}
-        </span>
+      {/* 数值 - 使用更小的字体和换行处理 */}
+      <div className="mb-2 min-h-[60px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg font-bold text-gray-900 leading-tight break-words">
+            {formatValue(value)}
+          </div>
+        </div>
       </div>
       
       {/* 标签和趋势 */}
       <div className="space-y-1">
-        <p className="text-sm text-gray-600 font-medium">{label}</p>
+        <p className="text-xs text-gray-600 font-medium leading-tight">{label}</p>
         {change && (
           <div className={`flex items-center justify-center space-x-1 text-xs ${trendColors[trend]}`}>
             <span>{trendIcons[trend]}</span>
-            <span>{change}</span>
+            <span className="font-medium">{change}</span>
           </div>
         )}
       </div>

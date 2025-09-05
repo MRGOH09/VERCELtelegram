@@ -378,7 +378,7 @@ function QuickStats({ data, stats }) {
   const { spent_a, spent_b, spent_c, percentage_a, percentage_b, percentage_c } = data
   
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-3 gap-2 sm:gap-4">
       <DataCard
         icon="🛒"
         label="生活开销"
