@@ -14,6 +14,13 @@ export default function QuickActions({ className = '' }) {
       action: () => router.push('/add-record')
     },
     {
+      icon: '🧮',
+      label: '计算器',
+      description: '数学计算',
+      color: 'bg-purple-500',
+      action: () => router.push('/calculator')
+    },
+    {
       icon: '📊',
       label: '查看历史',
       description: '消费记录',

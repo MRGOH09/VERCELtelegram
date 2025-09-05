@@ -310,6 +310,12 @@ function FunctionMenu() {
       action: () => router.push('/add-record')
     },
     {
+      icon: '🧮',
+      label: '计算器',
+      description: '数学计算工具',
+      action: () => router.push('/calculator')
+    },
+    {
       icon: '📊',
       label: '历史记录',
       description: '查看详细的消费历史',
