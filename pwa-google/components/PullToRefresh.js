@@ -17,27 +17,38 @@ export default function PullToRefresh({ onRefresh, children }) {
     let currentY = 0
 
     const handleTouchStart = (e) => {
+      // 只有在完全滚动到顶部时才记录触摸开始
       if (container.scrollTop === 0) {
         startY = e.touches[0].pageY
         setTouchStart(startY)
+      } else {
+        // 不在顶部时，清除任何之前的触摸状态
+        startY = 0
+        setTouchStart(0)
+        setPullDistance(0)
       }
     }
 
     const handleTouchMove = (e) => {
-      if (!startY) return
+      // 如果不是从顶部开始的触摸，直接返回，允许正常滚动
+      if (!startY || container.scrollTop > 0) {
+        setPullDistance(0)
+        return
+      }
       
       currentY = e.touches[0].pageY
       const distance = currentY - startY
       
-      // 🔧 修复：只有在页面顶部且向下拉时才阻止默认行为和设置拉动距离
+      // 只有在页面顶部且向下拉时才处理下拉刷新
       if (distance > 0 && container.scrollTop === 0) {
-        // 只有向下拉动时才阻止默认滚动行为
+        // 只有真正在拉动刷新时才阻止默认滚动
         e.preventDefault()
         const actualDistance = Math.min(distance * 0.5, maxPull) // 添加阻尼效果
         setPullDistance(actualDistance)
-      } else if (distance <= 0) {
-        // 向上滑动时，重置拉动距离但不阻止默认行为，允许正常滚动
+      } else {
+        // 向上滑动时，不做任何处理，允许正常滚动
         setPullDistance(0)
+        startY = 0 // 重置startY，让后续的滚动正常进行
       }
     }
 
@@ -96,10 +107,11 @@ export default function PullToRefresh({ onRefresh, children }) {
   return (
     <div 
       ref={containerRef}
-      className="relative h-full overflow-y-auto"
+      className="relative h-full overflow-y-auto overscroll-none"
       style={{
         transform: `translateY(${pullDistance}px)`,
-        transition: touchStart ? 'none' : 'transform 0.3s ease-out'
+        transition: touchStart ? 'none' : 'transform 0.3s ease-out',
+        WebkitOverflowScrolling: 'touch' // iOS滚动优化
       }}
     >
       {/* 刷新指示器 */}
