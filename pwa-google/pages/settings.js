@@ -27,11 +27,11 @@ export default function SettingsPage() {
     display_name: '',
     phone_e164: '',
     email: '',
-    monthly_income: 0,
-    a_pct: 0,
-    travel_budget_annual: 0,
-    annual_medical_insurance: 0,
-    annual_car_insurance: 0
+    monthly_income: '',
+    a_pct: '',
+    travel_budget_annual: '',
+    annual_medical_insurance: '',
+    annual_car_insurance: ''
   })
 
   useEffect(() => {
@@ -72,11 +72,11 @@ export default function SettingsPage() {
           display_name: result.profile?.display_name || '',
           phone_e164: result.profile?.phone || '',
           email: result.profile?.email || '',
-          monthly_income: result.profile?.income || 0,
-          a_pct: result.profile?.a_pct || 0,
-          travel_budget_annual: result.profile?.travel_budget || 0,
-          annual_medical_insurance: result.profile?.annual_medical_insurance || 0,
-          annual_car_insurance: result.profile?.annual_car_insurance || 0
+          monthly_income: result.profile?.income ? result.profile.income.toString() : '',
+          a_pct: result.profile?.a_pct ? result.profile.a_pct.toString() : '',
+          travel_budget_annual: result.profile?.travel_budget ? result.profile.travel_budget.toString() : '',
+          annual_medical_insurance: result.profile?.annual_medical_insurance ? result.profile.annual_medical_insurance.toString() : '',
+          annual_car_insurance: result.profile?.annual_car_insurance ? result.profile.annual_car_insurance.toString() : ''
         })
         
         setProfileMessage('✅ 个人资料已加载')
@@ -594,7 +594,13 @@ export default function SettingsPage() {
                               type="number"
                               className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.monthly_income}
-                              onChange={(e) => setFormFields(prev => ({...prev, monthly_income: parseFloat(e.target.value) || 0}))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setFormFields(prev => ({
+                                  ...prev, 
+                                  monthly_income: value === '' ? '' : parseFloat(value) || 0
+                                }))
+                              }}
                               placeholder="如：5000"
                             />
                             <button
@@ -616,7 +622,13 @@ export default function SettingsPage() {
                               min="0" max="100"
                               className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.a_pct}
-                              onChange={(e) => setFormFields(prev => ({...prev, a_pct: parseInt(e.target.value) || 0}))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setFormFields(prev => ({
+                                  ...prev, 
+                                  a_pct: value === '' ? '' : parseInt(value) || 0
+                                }))
+                              }}
                               placeholder="建议33"
                             />
                             <button
@@ -640,7 +652,13 @@ export default function SettingsPage() {
                               type="number"
                               className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.travel_budget_annual}
-                              onChange={(e) => setFormFields(prev => ({...prev, travel_budget_annual: parseFloat(e.target.value) || 0}))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setFormFields(prev => ({
+                                  ...prev, 
+                                  travel_budget_annual: value === '' ? '' : parseFloat(value) || 0
+                                }))
+                              }}
                               placeholder="如：6000"
                             />
                             <button
@@ -674,7 +692,13 @@ export default function SettingsPage() {
                               type="number"
                               className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.annual_medical_insurance}
-                              onChange={(e) => setFormFields(prev => ({...prev, annual_medical_insurance: parseFloat(e.target.value) || 0}))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setFormFields(prev => ({
+                                  ...prev, 
+                                  annual_medical_insurance: value === '' ? '' : parseFloat(value) || 0
+                                }))
+                              }}
                               placeholder="如：2400"
                             />
                             <button
@@ -698,7 +722,13 @@ export default function SettingsPage() {
                               type="number"
                               className="flex-1 p-2 border-2 border-blue-300 bg-white rounded-lg text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 hover:border-blue-400 transition-all"
                               value={formFields.annual_car_insurance}
-                              onChange={(e) => setFormFields(prev => ({...prev, annual_car_insurance: parseFloat(e.target.value) || 0}))}
+                              onChange={(e) => {
+                                const value = e.target.value
+                                setFormFields(prev => ({
+                                  ...prev, 
+                                  annual_car_insurance: value === '' ? '' : parseFloat(value) || 0
+                                }))
+                              }}
                               placeholder="如：1800"
                             />
                             <button
