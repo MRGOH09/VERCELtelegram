@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
+// 使用Vercel-Supabase集成的原生环境变量
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
 // 简单的密码验证
@@ -23,6 +24,15 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, error: 'Method not allowed' })
   }
+
+  // Debug: 检查环境变量
+  console.log('[admin-user-management] 环境变量检查:', {
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasNextPublicSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    hasServiceKey: !!process.env.SUPABASE_SERVICE_KEY,
+    hasAnonKey: !!process.env.SUPABASE_ANON_KEY
+  })
 
   try {
     // 验证管理员访问权限
