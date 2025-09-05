@@ -4,7 +4,7 @@ import Layout from '../components/Layout'
 import ModernCard, { DataCard, CircularProgress, BalanceCard, CategoryCard } from '../components/ModernCard'
 import { SmoothTransition, useSmartPreload, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
-import PullToRefresh from '../components/PullToRefresh'
+// import PullToRefresh from '../components/PullToRefresh' // 移除以解决滚动卡顿问题
 import PWAInstallPrompt from '../components/PWAInstallPrompt'
 import QuickActions from '../components/QuickActions'
 import PWAClient, { formatCurrency, formatDateTime, getCategoryInfo } from '../lib/api'
@@ -194,19 +194,27 @@ export default function ModernDashboard() {
     <WebAppWrapper>
       <Layout title="首页 - Learner Club">
         
-      <PullToRefresh onRefresh={handleRefresh}>
       <SmoothTransition>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
         
         {/* LEARNER CLUB 品牌标语 */}
-        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 text-center shadow-lg">
-          <div className="flex items-center justify-center space-x-2">
+        <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600 text-white px-4 py-3 shadow-lg">
+          <div className="flex items-center justify-between">
             <span className="text-2xl">🎯</span>
-            <div>
+            <div className="text-center flex-1">
               <h1 className="text-lg font-bold tracking-wide">LEARNER CLUB</h1>
               <p className="text-xs opacity-90">学习改变命运 · 记录成就未来 ✨</p>
             </div>
-            <span className="text-2xl">📚</span>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
+              title="刷新数据"
+            >
+              <span className={`text-sm ${refreshing ? 'animate-spin' : ''}`}>
+                {refreshing ? '⏳' : '🔄'}
+              </span>
+            </button>
           </div>
         </div>
         
@@ -257,7 +265,6 @@ export default function ModernDashboard() {
         
         </div>
       </SmoothTransition>
-      </PullToRefresh>
       
       {/* PWA安装提示 */}
       <PWAInstallPrompt />
