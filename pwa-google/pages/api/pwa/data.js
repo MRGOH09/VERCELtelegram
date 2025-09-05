@@ -358,24 +358,9 @@ async function getDashboardData(userId, res) {
       recordDays.add(record.ymd)
     })
     
-    // 添加固定月度支出到分类详情（与主系统保持一致）
-    // 旅游基金（B类）
-    if (profile?.travel_budget_annual > 0) {
-      if (!categoryDetails.B) categoryDetails.B = {}
-      categoryDetails.B.travel_auto = Math.round((profile.travel_budget_annual / 12) * 100) / 100
-    }
-    
-    // 医疗保险（C类）
-    if (profile?.annual_medical_insurance > 0) {
-      if (!categoryDetails.C) categoryDetails.C = {}
-      categoryDetails.C.ins_med_auto = Math.round((profile.annual_medical_insurance / 12) * 100) / 100
-    }
-    
-    // 车险（C类）
-    if (profile?.annual_car_insurance > 0) {
-      if (!categoryDetails.C) categoryDetails.C = {}
-      categoryDetails.C.ins_car_auto = Math.round((profile.annual_car_insurance / 12) * 100) / 100
-    }
+    // 注意：自动记录已通过createMonthlyAutoRecords()创建在数据库中
+    // 数据库查询已经包含了travel_auto, ins_med_auto, ins_car_auto记录
+    // 因此不需要手动添加到categoryDetails或groupStats
     
     // 按 /my 命令逻辑计算最终金额
     const income = budget?.income || profile?.monthly_income || 0
@@ -383,9 +368,9 @@ async function getDashboardData(userId, res) {
     // A类：开销（直接使用统计值）
     const aTotal = groupStats.A.total
     
-    // B类：学习 = B类记录 + 旅游基金
-    const travelMonthly = Math.round((profile?.travel_budget_annual || 0) / 12 * 100) / 100
-    const bTotal = Math.round((groupStats.B.total + travelMonthly) * 100) / 100
+    // B类：学习 = B类记录总和（已包含travel_auto自动记录）
+    // 不需要手动添加旅游基金，因为createMonthlyAutoRecords已经创建了travel_auto记录
+    const bTotal = Math.round(groupStats.B.total * 100) / 100
     
     // 计算年度保险的月度分摊
     const medicalMonthly = Math.round((profile?.annual_medical_insurance || 0) / 12 * 100) / 100
