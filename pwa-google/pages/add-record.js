@@ -495,7 +495,7 @@ export default function AddRecordPage() {
             <div className="px-4 pb-8 space-y-6">
               
               {/* Check In 按钮 - 置顶显示 */}
-              <div className="-mt-16 relative z-20">
+              <div className="-mt-12 relative z-20">
                 <ModernCard className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -622,7 +622,7 @@ export default function AddRecordPage() {
                 // 批量记录模式
                 <>
                   {/* 统计卡片 - LEARNER CLUB 风格 */}
-                  <div className="-mt-16" style={{ position: 'relative', zIndex: 10 }}>
+                  <div className="-mt-8" style={{ position: 'relative', zIndex: 10 }}>
                     <ModernCard className="p-6 bg-gradient-to-br from-white to-blue-50 shadow-xl">
                       <div className="text-center mb-4">
                         <h3 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -829,7 +829,7 @@ export default function AddRecordPage() {
                 // 单条记录模式（原来的内容）
                 <>
                   {/* 分组选择 */}
-              <div className={showSuccess ? '-mt-4' : '-mt-16'} style={{ position: 'relative', zIndex: 10 }}>
+              <div className={showSuccess ? '-mt-4' : '-mt-8'} style={{ position: 'relative', zIndex: 10 }}>
                 <ModernCard className="p-6">
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">

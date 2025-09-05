@@ -33,29 +33,29 @@ export function PageHeader({
       </div>
       
       {/* 内容 */}
-      <div className="relative z-10 flex justify-between items-start text-white">
-        <div className="flex items-start space-x-3 flex-1 min-w-0">
+      <div className="relative z-10 flex justify-between items-center text-white">
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
           {showBackButton && onBack && (
             <button 
               onClick={onBack}
-              className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30 transition-colors mt-1"
+              className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0"
             >
               <span className="text-xl">←</span>
             </button>
           )}
           
           <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold mb-2 flex items-center space-x-2 flex-wrap">
+            <h1 className="text-xl font-bold mb-1 flex items-center space-x-2 flex-wrap">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-blue-100 text-sm">{subtitle}</p>
+              <p className="text-blue-100 text-xs leading-relaxed">{subtitle}</p>
             )}
           </div>
         </div>
         
         {rightButton && (
-          <div className="ml-4 flex-shrink-0">
+          <div className="ml-3 flex-shrink-0">
             {rightButton}
           </div>
         )}
