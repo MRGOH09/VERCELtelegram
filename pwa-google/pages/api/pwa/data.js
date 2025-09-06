@@ -162,6 +162,8 @@ export default async function handler(req, res) {
       branch_code: userProfile.users.branch_code
     }
     
+    console.log(`[PWA Data] 用户信息: id=${dbUser.id}, name=${dbUser.name}, branch_code=${dbUser.branch_code}`)
+    
     const { action, ...params } = req.body
     console.log(`[PWA Data] 收到body:`, req.body)
     console.log(`[PWA Data] 处理请求: action=${action}, user=${dbUser.id}`)
@@ -1736,7 +1738,27 @@ async function checkCheckInStatus(userId, res) {
 // 获取排行榜数据 - 直接集成到PWA API
 async function getLeaderboardData(userId, userBranch, res) {
   try {
-    console.log(`[getLeaderboardData] 获取用户 ${userId} 分院 ${userBranch} 的排行榜`)
+    console.log(`[getLeaderboardData] 开始获取排行榜数据`)
+    console.log(`[getLeaderboardData] 用户ID: ${userId}`)
+    console.log(`[getLeaderboardData] 用户分院: ${userBranch}`)
+    console.log(`[getLeaderboardData] userBranch类型: ${typeof userBranch}`)
+    
+    // 如果没有分院信息，尝试从数据库获取
+    if (!userBranch) {
+      console.log(`[getLeaderboardData] userBranch为空，尝试从数据库查询`)
+      const { data: userData } = await supabase
+        .from('users')
+        .select('branch_code')
+        .eq('id', userId)
+        .single()
+      
+      if (userData && userData.branch_code) {
+        userBranch = userData.branch_code
+        console.log(`[getLeaderboardData] 从数据库获取到分院: ${userBranch}`)
+      } else {
+        console.log(`[getLeaderboardData] 数据库中也没有分院信息`)
+      }
+    }
 
     // 1. 获取全部用户积分排行
     const { data: allScores, error: allError } = await supabase
@@ -1809,9 +1831,30 @@ async function getLeaderboardData(userId, userBranch, res) {
       }))
 
     // 同分院用户排行
+    console.log(`[getLeaderboardData] 开始过滤分院用户，userBranch: ${userBranch}`)
+    console.log(`[getLeaderboardData] 所有用户的分院信息:`)
+    allUsers.forEach(user => {
+      if (user.branch_code) {
+        console.log(`  - ${user.name}: ${user.branch_code}`)
+      }
+    })
+    
     const branchUsers = allUsers
-      .filter(user => user.branch_code === userBranch)
+      .filter(user => {
+        // 确保两边都转为字符串并去除空格进行比较
+        const userBranchCode = user.branch_code ? String(user.branch_code).trim() : null
+        const targetBranch = userBranch ? String(userBranch).trim() : null
+        const isMatch = userBranchCode === targetBranch && targetBranch !== null
+        
+        if (isMatch) {
+          console.log(`[getLeaderboardData] 匹配: ${user.name} (${userBranchCode})`)
+        }
+        
+        return isMatch
+      })
       .slice(0, 20)
+    
+    console.log(`[getLeaderboardData] 过滤结果: userBranch=${userBranch}, 找到${branchUsers.length}个同分院用户`)
 
     // 分院排行榜 - 先获取所有分院，包括没有积分的
     // 1. 获取所有用户（包括没有积分记录的）
