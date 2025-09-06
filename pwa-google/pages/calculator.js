@@ -1004,6 +1004,383 @@ function InvestmentComparator() {
   )
 }
 
+// 薪资增长计算器组件
+function SalaryGrowthCalculator() {
+  const [formData, setFormData] = useState({
+    startAge: 18,
+    endAge: 55,
+    initialSalary: 1700,
+    learningRate: 33,
+    conversionRate: 1.0
+  })
+
+  const [results, setResults] = useState(null)
+  const [timeline, setTimeline] = useState([])
+
+  const calculateSalaryGrowth = () => {
+    const { startAge, endAge, initialSalary, learningRate, conversionRate } = formData
+    
+    // 验证输入
+    if (endAge <= startAge) {
+      alert('目标年龄必须大于起始年龄！')
+      return
+    }
+
+    // 计算参数
+    const monthlyGrowthRate = (learningRate / 100) * (conversionRate / 100)
+    const totalMonths = (endAge - startAge) * 12
+    
+    // 逐月计算
+    let currentSalary = initialSalary
+    let totalLearningInvestment = 0
+    const timelineData = []
+
+    // 添加起始点
+    timelineData.push({
+      age: startAge,
+      salary: initialSalary,
+      isStart: true
+    })
+
+    // 逐月计算薪资增长
+    for (let month = 1; month <= totalMonths; month++) {
+      const learningInvestment = currentSalary * (learningRate / 100)
+      totalLearningInvestment += learningInvestment
+      
+      const salaryIncrease = learningInvestment * (conversionRate / 100)
+      currentSalary += salaryIncrease
+      
+      // 每5年记录一次 + 最后一个月
+      if (month % 60 === 0 || month === totalMonths) {
+        const currentAge = startAge + Math.floor(month / 12)
+        timelineData.push({
+          age: currentAge,
+          salary: currentSalary,
+          isFinal: month === totalMonths
+        })
+      }
+    }
+
+    // 计算最终结果
+    const finalSalary = currentSalary
+    const growthMultiple = finalSalary / initialSalary
+    const annualGrowthRate = (Math.pow(1 + monthlyGrowthRate, 12) - 1) * 100
+
+    setResults({
+      finalSalary,
+      growthMultiple,
+      totalInvestment: totalLearningInvestment,
+      annualRate: annualGrowthRate,
+      monthlyRate: monthlyGrowthRate * 100
+    })
+
+    setTimeline(timelineData)
+  }
+
+  useEffect(() => {
+    calculateSalaryGrowth()
+  }, [formData])
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: parseFloat(value) || 0
+    }))
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('ms-MY', {
+      style: 'currency',
+      currency: 'MYR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount)
+  }
+
+  const monthlyGrowthRate = (formData.learningRate / 100) * (formData.conversionRate / 100)
+
+  return (
+    <div className="space-y-6">
+      {/* 参数设置 */}
+      <ModernCard className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-2">📊</span>
+          薪资增长参数设置
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              起始年龄
+            </label>
+            <input
+              type="number"
+              value={formData.startAge}
+              onChange={(e) => handleInputChange('startAge', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="16"
+              max="65"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              目标年龄
+            </label>
+            <input
+              type="number"
+              value={formData.endAge}
+              onChange={(e) => handleInputChange('endAge', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="20"
+              max="80"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              初始月薪 (RM)
+            </label>
+            <input
+              type="number"
+              value={formData.initialSalary}
+              onChange={(e) => handleInputChange('initialSalary', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="1000"
+              step="100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              学习投入比例 (%)
+            </label>
+            <input
+              type="number"
+              value={formData.learningRate}
+              onChange={(e) => handleInputChange('learningRate', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="1"
+              max="90"
+              step="1"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              学习转化为加薪比例 (%)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.conversionRate}
+              onChange={(e) => handleInputChange('conversionRate', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="0.1"
+              max="10"
+            />
+          </div>
+        </div>
+
+        {/* 公式显示 */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+          <div className="text-center">
+            <span className="font-semibold text-yellow-800">月增长率:</span>
+            <span className="ml-2 text-lg font-bold text-yellow-900">
+              {(monthlyGrowthRate * 100).toFixed(3)}%
+            </span>
+          </div>
+          <div className="text-xs text-yellow-700 mt-2 text-center">
+            计算公式: 学习投入比例 × 转化比例 = {formData.learningRate}% × {formData.conversionRate}%
+          </div>
+        </div>
+      </ModernCard>
+
+      {/* 核心结果 */}
+      {results && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <ModernCard variant="gradient" className="p-6 text-white">
+            <h3 className="text-lg font-semibold mb-2 opacity-90">
+              💰 最终月薪
+            </h3>
+            <div className="text-2xl font-bold mb-2">{formatCurrency(results.finalSalary)}</div>
+            <p className="text-sm opacity-75">{formData.endAge}岁时的月收入</p>
+          </ModernCard>
+
+          <ModernCard className="p-6 bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+            <h3 className="text-lg font-semibold mb-2 opacity-90">
+              📈 增长倍数
+            </h3>
+            <div className="text-2xl font-bold mb-2">{results.growthMultiple.toFixed(2)}倍</div>
+            <p className="text-sm opacity-75">相对于初始薪资</p>
+          </ModernCard>
+
+          <ModernCard className="p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+            <h3 className="text-lg font-semibold mb-2 opacity-90">
+              💡 总学习投资
+            </h3>
+            <div className="text-2xl font-bold mb-2">{formatCurrency(results.totalInvestment)}</div>
+            <p className="text-sm opacity-75">累计学习支出</p>
+          </ModernCard>
+
+          <ModernCard className="p-6 bg-gradient-to-br from-orange-500 to-red-500 text-white">
+            <h3 className="text-lg font-semibold mb-2 opacity-90">
+              🚀 年化增长率
+            </h3>
+            <div className="text-2xl font-bold mb-2">{results.annualRate.toFixed(2)}%</div>
+            <p className="text-sm opacity-75">等效年复合增长率</p>
+          </ModernCard>
+        </div>
+      )}
+
+      {/* 薪资轨迹时间线 */}
+      {timeline.length > 0 && (
+        <ModernCard className="overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+            <h3 className="text-lg font-semibold flex items-center">
+              <span className="mr-2">📋</span>
+              薪资增长轨迹 ({formData.startAge}-{formData.endAge}岁)
+            </h3>
+          </div>
+          
+          <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
+            {timeline.map((item, index) => {
+              const isStart = item.isStart
+              const isFinal = item.isFinal
+              const isMiddle = !isStart && !isFinal
+              
+              return (
+                <div 
+                  key={index} 
+                  className={`flex items-center justify-between p-4 rounded-xl border-l-4 transition-all hover:translate-x-1 ${
+                    isStart ? 'bg-blue-50 border-blue-500' :
+                    isFinal ? 'bg-green-50 border-green-500' :
+                    'bg-gray-50 border-indigo-500'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <span className={`text-2xl ${
+                      isStart ? '🎯' : isFinal ? '👑' : '📊'
+                    }`}></span>
+                    <div>
+                      <div className={`font-semibold ${
+                        isStart ? 'text-blue-800' :
+                        isFinal ? 'text-green-800' :
+                        'text-gray-800'
+                      }`}>
+                        {item.age}岁
+                        {isStart && ' (起始)'}
+                        {isFinal && ' (目标)'}
+                      </div>
+                      {isMiddle && (
+                        <div className="text-sm text-gray-600">
+                          第{item.age - formData.startAge}年
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className={`text-right ${
+                    isStart ? 'text-blue-600' :
+                    isFinal ? 'text-green-600' :
+                    'text-indigo-600'
+                  }`}>
+                    <div className="text-xl font-bold">
+                      {formatCurrency(item.salary)}
+                    </div>
+                    {!isStart && (
+                      <div className="text-sm opacity-75">
+                        +{(((item.salary / formData.initialSalary) - 1) * 100).toFixed(1)}%
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </ModernCard>
+      )}
+
+      {/* 快捷输入 */}
+      <ModernCard className="p-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">快捷输入</h4>
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-gray-600 mb-2">常见起薪</p>
+            <div className="flex flex-wrap gap-2">
+              {['1500', '1700', '2000', '2500', '3000', '3500'].map(salary => (
+                <button
+                  key={salary}
+                  onClick={() => setFormData(prev => ({ ...prev, initialSalary: parseFloat(salary) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.initialSalary === parseFloat(salary) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  RM{salary}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-xs text-gray-600 mb-2">学习投入比例</p>
+            <div className="flex flex-wrap gap-2">
+              {['20', '25', '30', '33', '40', '50'].map(rate => (
+                <button
+                  key={rate}
+                  onClick={() => setFormData(prev => ({ ...prev, learningRate: parseFloat(rate) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.learningRate === parseFloat(rate) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {rate}%
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-600 mb-2">转化比例</p>
+            <div className="flex flex-wrap gap-2">
+              {['0.5', '0.8', '1.0', '1.2', '1.5', '2.0'].map(rate => (
+                <button
+                  key={rate}
+                  onClick={() => setFormData(prev => ({ ...prev, conversionRate: parseFloat(rate) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.conversionRate === parseFloat(rate) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {rate}%
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </ModernCard>
+
+      {/* 说明文档 */}
+      <ModernCard className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-start space-x-2">
+          <span className="text-blue-600 text-lg">💡</span>
+          <div className="text-sm text-blue-800">
+            <p className="font-semibold mb-1">薪资增长原理</p>
+            <p className="mb-2">• <strong>学习投入</strong>：每月将一定比例薪资投入学习提升</p>
+            <p className="mb-2">• <strong>转化效果</strong>：学习投入按比例转化为下月薪资增长</p>
+            <p className="mb-2">• <strong>复利效应</strong>：薪资增长后，学习投入金额也随之增加</p>
+            <p>• <strong>长期影响</strong>：持续学习投入将产生显著的复合增长效果</p>
+          </div>
+        </div>
+      </ModernCard>
+    </div>
+  )
+}
+
 // 主计算器页面
 export default function CalculatorPage() {
   const router = useRouter()
@@ -1013,7 +1390,7 @@ export default function CalculatorPage() {
     { id: 'loan', name: '车贷计算', icon: '🚗', color: 'blue' },
     { id: 'epf', name: 'EPF模拟', icon: '🏦', color: 'green' },
     { id: 'investment', name: '投资对比', icon: '📈', color: 'purple' },
-    { id: 'more', name: '更多', icon: '➕', color: 'gray', disabled: true }
+    { id: 'salary', name: '薪资增长', icon: '💰', color: 'orange' }
   ]
 
   return (
@@ -1046,7 +1423,7 @@ export default function CalculatorPage() {
                       'loan': 'bg-gradient-to-r from-blue-500 to-blue-600',
                       'epf': 'bg-gradient-to-r from-green-500 to-green-600',
                       'investment': 'bg-gradient-to-r from-purple-500 to-purple-600',
-                      'more': 'bg-gradient-to-r from-gray-500 to-gray-600'
+                      'salary': 'bg-gradient-to-r from-orange-500 to-orange-600'
                     }
                     
                     return (
@@ -1083,17 +1460,7 @@ export default function CalculatorPage() {
                 {activeTab === 'loan' && <LoanCalculator />}
                 {activeTab === 'epf' && <EPFCalculator />}
                 {activeTab === 'investment' && <InvestmentComparator />}
-                {activeTab === 'more' && (
-                  <ModernCard className="p-12 text-center">
-                    <div className="text-6xl mb-4">🚧</div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      更多计算器即将推出
-                    </h3>
-                    <p className="text-gray-600">
-                      我们正在开发更多实用的财务计算工具
-                    </p>
-                  </ModernCard>
-                )}
+                {activeTab === 'salary' && <SalaryGrowthCalculator />}
               </div>
 
               {/* 底部说明 */}
