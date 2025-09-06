@@ -427,6 +427,13 @@ async function getDashboardData(userId, res) {
     const todayRecords = records?.filter(r => r.ymd === today && r.category_group === 'A') || []
     const todaySpent = todayRecords.reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
     
+    // 计算本周支出（仅A类开销）- 从周一开始计算
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)) // 获取本周一
+    const mondayStr = formatYMD(monday)
+    const weekRecords = records?.filter(r => r.ymd >= mondayStr && r.ymd <= today && r.category_group === 'A') || []
+    const weekSpent = weekRecords.reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
+    
     const response = {
       user: {
         name: profile?.display_name || 'User',
@@ -442,6 +449,7 @@ async function getDashboardData(userId, res) {
         percentage_c: percentages.C,
         days_left: daysLeft,
         today_spent: todaySpent,
+        week_spent: weekSpent,
         budget_a: budget?.cap_a_amount || ((profile?.monthly_income || 0) * (profile?.a_pct || 0) / 100),
         budget_b: budget?.cap_b_amount || ((profile?.monthly_income || 0) * (profile?.b_pct || 0) / 100),
         budget_c: budget?.cap_c_amount || ((profile?.monthly_income || 0) * (profile?.c_pct || 0) / 100),
