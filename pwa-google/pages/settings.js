@@ -501,7 +501,7 @@ export default function SettingsPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-white/70">月收入</p>
-                          <p className="text-2xl font-bold">RM {formFields.monthly_income.toLocaleString()}</p>
+                          <p className="text-2xl font-bold">RM {formFields.monthly_income ? parseFloat(formFields.monthly_income).toLocaleString() : '0'}</p>
                         </div>
                       </div>
                     </div>
@@ -598,7 +598,7 @@ export default function SettingsPage() {
                                 const value = e.target.value
                                 setFormFields(prev => ({
                                   ...prev, 
-                                  monthly_income: value === '' ? '' : parseFloat(value) || 0
+                                  monthly_income: value
                                 }))
                               }}
                               placeholder="如：5000"
@@ -626,7 +626,7 @@ export default function SettingsPage() {
                                 const value = e.target.value
                                 setFormFields(prev => ({
                                   ...prev, 
-                                  a_pct: value === '' ? '' : parseInt(value) || 0
+                                  a_pct: value
                                 }))
                               }}
                               placeholder="建议33"
@@ -656,7 +656,7 @@ export default function SettingsPage() {
                                 const value = e.target.value
                                 setFormFields(prev => ({
                                   ...prev, 
-                                  travel_budget_annual: value === '' ? '' : parseFloat(value) || 0
+                                  travel_budget_annual: value
                                 }))
                               }}
                               placeholder="如：6000"
@@ -696,7 +696,7 @@ export default function SettingsPage() {
                                 const value = e.target.value
                                 setFormFields(prev => ({
                                   ...prev, 
-                                  annual_medical_insurance: value === '' ? '' : parseFloat(value) || 0
+                                  annual_medical_insurance: value
                                 }))
                               }}
                               placeholder="如：2400"
@@ -726,7 +726,7 @@ export default function SettingsPage() {
                                 const value = e.target.value
                                 setFormFields(prev => ({
                                   ...prev, 
-                                  annual_car_insurance: value === '' ? '' : parseFloat(value) || 0
+                                  annual_car_insurance: value
                                 }))
                               }}
                               placeholder="如：1800"
