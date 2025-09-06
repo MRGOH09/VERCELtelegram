@@ -582,7 +582,6 @@ function EnhancedBudgetControl({ data }) {
   
   // 方案B核心计算
   const dailyBudget = remaining_a > 0 ? (remaining_a / Math.max(1, daysLeft)) : 0
-  const recommendedDaily = budget_a > 0 ? (budget_a / 31) : 0 // 假设31天
   const todaySpent = 85 // 模拟今日支出，实际应从数据获取
   const weekSpent = Math.round(spent_a * 0.3) // 模拟本周支出
   
@@ -610,7 +609,7 @@ function EnhancedBudgetControl({ data }) {
       
       <div className="p-5 space-y-4">
         {/* 核心亮点：每日可用金额 */}
-        <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-100">
+        <div className="flex items-center justify-center p-4 bg-green-50 rounded-xl border border-green-100">
           <div className="flex items-center space-x-3">
             <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-xl">
               💰
@@ -621,10 +620,6 @@ function EnhancedBudgetControl({ data }) {
                 RM {dailyBudget.toFixed(0)}
               </p>
             </div>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">建议每日</p>
-            <p className="text-sm text-gray-600">RM {recommendedDaily.toFixed(0)}</p>
           </div>
         </div>
         
@@ -652,30 +647,17 @@ function EnhancedBudgetControl({ data }) {
         </div>
         
         {/* 智能提醒 */}
-        <div className={`p-4 rounded-xl border ${
-          dailyBudget < recommendedDaily 
-            ? 'bg-yellow-50 border-yellow-200' 
-            : 'bg-green-50 border-green-200'
-        }`}>
+        <div className="p-4 rounded-xl border bg-blue-50 border-blue-200">
           <div className="flex items-start space-x-3">
-            <span className="text-2xl">
-              {dailyBudget < recommendedDaily ? '⚠️' : '✅'}
-            </span>
+            <span className="text-2xl">💡</span>
             <div className="flex-1">
-              <p className={`text-sm font-medium ${
-                dailyBudget < recommendedDaily ? 'text-yellow-800' : 'text-green-800'
-              }`}>
-                {dailyBudget < recommendedDaily 
-                  ? '预算紧张提醒'
-                  : '预算控制良好'
-                }
+              <p className="text-sm font-medium text-blue-800">
+                预算状态
               </p>
-              <p className={`text-xs mt-1 ${
-                dailyBudget < recommendedDaily ? 'text-yellow-700' : 'text-green-700'
-              }`}>
-                {dailyBudget < recommendedDaily 
-                  ? `每日预算比建议少 RM ${(recommendedDaily - dailyBudget).toFixed(0)}，请合理规划开支`
-                  : `保持当前消费节奏，还有 ${daysLeft} 天预算充足`
+              <p className="text-xs mt-1 text-blue-700">
+                {dailyBudget > 0 
+                  ? `还有 ${daysLeft} 天，每日可用 RM ${dailyBudget.toFixed(0)}`
+                  : '本月预算已用完，请控制开支'
                 }
               </p>
             </div>
