@@ -1865,10 +1865,11 @@ async function getLeaderboardData(userId, userBranch, res) {
       
       console.log(`[getLeaderboardData] 有积分的${userBranch}分院用户: ${branchUsersWithScores.length}人`)
       
-      // 如果没有找到有积分的用户，尝试获取该分院所有用户
-      if (branchUsersWithScores.length === 0) {
-        console.log(`[getLeaderboardData] ${userBranch}分院暂无积分用户，获取所有用户`)
+      // 如果过滤结果很少，可能是数据问题，尝试获取更多数据
+      if (branchUsersWithScores.length < 5) {
+        console.log(`[getLeaderboardData] ${userBranch}分院积分用户较少(${branchUsersWithScores.length})，尝试补充数据`)
         
+        // 获取该分院所有用户
         const { data: allBranchUsers } = await supabase
           .from('users')
           .select('id, name, branch_code')
@@ -1877,9 +1878,17 @@ async function getLeaderboardData(userId, userBranch, res) {
           .limit(20)
         
         if (allBranchUsers && allBranchUsers.length > 0) {
-          console.log(`[getLeaderboardData] 找到${userBranch}分院用户: ${allBranchUsers.length}人`)
+          console.log(`[getLeaderboardData] 数据库中${userBranch}分院共有${allBranchUsers.length}人`)
           
-          // 获取这些用户的profile信息
+          // 获取这些用户的积分数据
+          const { data: branchScores } = await supabase
+            .from('user_daily_scores')
+            .select('*')
+            .in('user_id', allBranchUsers.map(u => u.id))
+          
+          console.log(`[getLeaderboardData] 找到${branchScores?.length || 0}条积分记录`)
+          
+          // 获取profile信息
           const { data: profiles } = await supabase
             .from('user_profile')
             .select('user_id, display_name')
@@ -1887,16 +1896,46 @@ async function getLeaderboardData(userId, userBranch, res) {
           
           const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || [])
           
-          branchUsers = allBranchUsers.map((user, index) => ({
-            rank: index + 1,
-            user_id: user.id,
-            name: profileMap.get(user.id)?.display_name || user.name || 'Unknown',
-            branch_code: user.branch_code,
-            total_score: 0,  // 没有积分记录
-            total_days: 0,
-            current_streak: 0,
-            avg_score: 0
-          }))
+          // 计算每个用户的总积分
+          const userScoreMap = {}
+          branchScores?.forEach(score => {
+            if (!userScoreMap[score.user_id]) {
+              userScoreMap[score.user_id] = {
+                total_score: 0,
+                total_days: 0,
+                current_streak: score.current_streak || 0
+              }
+            }
+            userScoreMap[score.user_id].total_score += score.total_score || 0
+            userScoreMap[score.user_id].total_days += 1
+            userScoreMap[score.user_id].current_streak = score.current_streak || 0
+          })
+          
+          // 构建完整的用户列表
+          branchUsers = allBranchUsers.map((user, index) => {
+            const scoreData = userScoreMap[user.id] || { total_score: 0, total_days: 0, current_streak: 0 }
+            return {
+              rank: index + 1,
+              user_id: user.id,
+              name: profileMap.get(user.id)?.display_name || user.name || 'Unknown',
+              branch_code: user.branch_code,
+              total_score: scoreData.total_score,
+              total_days: scoreData.total_days,
+              current_streak: scoreData.current_streak,
+              avg_score: scoreData.total_days > 0 ? Math.round((scoreData.total_score / scoreData.total_days) * 10) / 10 : 0
+            }
+          })
+          
+          // 按积分排序
+          branchUsers.sort((a, b) => b.total_score - a.total_score)
+          branchUsers = branchUsers.slice(0, 20)
+          
+          // 重新分配排名
+          branchUsers.forEach((user, index) => {
+            user.rank = index + 1
+          })
+          
+          console.log(`[getLeaderboardData] 补充后${userBranch}分院用户数: ${branchUsers.length}`)
         }
       } else {
         branchUsers = branchUsersWithScores.slice(0, 20)
