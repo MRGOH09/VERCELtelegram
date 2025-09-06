@@ -1944,14 +1944,40 @@ async function getLeaderboardData(userId, userBranch, res) {
     
     console.log(`[getLeaderboardData] 最终${userBranch}分院用户数: ${branchUsers.length}`)
 
-    // 分院排行榜 - 先获取所有分院，包括没有积分的
+    // 分院排行榜 - 重新设计逻辑确保所有分院都能正确显示积分
+    console.log(`[getLeaderboardData] 开始计算分院排行榜`)
+    
     // 1. 获取所有用户（包括没有积分记录的）
     const { data: allUsersData } = await supabase
       .from('users')
       .select('id, name, branch_code, status')
       .neq('status', 'test') // 排除测试用户
     
-    // 2. 初始化所有分院的统计数据
+    console.log(`[getLeaderboardData] 总用户数: ${allUsersData?.length || 0}`)
+    
+    // 2. 获取所有积分记录
+    const { data: allScoresData } = await supabase
+      .from('user_daily_scores')
+      .select('user_id, total_score, current_streak')
+    
+    console.log(`[getLeaderboardData] 总积分记录数: ${allScoresData?.length || 0}`)
+    
+    // 3. 计算每个用户的总积分
+    const userScoreMap = {}
+    allScoresData?.forEach(score => {
+      if (!userScoreMap[score.user_id]) {
+        userScoreMap[score.user_id] = {
+          total_score: 0,
+          total_days: 0,
+          current_streak: score.current_streak || 0
+        }
+      }
+      userScoreMap[score.user_id].total_score += score.total_score || 0
+      userScoreMap[score.user_id].total_days += 1
+      userScoreMap[score.user_id].current_streak = score.current_streak || 0
+    })
+    
+    // 4. 初始化所有分院的统计数据
     const branchTotalScores = {}
     
     // 先为所有用户的分院创建初始记录
@@ -1962,23 +1988,27 @@ async function getLeaderboardData(userId, userBranch, res) {
             branch_code: user.branch_code,
             total_score: 0,
             user_count: 0,
-            total_members: 0, // 分院总人数
+            total_members: 0,
             top_users: []
           }
         }
         branchTotalScores[user.branch_code].total_members += 1
+        
+        // 如果用户有积分，加入统计
+        const userScore = userScoreMap[user.id]
+        if (userScore && userScore.total_score > 0) {
+          branchTotalScores[user.branch_code].total_score += userScore.total_score
+          branchTotalScores[user.branch_code].user_count += 1
+          if (branchTotalScores[user.branch_code].top_users.length < 3) {
+            branchTotalScores[user.branch_code].top_users.push(user.name)
+          }
+        }
       }
     })
     
-    // 3. 再统计有积分用户的数据
-    allUsers.forEach(user => {
-      if (user.branch_code && branchTotalScores[user.branch_code]) {
-        branchTotalScores[user.branch_code].total_score += user.total_score
-        branchTotalScores[user.branch_code].user_count += 1
-        if (branchTotalScores[user.branch_code].top_users.length < 3) {
-          branchTotalScores[user.branch_code].top_users.push(user.name)
-        }
-      }
+    console.log(`[getLeaderboardData] 分院统计结果:`)
+    Object.entries(branchTotalScores).forEach(([code, data]) => {
+      console.log(`  - ${code}: ${data.total_score}分 (${data.user_count}/${data.total_members}人)`)
     })
 
     const branchRankings = Object.values(branchTotalScores)
