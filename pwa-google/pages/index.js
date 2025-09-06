@@ -582,7 +582,7 @@ function EnhancedBudgetControl({ data }) {
   
   // 方案B核心计算
   const dailyBudget = remaining_a > 0 ? (remaining_a / Math.max(1, daysLeft)) : 0
-  const todaySpent = 85 // 模拟今日支出，实际应从数据获取
+  const todaySpent = monthly.today_spent || 0  // 从API获取真实今日支出
   const weekSpent = Math.round(spent_a * 0.3) // 模拟本周支出
   
   return (

@@ -422,6 +422,11 @@ async function getDashboardData(userId, res) {
     const endOfMonthDate = new Date(endOfMonth)
     const daysLeft = Math.max(0, Math.ceil((endOfMonthDate - now) / (1000 * 60 * 60 * 24)))
     
+    // 计算今日支出（仅A类开销）
+    const today = formatYMD(now)
+    const todayRecords = records?.filter(r => r.ymd === today && r.category_group === 'A') || []
+    const todaySpent = todayRecords.reduce((sum, r) => sum + Math.abs(Number(r.amount || 0)), 0)
+    
     const response = {
       user: {
         name: profile?.display_name || 'User',
@@ -436,6 +441,7 @@ async function getDashboardData(userId, res) {
         percentage_b: percentages.B,
         percentage_c: percentages.C,
         days_left: daysLeft,
+        today_spent: todaySpent,
         budget_a: budget?.cap_a_amount || ((profile?.monthly_income || 0) * (profile?.a_pct || 0) / 100),
         budget_b: budget?.cap_b_amount || ((profile?.monthly_income || 0) * (profile?.b_pct || 0) / 100),
         budget_c: budget?.cap_c_amount || ((profile?.monthly_income || 0) * (profile?.c_pct || 0) / 100),
