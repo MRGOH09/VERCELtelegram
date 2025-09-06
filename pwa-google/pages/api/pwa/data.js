@@ -270,6 +270,9 @@ export default async function handler(req, res) {
       case 'change-user-branch':
         return await changeUserBranch(params.userId, params.newBranchCode, res)
         
+      case 'branch-detail':
+        return await getBranchDetail(params.branch, params.authKey, res)
+        
       default:
         return res.status(400).json({ error: 'Invalid action' })
     }
@@ -3396,5 +3399,149 @@ async function changeUserBranch(userId, newBranchCode, res) {
   } catch (error) {
     console.error('[changeUserBranch] 错误:', error)
     return res.status(500).json({ error: error.message })
+  }
+}
+
+// 获取分院详细数据（带权限验证）
+async function getBranchDetail(branch, authKey, res) {
+  try {
+    console.log(`[getBranchDetail] 获取分院数据: ${branch}`)
+    
+    // 权限验证
+    if (authKey !== 'PIC_Abcd1234') {
+      return res.status(401).json({ error: 'Unauthorized', message: '权限验证失败' })
+    }
+
+    // 构建查询
+    let query = supabase
+      .from('users')
+      .select(`
+        id,
+        name,
+        telegram_id,
+        branch_code,
+        status,
+        created_at
+      `)
+      .neq('status', 'test') // 排除测试用户
+
+    // 如果指定了分院，添加过滤
+    if (branch && branch !== 'ALL') {
+      query = query.eq('branch_code', branch)
+    }
+
+    const { data: users, error: userError } = await query
+
+    if (userError) {
+      console.error('[getBranchDetail] 查询用户失败:', userError)
+      throw userError
+    }
+
+    console.log(`[getBranchDetail] 找到 ${users?.length || 0} 个用户`)
+
+    // 获取用户ID列表
+    const userIds = users?.map(u => u.id) || []
+    
+    if (userIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        branch: branch || 'ALL',
+        total: 0,
+        users: []
+      })
+    }
+
+    // 获取user_profile信息
+    const { data: profiles } = await supabase
+      .from('user_profile')
+      .select(`
+        user_id,
+        display_name,
+        email,
+        phone_e164,
+        current_streak,
+        max_streak,
+        total_records,
+        last_record_date,
+        monthly_income,
+        a_pct
+      `)
+      .in('user_id', userIds)
+
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || [])
+
+    // 获取积分统计
+    const { data: scores } = await supabase
+      .from('user_daily_scores')
+      .select('user_id, total_score, current_streak')
+      .in('user_id', userIds)
+
+    // 计算每个用户的总积分
+    const userScoreMap = {}
+    scores?.forEach(score => {
+      if (!userScoreMap[score.user_id]) {
+        userScoreMap[score.user_id] = {
+          total_score: 0,
+          max_streak: 0,
+          latest_streak: score.current_streak || 0
+        }
+      }
+      userScoreMap[score.user_id].total_score += score.total_score || 0
+      if (score.current_streak > userScoreMap[score.user_id].max_streak) {
+        userScoreMap[score.user_id].max_streak = score.current_streak
+      }
+    })
+
+    // 合并数据
+    const processedUsers = users.map(user => {
+      const profile = profileMap.get(user.id) || {}
+      const scoreData = userScoreMap[user.id] || { total_score: 0, max_streak: 0, latest_streak: 0 }
+
+      return {
+        user_id: user.id,
+        name: user.name,
+        display_name: profile.display_name || user.name,
+        telegram_id: user.telegram_id,
+        branch_code: user.branch_code,
+        email: profile.email,
+        phone: profile.phone_e164,
+        
+        // 积分数据
+        total_score: scoreData.total_score,
+        current_streak: profile.current_streak || scoreData.latest_streak || 0,
+        max_streak: profile.max_streak || scoreData.max_streak || 0,
+        
+        // 记录数据
+        total_records: profile.total_records || 0,
+        last_record_date: profile.last_record_date,
+        
+        // 财务数据
+        monthly_income: profile.monthly_income || 0,
+        a_pct: profile.a_pct || 0,
+        
+        // 其他
+        status: user.status,
+        joined_date: user.created_at
+      }
+    })
+
+    // 按积分排序
+    processedUsers.sort((a, b) => b.total_score - a.total_score)
+
+    console.log(`[getBranchDetail] 返回 ${processedUsers.length} 个用户数据`)
+
+    return res.status(200).json({
+      success: true,
+      branch: branch || 'ALL',
+      total: processedUsers.length,
+      users: processedUsers
+    })
+
+  } catch (error) {
+    console.error('[getBranchDetail] 错误:', error)
+    return res.status(500).json({
+      error: '获取数据失败',
+      details: error.message
+    })
   }
 }

@@ -65,24 +65,44 @@ export default function BranchDetailPage() {
     setError('')
     
     try {
-      const response = await fetch('/api/pwa/branch-detail', {
+      // 需要获取token进行认证
+      const { createClient } = await import('@supabase/supabase-js')
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      )
+      
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      // 如果没有session，尝试匿名访问（依赖服务端的authKey验证）
+      const headers = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+      
+      const response = await fetch('/api/pwa/data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
+          action: 'branch-detail',
           branch: selectedBranch,
-          authKey: 'PIC_Abcd1234' // 简单的服务端验证
+          authKey: 'PIC_Abcd1234'
         })
       })
       
       if (!response.ok) {
-        throw new Error('获取数据失败')
+        const errorData = await response.json()
+        throw new Error(errorData.error || '获取数据失败')
       }
       
       const data = await response.json()
+      console.log('[branchdetail] 获取到数据:', data)
       setBranchData(data.users || [])
     } catch (err) {
+      console.error('[branchdetail] 错误:', err)
       setError(err.message)
       setBranchData([])
     } finally {
