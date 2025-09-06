@@ -1759,6 +1759,17 @@ async function getLeaderboardData(userId, userBranch, res) {
         console.log(`[getLeaderboardData] 数据库中也没有分院信息`)
       }
     }
+    
+    // 调试：详细打印userBranch的信息
+    console.log(`[getLeaderboardData] userBranch详细信息:`)
+    console.log(`  - 值: "${userBranch}"`)
+    console.log(`  - 类型: ${typeof userBranch}`)
+    console.log(`  - 长度: ${userBranch ? userBranch.length : 'N/A'}`)
+    console.log(`  - JSON: ${JSON.stringify(userBranch)}`)
+    console.log(`  - 是否等于'PU': ${userBranch === 'PU'}`)
+    console.log(`  - 是否等于'小天使': ${userBranch === '小天使'}`)
+    console.log(`  - trim后是否等于'PU': ${userBranch?.trim() === 'PU'}`)
+    console.log(`  - Buffer hex: ${userBranch ? Buffer.from(userBranch).toString('hex') : 'N/A'}`)
 
     // 1. 获取全部用户积分排行
     const { data: allScores, error: allError } = await supabase
@@ -1830,31 +1841,69 @@ async function getLeaderboardData(userId, userBranch, res) {
         avg_score: user.total_days > 0 ? Math.round((user.total_score / user.total_days) * 10) / 10 : 0
       }))
 
-    // 同分院用户排行
-    console.log(`[getLeaderboardData] 开始过滤分院用户，userBranch: ${userBranch}`)
-    console.log(`[getLeaderboardData] 所有用户的分院信息:`)
-    allUsers.forEach(user => {
-      if (user.branch_code) {
-        console.log(`  - ${user.name}: ${user.branch_code}`)
-      }
-    })
+    // 同分院用户排行 - 需要包含没有积分的用户
+    console.log(`[getLeaderboardData] 开始获取分院用户，userBranch: ${userBranch}`)
     
-    const branchUsers = allUsers
-      .filter(user => {
-        // 确保两边都转为字符串并去除空格进行比较
-        const userBranchCode = user.branch_code ? String(user.branch_code).trim() : null
-        const targetBranch = userBranch ? String(userBranch).trim() : null
-        const isMatch = userBranchCode === targetBranch && targetBranch !== null
+    let branchUsers = []
+    
+    // 如果用户有分院，获取该分院所有用户（包括没有积分的）
+    if (userBranch) {
+      // 先从有积分的用户中过滤
+      console.log(`[getLeaderboardData] 开始过滤，目标分院: "${userBranch}"`)
+      const branchUsersWithScores = allUsers
+        .filter(user => {
+          const userBranchCode = user.branch_code ? String(user.branch_code).trim() : null
+          const targetBranch = String(userBranch).trim()
+          
+          // 调试每个用户的比较
+          if (user.branch_code) {
+            console.log(`[过滤] ${user.name}: branch="${user.branch_code}" (${userBranchCode}) vs target="${targetBranch}" => ${userBranchCode === targetBranch}`)
+          }
+          
+          return userBranchCode === targetBranch
+        })
+      
+      console.log(`[getLeaderboardData] 有积分的${userBranch}分院用户: ${branchUsersWithScores.length}人`)
+      
+      // 如果没有找到有积分的用户，尝试获取该分院所有用户
+      if (branchUsersWithScores.length === 0) {
+        console.log(`[getLeaderboardData] ${userBranch}分院暂无积分用户，获取所有用户`)
         
-        if (isMatch) {
-          console.log(`[getLeaderboardData] 匹配: ${user.name} (${userBranchCode})`)
+        const { data: allBranchUsers } = await supabase
+          .from('users')
+          .select('id, name, branch_code')
+          .eq('branch_code', userBranch)
+          .neq('status', 'test')
+          .limit(20)
+        
+        if (allBranchUsers && allBranchUsers.length > 0) {
+          console.log(`[getLeaderboardData] 找到${userBranch}分院用户: ${allBranchUsers.length}人`)
+          
+          // 获取这些用户的profile信息
+          const { data: profiles } = await supabase
+            .from('user_profile')
+            .select('user_id, display_name')
+            .in('user_id', allBranchUsers.map(u => u.id))
+          
+          const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || [])
+          
+          branchUsers = allBranchUsers.map((user, index) => ({
+            rank: index + 1,
+            user_id: user.id,
+            name: profileMap.get(user.id)?.display_name || user.name || 'Unknown',
+            branch_code: user.branch_code,
+            total_score: 0,  // 没有积分记录
+            total_days: 0,
+            current_streak: 0,
+            avg_score: 0
+          }))
         }
-        
-        return isMatch
-      })
-      .slice(0, 20)
+      } else {
+        branchUsers = branchUsersWithScores.slice(0, 20)
+      }
+    }
     
-    console.log(`[getLeaderboardData] 过滤结果: userBranch=${userBranch}, 找到${branchUsers.length}个同分院用户`)
+    console.log(`[getLeaderboardData] 最终${userBranch}分院用户数: ${branchUsers.length}`)
 
     // 分院排行榜 - 先获取所有分院，包括没有积分的
     // 1. 获取所有用户（包括没有积分记录的）
