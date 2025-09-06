@@ -433,13 +433,43 @@ export default function AddRecordPage() {
     }
   }
   
-  // KISS: 简单检查打卡状态 + 调试
+  // 检查打卡状态 - 从服务器获取真实状态
   const checkTodayCheckIn = async () => {
-    const today = new Date().toISOString().slice(0, 10)
-    const lastCheckIn = localStorage.getItem('lastCheckInDate')
-    const hasChecked = lastCheckIn === today
-    console.log('[DEBUG checkTodayCheckIn] 今天:', today, '上次打卡:', lastCheckIn, '已打卡:', hasChecked)
-    setHasCheckedInToday(hasChecked)
+    try {
+      console.log('[DEBUG checkTodayCheckIn] 开始检查今日打卡状态')
+      
+      // 调用API检查真实的打卡状态
+      const result = await PWAClient.call('data', 'check-checkin-status')
+      console.log('[DEBUG checkTodayCheckIn] API返回:', result)
+      
+      if (result.success) {
+        setHasCheckedInToday(result.hasCheckedIn)
+        console.log('[DEBUG checkTodayCheckIn] 今日打卡状态:', result.hasCheckedIn)
+        
+        // 如果已打卡，设置提示消息
+        if (result.hasCheckedIn && result.checkinTime) {
+          setCheckInMessage(`✅ 今日已打卡 (${result.checkinTime})`)
+        } else if (result.hasCheckedIn) {
+          setCheckInMessage('✅ 今日已打卡')
+        }
+      } else {
+        console.error('[DEBUG checkTodayCheckIn] 检查失败:', result.error)
+        // 降级到localStorage检查
+        const today = new Date().toISOString().slice(0, 10)
+        const lastCheckIn = localStorage.getItem('lastCheckInDate')
+        const hasChecked = lastCheckIn === today
+        console.log('[DEBUG checkTodayCheckIn] 降级检查 - 今天:', today, '上次:', lastCheckIn, '已打卡:', hasChecked)
+        setHasCheckedInToday(hasChecked)
+      }
+    } catch (error) {
+      console.error('[DEBUG checkTodayCheckIn] 检查错误:', error)
+      // 降级到localStorage检查
+      const today = new Date().toISOString().slice(0, 10)
+      const lastCheckIn = localStorage.getItem('lastCheckInDate')
+      const hasChecked = lastCheckIn === today
+      console.log('[DEBUG checkTodayCheckIn] 错误降级检查:', hasChecked)
+      setHasCheckedInToday(hasChecked)
+    }
   }
   
   // 页面加载时检查打卡状态
@@ -497,15 +527,32 @@ export default function AddRecordPage() {
               
               {/* Check In 按钮 - 置顶显示 */}
               <div className="-mt-12 relative z-20">
-                <ModernCard className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+                <ModernCard className={`p-4 transition-all duration-300 ${
+                  hasCheckedInToday 
+                    ? 'bg-gradient-to-r from-green-100 to-emerald-100 border-2 border-green-300 shadow-lg' 
+                    : 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200'
+                }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                        hasCheckedInToday 
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 animate-pulse' 
+                          : 'bg-gradient-to-r from-green-500 to-emerald-500'
+                      }`}>
                         <span className="text-xl">✅</span>
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900">今日打卡</h3>
-                        <p className="text-sm text-gray-600">没有开销也要维持连续记录哦！</p>
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-lg font-bold text-gray-900">今日打卡</h3>
+                          {hasCheckedInToday && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-600 text-white animate-pulse">
+                              ✨ 已完成
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {hasCheckedInToday ? '🎉 今日打卡完成，积分已获得！' : '没有开销也要维持连续记录哦！'}
+                        </p>
                       </div>
                     </div>
                     <button
@@ -513,13 +560,20 @@ export default function AddRecordPage() {
                       disabled={isCheckingIn || hasCheckedInToday}
                       className={`px-6 py-2 rounded-xl font-medium transition-all transform shadow-lg ${
                         hasCheckedInToday 
-                          ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                          ? 'bg-green-600 text-white cursor-not-allowed border-2 border-green-500' 
                           : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 hover:scale-105'
                       } ${isCheckingIn ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {hasCheckedInToday ? '✅ 已获得积分' : (isCheckingIn ? '打卡中...' : '立即打卡')}
+                      {hasCheckedInToday ? '✅ 今日已打卡' : (isCheckingIn ? '打卡中...' : '立即打卡')}
                     </button>
                   </div>
+                  
+                  {/* 打卡状态消息 */}
+                  {checkInMessage && hasCheckedInToday && (
+                    <div className="mt-4 p-3 bg-green-200/50 rounded-lg">
+                      <p className="text-sm text-green-800 font-medium">{checkInMessage}</p>
+                    </div>
+                  )}
                 </ModernCard>
               </div>
               
