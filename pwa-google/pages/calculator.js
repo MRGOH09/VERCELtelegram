@@ -627,8 +627,7 @@ function InvestmentComparator() {
     stockReturn: 8,
     epfReturn: 5.8,
     fixedDepositReturn: 3.2,
-    realEstateReturn: 6,
-    cryptoReturn: 15,
+    bondReturn: 4.5,
     riskTolerance: 'moderate'
   })
 
@@ -639,8 +638,7 @@ function InvestmentComparator() {
     stock: { name: '股市投资', icon: '📈', color: 'blue', volatility: 'high' },
     epf: { name: 'EPF公积金', icon: '🏦', color: 'green', volatility: 'low' },
     fixedDeposit: { name: '定期存款', icon: '🏧', color: 'gray', volatility: 'none' },
-    realEstate: { name: '房地产', icon: '🏠', color: 'orange', volatility: 'medium' },
-    crypto: { name: '数字货币', icon: '₿', color: 'yellow', volatility: 'extreme' }
+    bond: { name: '债券投资', icon: '📄', color: 'orange', volatility: 'low' }
   }
 
   const calculateCompoundReturns = (initial, monthly, rate, years) => {
