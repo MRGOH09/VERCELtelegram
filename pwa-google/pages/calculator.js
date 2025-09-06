@@ -143,35 +143,36 @@ export default function LoanCalculatorPage() {
 
               {/* 快速总览卡片 */}
               <ModernCard variant="gradient" className="p-6 text-white">
-                <h3 className="text-lg font-semibold mb-4 opacity-90">
-                  📊 快速总览
+                <h3 className="text-lg font-semibold mb-4 opacity-90 flex items-center">
+                  <span className="mr-2">📊</span>
+                  快速总览
                 </h3>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm opacity-75 mb-1">月供</div>
-                    <div className="text-2xl font-bold">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-xs opacity-75 mb-1">月供</div>
+                    <div className="text-lg font-bold break-all">
                       RM {formatCurrency(results.monthlyPayment)}
                     </div>
                   </div>
                   
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm opacity-75 mb-1">年供</div>
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-xs opacity-75 mb-1">年供</div>
+                    <div className="text-lg font-bold break-all">
                       RM {formatCurrency(results.yearlyPayment)}
                     </div>
                   </div>
                   
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm opacity-75 mb-1">总利息</div>
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-xs opacity-75 mb-1">总利息</div>
+                    <div className="text-lg font-bold break-all">
                       RM {formatCurrency(results.totalInterest)}
                     </div>
                   </div>
                   
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4">
-                    <div className="text-sm opacity-75 mb-1">总还款</div>
-                    <div className="text-2xl font-bold">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                    <div className="text-xs opacity-75 mb-1">总还款</div>
+                    <div className="text-lg font-bold break-all">
                       RM {formatCurrency(results.totalPayment)}
                     </div>
                   </div>
