@@ -618,81 +618,268 @@ function EPFCalculator() {
   )
 }
 
-// 投资对比模拟器组件
+// 投资对比模拟器组件 - 原装版本适配PWA
 function InvestmentComparator() {
-  const [formData, setFormData] = useState({
-    initialInvestment: 50000,
-    monthlyContribution: 1000,
-    years: 10,
-    stockReturn: 8,
-    epfReturn: 5.8,
-    fixedDepositReturn: 3.2,
-    bondReturn: 4.5,
-    riskTolerance: 'moderate'
-  })
-
+  const [investmentAmount, setInvestmentAmount] = useState(1000)
+  const [frequency, setFrequency] = useState('monthly')
+  const [duration, setDuration] = useState(10)
   const [results, setResults] = useState(null)
-  const [selectedComparisons, setSelectedComparisons] = useState(['stock', 'epf', 'fixedDeposit'])
 
-  const investmentTypes = {
-    stock: { name: '股市投资', icon: '📈', color: 'blue', volatility: 'high' },
-    epf: { name: 'EPF公积金', icon: '🏦', color: 'green', volatility: 'low' },
-    fixedDeposit: { name: '定期存款', icon: '🏧', color: 'gray', volatility: 'none' },
-    bond: { name: '债券投资', icon: '📄', color: 'orange', volatility: 'low' }
-  }
-
-  const calculateCompoundReturns = (initial, monthly, rate, years) => {
-    const monthlyRate = rate / 100 / 12
-    const months = years * 12
-    
-    // Initial investment growth
-    const initialGrowth = initial * Math.pow(1 + rate/100, years)
-    
-    // Monthly contributions compound growth
-    const monthlyGrowth = monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
-    
-    const totalValue = initialGrowth + monthlyGrowth
-    const totalInvested = initial + (monthly * months)
-    const totalReturns = totalValue - totalInvested
-    
-    return {
-      totalValue,
-      totalInvested,
-      totalReturns,
-      returnPercentage: (totalReturns / totalInvested) * 100
+  // 资产数据 - 原装数据
+  const assets = {
+    gold: {
+      name: '黄金 (Gold)',
+      annualReturn: 0.08,
+      dividendYield: 0,
+      color: '#FFD700',
+      type: 'stock'
+    },
+    maybank: {
+      name: 'Maybank',
+      annualReturn: 0.07,
+      dividendYield: 0.06,
+      color: '#FF6B35',
+      type: 'stock'
+    },
+    publicbank: {
+      name: 'Public Bank',
+      annualReturn: 0.06,
+      dividendYield: 0.05,
+      color: '#4ECDC4',
+      type: 'stock'
+    },
+    ocbc: {
+      name: 'OCBC Bank',
+      annualReturn: 0.065,
+      dividendYield: 0.045,
+      color: '#45B7D1',
+      type: 'stock'
+    },
+    bursa: {
+      name: 'Bursa Malaysia',
+      annualReturn: 0.06,
+      dividendYield: 0.05,
+      color: '#E74C3C',
+      type: 'stock'
+    },
+    sgx: {
+      name: 'Singapore Exchange (SGX)',
+      annualReturn: 0.055,
+      dividendYield: 0.025,
+      color: '#9B59B6',
+      type: 'stock'
+    },
+    boc: {
+      name: '中国银行 (Bank of China)',
+      annualReturn: 0.05,
+      dividendYield: 0.06,
+      color: '#3498DB',
+      type: 'stock'
+    },
+    hkex: {
+      name: '香港交易所 (HKEX)',
+      annualReturn: 0.08,
+      dividendYield: 0.024,
+      color: '#F39C12',
+      type: 'stock'
+    },
+    realestate_rental: {
+      name: '房地产出租',
+      propertyGrowth: 0.035,
+      rentalYield: 0.04,
+      mortgageRate: 0.05,
+      downPaymentRatio: 0.20,
+      color: '#8B4513',
+      type: 'realestate'
+    },
+    realestate_selfuse: {
+      name: '房地产自住',
+      propertyGrowth: 0.035,
+      rentalYield: 0,
+      mortgageRate: 0.05,
+      downPaymentRatio: 0.20,
+      color: '#A0522D',
+      type: 'realestate'
     }
   }
 
-  useEffect(() => {
-    const calculations = {}
+  const frequencies = {
+    weekly: { name: '每周', periodsPerYear: 52 },
+    biweekly: { name: '双周', periodsPerYear: 26 },
+    monthly: { name: '每月', periodsPerYear: 12 },
+    quarterly: { name: '每季', periodsPerYear: 4 },
+    annually: { name: '每年', periodsPerYear: 1 }
+  }
+
+  // 计算股票投资 - 原装算法
+  const calculateStockInvestment = (asset, investmentAmount, frequency, duration) => {
+    const periodsPerYear = frequencies[frequency].periodsPerYear
+    const totalPeriods = duration * periodsPerYear
+    const totalInvested = investmentAmount * totalPeriods
     
-    selectedComparisons.forEach(type => {
-      const returnRate = formData[`${type}Return`] || 0
-      calculations[type] = calculateCompoundReturns(
-        formData.initialInvestment,
-        formData.monthlyContribution,
-        returnRate,
-        formData.years
-      )
+    const totalAnnualReturn = asset.annualReturn + asset.dividendYield
+    const periodReturn = totalAnnualReturn / periodsPerYear
+    
+    let totalValue = 0
+    let dividendIncome = 0
+    
+    for (let period = 1; period <= totalPeriods; period++) {
+      totalValue = totalValue * (1 + periodReturn) + investmentAmount
+      const periodDividend = (totalValue - investmentAmount) * (asset.dividendYield / periodsPerYear)
+      dividendIncome += periodDividend
+    }
+    
+    const capitalGains = totalValue - totalInvested - dividendIncome
+    const totalReturn = totalValue - totalInvested
+    const returnPercentage = (totalReturn / totalInvested) * 100
+    const annualizedReturn = (Math.pow(totalValue / totalInvested, 1 / duration) - 1) * 100
+    
+    return {
+      name: asset.name,
+      finalValue: totalValue,
+      totalInvested: totalInvested,
+      totalReturn: totalReturn,
+      returnPercentage: returnPercentage,
+      annualizedReturn: annualizedReturn,
+      capitalGains: capitalGains,
+      dividendIncome: dividendIncome,
+      color: asset.color,
+      type: 'stock',
+      annualReturn: asset.annualReturn,
+      dividendYield: asset.dividendYield
+    }
+  }
+
+  // 计算房地产投资 - 原装算法
+  const calculateRealEstateInvestment = (asset, monthlyPayment, duration) => {
+    const loanMonths = duration * 12
+    const annualRate = asset.mortgageRate
+    const monthlyRate = annualRate / 12
+    
+    // 根据月供计算贷款本金
+    const factor = Math.pow(1 + monthlyRate, loanMonths)
+    const loanPrincipal = monthlyPayment * (factor - 1) / (monthlyRate * factor)
+    
+    // 计算房屋总价和首付
+    const housePrice = loanPrincipal / (1 - asset.downPaymentRatio)
+    const downPayment = housePrice * asset.downPaymentRatio
+    
+    // 等额本息还款计算
+    let remainingBalance = loanPrincipal
+    let totalInterestPaid = 0
+    let totalRentalIncome = 0
+    
+    for (let year = 1; year <= duration; year++) {
+      // 计算该年的12个月还款
+      for (let month = 1; month <= 12; month++) {
+        const monthlyInterest = remainingBalance * monthlyRate
+        const monthlyPrincipal = monthlyPayment - monthlyInterest
+        remainingBalance -= monthlyPrincipal
+        totalInterestPaid += monthlyInterest
+      }
+      remainingBalance = Math.max(0, remainingBalance)
+      
+      // 计算该年底的房产价值
+      const currentHouseValue = housePrice * Math.pow(1 + asset.propertyGrowth, year)
+      
+      // 计算该年的租金收入
+      if (asset.rentalYield > 0) {
+        const yearlyRentalIncome = currentHouseValue * asset.rentalYield
+        totalRentalIncome += yearlyRentalIncome
+      }
+    }
+    
+    // 最终房产价值
+    const finalHouseValue = housePrice * Math.pow(1 + asset.propertyGrowth, duration)
+    
+    // 净资产 = 房产价值 - 剩余贷款
+    const netWorth = finalHouseValue - remainingBalance
+    
+    // 总资产价值 = 净资产 + 累计租金收入
+    const totalAssetValue = netWorth + totalRentalIncome
+    
+    // 总投资 = 首付 + 月供总额
+    const totalMonthlyPayments = monthlyPayment * loanMonths
+    const totalInvested = downPayment + totalMonthlyPayments
+    
+    const totalReturn = totalAssetValue - totalInvested
+    const returnPercentage = (totalReturn / totalInvested) * 100
+    const annualizedReturn = (Math.pow(totalAssetValue / totalInvested, 1 / duration) - 1) * 100
+    
+    return {
+      name: asset.name,
+      finalValue: totalAssetValue,
+      totalInvested: totalInvested,
+      totalReturn: totalReturn,
+      returnPercentage: returnPercentage,
+      annualizedReturn: annualizedReturn,
+      capitalGains: netWorth - downPayment,
+      dividendIncome: totalRentalIncome,
+      color: asset.color,
+      type: 'realestate',
+      housePrice: housePrice,
+      downPayment: downPayment,
+      finalHouseValue: finalHouseValue,
+      netWorth: netWorth,
+      totalRentalIncome: totalRentalIncome,
+      netCashFlow: totalRentalIncome - totalMonthlyPayments,
+      leverageRatio: housePrice / downPayment,
+      leverageGain: (finalHouseValue - housePrice) / downPayment,
+      propertyGrowth: asset.propertyGrowth,
+      rentalYield: asset.rentalYield,
+      mortgageRate: asset.mortgageRate
+    }
+  }
+
+  // 计算所有投资 - 原装算法
+  const calculateAllInvestments = () => {
+    const periodsPerYear = frequencies[frequency].periodsPerYear
+    const totalPeriods = duration * periodsPerYear
+    const stockTotalInvested = investmentAmount * totalPeriods
+    const inflationRate = 0.02
+    
+    const allResults = {}
+    
+    // 现金选项
+    allResults.cash = {
+      name: '现金存放',
+      finalValue: stockTotalInvested,
+      totalInvested: stockTotalInvested,
+      totalReturn: 0,
+      returnPercentage: 0,
+      color: '#6B7280',
+      type: 'cash'
+    }
+    
+    allResults.cashInflation = {
+      name: '现金购买力 (通胀2%)',
+      finalValue: stockTotalInvested / Math.pow(1 + inflationRate, duration),
+      totalInvested: stockTotalInvested,
+      totalReturn: (stockTotalInvested / Math.pow(1 + inflationRate, duration)) - stockTotalInvested,
+      returnPercentage: ((stockTotalInvested / Math.pow(1 + inflationRate, duration) - stockTotalInvested) / stockTotalInvested * 100),
+      color: '#EF4444',
+      type: 'cash'
+    }
+    
+    // 计算所有资产
+    Object.entries(assets).forEach(([key, asset]) => {
+      if (asset.type === 'stock') {
+        allResults[key] = calculateStockInvestment(asset, investmentAmount, frequency, duration)
+      } else if (asset.type === 'realestate') {
+        allResults[key] = calculateRealEstateInvestment(asset, investmentAmount, duration)
+      }
     })
     
-    setResults(calculations)
-  }, [formData, selectedComparisons])
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: parseFloat(value) || 0
-    }))
+    setResults({
+      stockTotalInvested,
+      allAssets: allResults,
+      inflationRate
+    })
   }
 
-  const toggleComparison = (type) => {
-    setSelectedComparisons(prev => 
-      prev.includes(type) 
-        ? prev.filter(t => t !== type)
-        : [...prev, type]
-    )
-  }
+  useEffect(() => {
+    calculateAllInvestments()
+  }, [investmentAmount, frequency, duration])
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('ms-MY', {
@@ -703,298 +890,233 @@ function InvestmentComparator() {
     }).format(amount)
   }
 
-  const getRiskColor = (volatility) => {
-    switch(volatility) {
-      case 'none': return 'text-green-600 bg-green-100'
-      case 'low': return 'text-blue-600 bg-blue-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'high': return 'text-orange-600 bg-orange-100'
-      case 'extreme': return 'text-red-600 bg-red-100'
-      default: return 'text-gray-600 bg-gray-100'
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* 投资参数设置 */}
       <ModernCard className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-2">⚙️</span>
+          <span className="mr-2">🧮</span>
           投资参数设置
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              初始投资金额 (RM)
+              每次投资金额 (RM)
             </label>
             <input
               type="number"
-              value={formData.initialInvestment}
-              onChange={(e) => handleInputChange('initialInvestment', e.target.value)}
+              value={investmentAmount}
+              onChange={(e) => setInvestmentAmount(Number(e.target.value))}
+              min="100"
+              step="100"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              min="0"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              月投入金额 (RM)
-            </label>
-            <input
-              type="number"
-              value={formData.monthlyContribution}
-              onChange={(e) => handleInputChange('monthlyContribution', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              min="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              投资年限
-            </label>
-            <input
-              type="number"
-              value={formData.years}
-              onChange={(e) => handleInputChange('years', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              min="1"
-              max="50"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              风险承受能力
+              投资频率
             </label>
             <select
-              value={formData.riskTolerance}
-              onChange={(e) => setFormData(prev => ({ ...prev, riskTolerance: e.target.value }))}
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value)}
               className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="conservative">保守型</option>
-              <option value="moderate">稳健型</option>
-              <option value="aggressive">积极型</option>
+              {Object.entries(frequencies).map(([key, freq]) => (
+                <option key={key} value={key}>
+                  {freq.name}
+                </option>
+              ))}
             </select>
           </div>
-        </div>
 
-        {/* 年回报率设置 */}
-        <div className="bg-gray-50 p-4 rounded-xl">
-          <h4 className="font-semibold text-gray-900 mb-3">年回报率设置 (%)</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {Object.entries(investmentTypes).map(([key, type]) => (
-              <div key={key}>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  {type.icon} {type.name}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={formData[`${key}Return`]}
-                  onChange={(e) => handleInputChange(`${key}Return`, e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            ))}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              投资时长 (年)
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 5, 10, 20, 30].map(year => (
+                <button
+                  key={year}
+                  onClick={() => setDuration(year)}
+                  className={`p-3 rounded-xl text-sm font-medium transition-all ${
+                    duration === year
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {year}年
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* 投资总结 */}
+        {results && (
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <h4 className="font-medium text-blue-800 mb-3 text-sm">📊 投资总结</h4>
+            <div className="grid grid-cols-2 gap-4 text-xs text-blue-700">
+              <div>
+                <p>• 每{frequencies[frequency].name.slice(1)}: {formatCurrency(investmentAmount)}</p>
+                <p>• 期限: {duration}年</p>
+                <p>• 投资次数: {duration * frequencies[frequency].periodsPerYear}次</p>
+              </div>
+              <div>
+                <p>• 股票总投资: {formatCurrency(results.stockTotalInvested)}</p>
+                {(() => {
+                  const realEstate = Object.values(results.allAssets).find(asset => asset.type === 'realestate')
+                  return realEstate ? (
+                    <p>• 房地产总投资: {formatCurrency(realEstate.totalInvested)}</p>
+                  ) : null
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
       </ModernCard>
 
-      {/* 投资类型选择 */}
-      <ModernCard className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <span className="mr-2">🎯</span>
-          选择对比投资类型
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {Object.entries(investmentTypes).map(([key, type]) => {
-            const isSelected = selectedComparisons.includes(key)
-            const getSelectedStyles = (color) => {
-              const styles = {
-                blue: 'border-blue-500 bg-blue-50',
-                green: 'border-green-500 bg-green-50',
-                gray: 'border-gray-500 bg-gray-50',
-                orange: 'border-orange-500 bg-orange-50',
-                yellow: 'border-yellow-500 bg-yellow-50'
-              }
-              return styles[color] || 'border-blue-500 bg-blue-50'
-            }
+      {/* 投资对比结果 */}
+      {results && (
+        <div className="space-y-4">
+          <ModernCard className="overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4">
+              <h3 className="text-lg font-semibold flex items-center">
+                <span className="mr-2">📊</span>
+                投资对比结果 (按最终价值排序)
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-3 max-h-96 overflow-y-auto">
+              {Object.entries(results.allAssets)
+                .sort((a, b) => b[1].finalValue - a[1].finalValue)
+                .map(([key, result], index) => {
+                  const isTop3 = index < 3
+                  const isCash = result.type === 'cash'
+                  const isRealEstate = result.type === 'realestate'
+                  const isWinner = index === 0 && !isCash
+                  
+                  return (
+                    <div 
+                      key={key}
+                      className={`flex items-center justify-between p-4 rounded-xl border-l-4 transition-all hover:translate-x-1 ${
+                        isCash ? 'bg-red-50 border-red-500' : 
+                        isWinner ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-500 ring-2 ring-yellow-300' :
+                        isTop3 ? 'bg-green-50 border-green-500' : 
+                        'bg-gray-50 border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: result.color }}
+                        ></div>
+                        <div>
+                          <div className={`font-semibold text-sm ${
+                            isCash ? 'text-red-800' :
+                            isWinner ? 'text-yellow-800' :
+                            isTop3 ? 'text-green-800' :
+                            'text-gray-800'
+                          }`}>
+                            {result.name}
+                            {isWinner && <span className="ml-2 text-yellow-600">👑</span>}
+                            {isRealEstate && <span className="ml-2">🏠</span>}
+                          </div>
+                          {isRealEstate && (
+                            <div className="text-xs text-gray-600 mt-1">
+                              净资产: {formatCurrency(result.netWorth).replace('RM', '')}
+                              {result.totalRentalIncome > 0 && (
+                                <span> + 租金: {formatCurrency(result.totalRentalIncome).replace('RM', '')}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className={`text-lg font-bold ${
+                          isCash ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {formatCurrency(result.finalValue)}
+                        </div>
+                        <div className={`text-sm ${
+                          result.returnPercentage >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {result.returnPercentage >= 0 ? '+' : ''}{result.returnPercentage.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+            </div>
+          </ModernCard>
+
+          {/* 最佳投资详情 */}
+          {(() => {
+            const bestAsset = Object.entries(results.allAssets)
+              .filter(([key]) => key !== 'cash' && key !== 'cashInflation')
+              .sort((a, b) => b[1].finalValue - a[1].finalValue)[0]
+            
+            if (!bestAsset) return null
+            
+            const [key, result] = bestAsset
+            const isRealEstate = result.type === 'realestate'
             
             return (
-              <button
-                key={key}
-                onClick={() => toggleComparison(key)}
-                className={`p-4 rounded-xl border-2 transition-all text-left ${
-                  isSelected 
-                    ? getSelectedStyles(type.color)
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl">{type.icon}</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(type.volatility)}`}>
-                    {type.volatility === 'none' && '无风险'}
-                    {type.volatility === 'low' && '低风险'}
-                    {type.volatility === 'medium' && '中风险'}
-                    {type.volatility === 'high' && '高风险'}
-                    {type.volatility === 'extreme' && '极高风险'}
-                  </span>
-                </div>
-                <div className="font-medium text-gray-900">{type.name}</div>
-                <div className="text-sm text-gray-600">
-                  年回报: {formData[`${key}Return`]}%
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </ModernCard>
-
-      {/* 对比结果 */}
-      {results && Object.keys(results).length > 0 && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <span className="mr-2">📊</span>
-            投资对比结果 ({formData.years}年后)
-          </h3>
-          
-          <div className="grid grid-cols-1 gap-4">
-            {Object.entries(results)
-              .sort((a, b) => b[1].totalValue - a[1].totalValue)
-              .map(([type, result], index) => {
-                const investmentType = investmentTypes[type]
-                const isTop = index === 0
-                
-                return (
-                  <ModernCard 
-                    key={type} 
-                    className={`p-6 ${isTop ? 'ring-2 ring-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50' : ''}`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <span className="text-3xl">{investmentType.icon}</span>
+              <ModernCard className="p-6 border-2 border-yellow-300 bg-gradient-to-r from-yellow-50 to-orange-50">
+                <h3 className="text-lg font-semibold mb-4 text-yellow-800 flex items-center">
+                  <span className="mr-2">🥇</span>
+                  最佳投资选择
+                </h3>
+                <div className="space-y-3">
+                  <p className="font-medium text-gray-800">{result.name}</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">最终价值:</span>
+                      <span className="ml-2 font-semibold text-green-600">{formatCurrency(result.finalValue)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">总投资:</span>
+                      <span className="ml-2 font-semibold">{formatCurrency(result.totalInvested)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">总收益:</span>
+                      <span className="ml-2 font-semibold text-green-600">+{formatCurrency(result.totalReturn)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">年化回报:</span>
+                      <span className="ml-2 font-semibold">{result.annualizedReturn?.toFixed(1)}%</span>
+                    </div>
+                    {isRealEstate && (
+                      <>
                         <div>
-                          <h4 className="font-semibold text-gray-900 flex items-center">
-                            {investmentType.name}
-                            {isTop && <span className="ml-2 text-yellow-500">👑</span>}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            年回报率: {formData[`${type}Return`]}%
-                          </p>
+                          <span className="text-gray-600">房屋总价:</span>
+                          <span className="ml-2 font-semibold">{formatCurrency(result.housePrice)}</span>
                         </div>
-                      </div>
-                      <div className={`text-right ${isTop ? 'text-yellow-600' : 'text-gray-900'}`}>
-                        <div className="text-2xl font-bold">
-                          {formatCurrency(result.totalValue)}
+                        <div>
+                          <span className="text-gray-600">杠杆收益:</span>
+                          <span className="ml-2 font-semibold text-orange-600">{result.leverageGain?.toFixed(1)}倍</span>
                         </div>
-                        <div className="text-sm">
-                          总回报: +{result.returnPercentage.toFixed(1)}%
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-                      <div className="text-center">
-                        <div className="text-sm text-gray-600">总投入</div>
-                        <div className="font-semibold text-blue-600">
-                          {formatCurrency(result.totalInvested)}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm text-gray-600">投资收益</div>
-                        <div className="font-semibold text-green-600">
-                          {formatCurrency(result.totalReturns)}
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm text-gray-600">最终价值</div>
-                        <div className="font-semibold text-purple-600">
-                          {formatCurrency(result.totalValue)}
-                        </div>
-                      </div>
-                    </div>
-                  </ModernCard>
-                )
-              })}
-          </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </ModernCard>
+            )
+          })()}
         </div>
       )}
-
-      {/* 快捷输入 */}
-      <ModernCard className="p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">快捷输入</h4>
-        <div className="space-y-3">
-          <div>
-            <p className="text-xs text-gray-600 mb-2">初始投资金额</p>
-            <div className="flex flex-wrap gap-2">
-              {['10000', '25000', '50000', '100000', '200000'].map(amount => (
-                <button
-                  key={amount}
-                  onClick={() => setFormData(prev => ({ ...prev, initialInvestment: parseFloat(amount) }))}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    formData.initialInvestment === parseFloat(amount) 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  RM{parseInt(amount) >= 1000 ? `${parseInt(amount)/1000}k` : amount}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <p className="text-xs text-gray-600 mb-2">月投入金额</p>
-            <div className="flex flex-wrap gap-2">
-              {['500', '1000', '1500', '2000', '3000'].map(amount => (
-                <button
-                  key={amount}
-                  onClick={() => setFormData(prev => ({ ...prev, monthlyContribution: parseFloat(amount) }))}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    formData.monthlyContribution === parseFloat(amount) 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  RM{amount}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs text-gray-600 mb-2">投资年限</p>
-            <div className="flex flex-wrap gap-2">
-              {['5', '10', '15', '20', '30'].map(years => (
-                <button
-                  key={years}
-                  onClick={() => setFormData(prev => ({ ...prev, years: parseFloat(years) }))}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    formData.years === parseFloat(years) 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {years}年
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </ModernCard>
 
       {/* 免责声明 */}
       <ModernCard className="p-4 bg-amber-50 border-amber-200">
         <div className="flex items-start space-x-2">
           <span className="text-amber-600 text-lg">⚠️</span>
           <div className="text-sm text-amber-800">
-            <p className="font-semibold mb-1">投资风险提示</p>
-            <p className="mb-2">• 过往表现不代表未来收益，所有投资都有风险</p>
-            <p className="mb-2">• 回报率仅为估算，实际收益可能有所不同</p>
-            <p>• 投资前请充分了解产品风险，建议咨询专业理财顾问</p>
+            <p className="font-semibold mb-2">重要提醒</p>
+            <p className="mb-2">此模拟器基于真实搜索结果，使用原装算法。房地产计算基于等额本息房贷模式，总资产价值 = 净资产 + 累计租金收入。</p>
+            <p className="mb-2">• 房地产出租: 3.5%年增值 + 4%年租金收益，基于20%首付，5%房贷利率</p>
+            <p>• 实际投资回报会因市场波动、经济环境等多种因素而有所不同。投资前请咨询专业理财顾问。</p>
           </div>
         </div>
       </ModernCard>
