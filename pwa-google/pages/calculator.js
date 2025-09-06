@@ -487,6 +487,90 @@ function EPFCalculator() {
         </ModernCard>
       )}
 
+      {/* 年度明细表格 */}
+      {chartData.length > 0 && (
+        <ModernCard className="overflow-hidden">
+          <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4">
+            <h3 className="text-lg font-semibold flex items-center">
+              <span className="mr-2">📊</span>
+              EPF年度明细 (17-90岁)
+            </h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-700">年龄</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700">月薪 (RM)</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700">年贡献 (RM)</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700">总金额 (RM)</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700">被动收入*</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold text-gray-700">阶段</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {chartData.filter((_, index) => index % 3 === 0 || chartData[index].年龄 === 55 || chartData[index].年龄 === 90).map((data, index) => {
+                  const passiveIncome = data.总金额 * (formData.epfReturn / 100) / 12 // 月被动收入
+                  const isRetirement = data.年龄 === 55
+                  const isFinal = data.年龄 === 90
+                  
+                  return (
+                    <tr 
+                      key={index} 
+                      className={`
+                        ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+                        ${isRetirement ? 'bg-yellow-50 border-yellow-200' : ''}
+                        ${isFinal ? 'bg-green-50 border-green-200' : ''}
+                      `}
+                    >
+                      <td className="px-3 py-3 text-sm font-medium">
+                        {data.年龄}岁
+                        {isRetirement && <span className="ml-1 text-yellow-600">🎯</span>}
+                        {isFinal && <span className="ml-1 text-green-600">💰</span>}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right">
+                        {data.月薪 > 0 ? formatCurrency(data.月薪).replace('RM', '') : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right text-blue-600">
+                        {data.年贡献 > 0 ? formatCurrency(data.年贡献).replace('RM', '') : '-'}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right font-medium text-green-600">
+                        {formatCurrency(data.总金额).replace('RM', '')}
+                      </td>
+                      <td className="px-3 py-3 text-sm text-right">
+                        {data.年龄 >= 55 ? (
+                          <span className="text-emerald-600 font-semibold">
+                            RM{Math.round(passiveIncome).toLocaleString()}/月
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          data.阶段 === '工作期' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {data.阶段}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="px-4 py-3 bg-gray-50 border-t">
+            <p className="text-xs text-gray-600">
+              * 被动收入按EPF年回报率计算的月收入估算 (仅供参考)
+            </p>
+          </div>
+        </ModernCard>
+      )}
+
       {/* 快捷输入 */}
       <ModernCard className="p-4">
         <h4 className="text-sm font-medium text-gray-700 mb-3">快捷输入</h4>
@@ -534,6 +618,392 @@ function EPFCalculator() {
   )
 }
 
+// 投资对比模拟器组件
+function InvestmentComparator() {
+  const [formData, setFormData] = useState({
+    initialInvestment: 50000,
+    monthlyContribution: 1000,
+    years: 10,
+    stockReturn: 8,
+    epfReturn: 5.8,
+    fixedDepositReturn: 3.2,
+    realEstateReturn: 6,
+    cryptoReturn: 15,
+    riskTolerance: 'moderate'
+  })
+
+  const [results, setResults] = useState(null)
+  const [selectedComparisons, setSelectedComparisons] = useState(['stock', 'epf', 'fixedDeposit'])
+
+  const investmentTypes = {
+    stock: { name: '股市投资', icon: '📈', color: 'blue', volatility: 'high' },
+    epf: { name: 'EPF公积金', icon: '🏦', color: 'green', volatility: 'low' },
+    fixedDeposit: { name: '定期存款', icon: '🏧', color: 'gray', volatility: 'none' },
+    realEstate: { name: '房地产', icon: '🏠', color: 'orange', volatility: 'medium' },
+    crypto: { name: '数字货币', icon: '₿', color: 'yellow', volatility: 'extreme' }
+  }
+
+  const calculateCompoundReturns = (initial, monthly, rate, years) => {
+    const monthlyRate = rate / 100 / 12
+    const months = years * 12
+    
+    // Initial investment growth
+    const initialGrowth = initial * Math.pow(1 + rate/100, years)
+    
+    // Monthly contributions compound growth
+    const monthlyGrowth = monthly * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate)
+    
+    const totalValue = initialGrowth + monthlyGrowth
+    const totalInvested = initial + (monthly * months)
+    const totalReturns = totalValue - totalInvested
+    
+    return {
+      totalValue,
+      totalInvested,
+      totalReturns,
+      returnPercentage: (totalReturns / totalInvested) * 100
+    }
+  }
+
+  useEffect(() => {
+    const calculations = {}
+    
+    selectedComparisons.forEach(type => {
+      const returnRate = formData[`${type}Return`] || 0
+      calculations[type] = calculateCompoundReturns(
+        formData.initialInvestment,
+        formData.monthlyContribution,
+        returnRate,
+        formData.years
+      )
+    })
+    
+    setResults(calculations)
+  }, [formData, selectedComparisons])
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: parseFloat(value) || 0
+    }))
+  }
+
+  const toggleComparison = (type) => {
+    setSelectedComparisons(prev => 
+      prev.includes(type) 
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    )
+  }
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('ms-MY', {
+      style: 'currency',
+      currency: 'MYR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
+
+  const getRiskColor = (volatility) => {
+    switch(volatility) {
+      case 'none': return 'text-green-600 bg-green-100'
+      case 'low': return 'text-blue-600 bg-blue-100'
+      case 'medium': return 'text-yellow-600 bg-yellow-100'
+      case 'high': return 'text-orange-600 bg-orange-100'
+      case 'extreme': return 'text-red-600 bg-red-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 投资参数设置 */}
+      <ModernCard className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-2">⚙️</span>
+          投资参数设置
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              初始投资金额 (RM)
+            </label>
+            <input
+              type="number"
+              value={formData.initialInvestment}
+              onChange={(e) => handleInputChange('initialInvestment', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="0"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              月投入金额 (RM)
+            </label>
+            <input
+              type="number"
+              value={formData.monthlyContribution}
+              onChange={(e) => handleInputChange('monthlyContribution', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="0"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              投资年限
+            </label>
+            <input
+              type="number"
+              value={formData.years}
+              onChange={(e) => handleInputChange('years', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              min="1"
+              max="50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              风险承受能力
+            </label>
+            <select
+              value={formData.riskTolerance}
+              onChange={(e) => setFormData(prev => ({ ...prev, riskTolerance: e.target.value }))}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="conservative">保守型</option>
+              <option value="moderate">稳健型</option>
+              <option value="aggressive">积极型</option>
+            </select>
+          </div>
+        </div>
+
+        {/* 年回报率设置 */}
+        <div className="bg-gray-50 p-4 rounded-xl">
+          <h4 className="font-semibold text-gray-900 mb-3">年回报率设置 (%)</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {Object.entries(investmentTypes).map(([key, type]) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  {type.icon} {type.name}
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={formData[`${key}Return`]}
+                  onChange={(e) => handleInputChange(`${key}Return`, e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </ModernCard>
+
+      {/* 投资类型选择 */}
+      <ModernCard className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <span className="mr-2">🎯</span>
+          选择对比投资类型
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {Object.entries(investmentTypes).map(([key, type]) => {
+            const isSelected = selectedComparisons.includes(key)
+            const getSelectedStyles = (color) => {
+              const styles = {
+                blue: 'border-blue-500 bg-blue-50',
+                green: 'border-green-500 bg-green-50',
+                gray: 'border-gray-500 bg-gray-50',
+                orange: 'border-orange-500 bg-orange-50',
+                yellow: 'border-yellow-500 bg-yellow-50'
+              }
+              return styles[color] || 'border-blue-500 bg-blue-50'
+            }
+            
+            return (
+              <button
+                key={key}
+                onClick={() => toggleComparison(key)}
+                className={`p-4 rounded-xl border-2 transition-all text-left ${
+                  isSelected 
+                    ? getSelectedStyles(type.color)
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">{type.icon}</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(type.volatility)}`}>
+                    {type.volatility === 'none' && '无风险'}
+                    {type.volatility === 'low' && '低风险'}
+                    {type.volatility === 'medium' && '中风险'}
+                    {type.volatility === 'high' && '高风险'}
+                    {type.volatility === 'extreme' && '极高风险'}
+                  </span>
+                </div>
+                <div className="font-medium text-gray-900">{type.name}</div>
+                <div className="text-sm text-gray-600">
+                  年回报: {formData[`${key}Return`]}%
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </ModernCard>
+
+      {/* 对比结果 */}
+      {results && Object.keys(results).length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <span className="mr-2">📊</span>
+            投资对比结果 ({formData.years}年后)
+          </h3>
+          
+          <div className="grid grid-cols-1 gap-4">
+            {Object.entries(results)
+              .sort((a, b) => b[1].totalValue - a[1].totalValue)
+              .map(([type, result], index) => {
+                const investmentType = investmentTypes[type]
+                const isTop = index === 0
+                
+                return (
+                  <ModernCard 
+                    key={type} 
+                    className={`p-6 ${isTop ? 'ring-2 ring-yellow-400 bg-gradient-to-r from-yellow-50 to-orange-50' : ''}`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-3xl">{investmentType.icon}</span>
+                        <div>
+                          <h4 className="font-semibold text-gray-900 flex items-center">
+                            {investmentType.name}
+                            {isTop && <span className="ml-2 text-yellow-500">👑</span>}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            年回报率: {formData[`${type}Return`]}%
+                          </p>
+                        </div>
+                      </div>
+                      <div className={`text-right ${isTop ? 'text-yellow-600' : 'text-gray-900'}`}>
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(result.totalValue)}
+                        </div>
+                        <div className="text-sm">
+                          总回报: +{result.returnPercentage.toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
+                      <div className="text-center">
+                        <div className="text-sm text-gray-600">总投入</div>
+                        <div className="font-semibold text-blue-600">
+                          {formatCurrency(result.totalInvested)}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-gray-600">投资收益</div>
+                        <div className="font-semibold text-green-600">
+                          {formatCurrency(result.totalReturns)}
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm text-gray-600">最终价值</div>
+                        <div className="font-semibold text-purple-600">
+                          {formatCurrency(result.totalValue)}
+                        </div>
+                      </div>
+                    </div>
+                  </ModernCard>
+                )
+              })}
+          </div>
+        </div>
+      )}
+
+      {/* 快捷输入 */}
+      <ModernCard className="p-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">快捷输入</h4>
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs text-gray-600 mb-2">初始投资金额</p>
+            <div className="flex flex-wrap gap-2">
+              {['10000', '25000', '50000', '100000', '200000'].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setFormData(prev => ({ ...prev, initialInvestment: parseFloat(amount) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.initialInvestment === parseFloat(amount) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  RM{parseInt(amount) >= 1000 ? `${parseInt(amount)/1000}k` : amount}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-xs text-gray-600 mb-2">月投入金额</p>
+            <div className="flex flex-wrap gap-2">
+              {['500', '1000', '1500', '2000', '3000'].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setFormData(prev => ({ ...prev, monthlyContribution: parseFloat(amount) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.monthlyContribution === parseFloat(amount) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  RM{amount}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-600 mb-2">投资年限</p>
+            <div className="flex flex-wrap gap-2">
+              {['5', '10', '15', '20', '30'].map(years => (
+                <button
+                  key={years}
+                  onClick={() => setFormData(prev => ({ ...prev, years: parseFloat(years) }))}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    formData.years === parseFloat(years) 
+                      ? 'bg-blue-500 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {years}年
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </ModernCard>
+
+      {/* 免责声明 */}
+      <ModernCard className="p-4 bg-amber-50 border-amber-200">
+        <div className="flex items-start space-x-2">
+          <span className="text-amber-600 text-lg">⚠️</span>
+          <div className="text-sm text-amber-800">
+            <p className="font-semibold mb-1">投资风险提示</p>
+            <p className="mb-2">• 过往表现不代表未来收益，所有投资都有风险</p>
+            <p className="mb-2">• 回报率仅为估算，实际收益可能有所不同</p>
+            <p>• 投资前请充分了解产品风险，建议咨询专业理财顾问</p>
+          </div>
+        </div>
+      </ModernCard>
+    </div>
+  )
+}
+
 // 主计算器页面
 export default function CalculatorPage() {
   const router = useRouter()
@@ -542,6 +1012,7 @@ export default function CalculatorPage() {
   const tabs = [
     { id: 'loan', name: '车贷计算', icon: '🚗', color: 'blue' },
     { id: 'epf', name: 'EPF模拟', icon: '🏦', color: 'green' },
+    { id: 'investment', name: '投资对比', icon: '📈', color: 'purple' },
     { id: 'more', name: '更多', icon: '➕', color: 'gray', disabled: true }
   ]
 
@@ -574,6 +1045,7 @@ export default function CalculatorPage() {
                     const activeClasses = {
                       'loan': 'bg-gradient-to-r from-blue-500 to-blue-600',
                       'epf': 'bg-gradient-to-r from-green-500 to-green-600',
+                      'investment': 'bg-gradient-to-r from-purple-500 to-purple-600',
                       'more': 'bg-gradient-to-r from-gray-500 to-gray-600'
                     }
                     
@@ -610,6 +1082,7 @@ export default function CalculatorPage() {
               <div className="transition-all duration-300">
                 {activeTab === 'loan' && <LoanCalculator />}
                 {activeTab === 'epf' && <EPFCalculator />}
+                {activeTab === 'investment' && <InvestmentComparator />}
                 {activeTab === 'more' && (
                   <ModernCard className="p-12 text-center">
                     <div className="text-6xl mb-4">🚧</div>
