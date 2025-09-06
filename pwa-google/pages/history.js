@@ -7,6 +7,7 @@ import WebAppWrapper from '../components/WebAppWrapper'
 import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency, formatDate, getCategoryInfo } from '../lib/api'
 import { formatDisplayDate } from '../../lib/date-utils'
+import QuickActions from '../components/QuickActions'
 
 // 🚀 原生PWA-Google API调用器 - 带认证的原生数据库操作
 const nativeAPI = async (action, data = {}) => {
@@ -311,6 +312,8 @@ export default function HistoryPage() {
           />
         )}
 
+        {/* 快速操作按钮 */}
+        <QuickActions />
       </Layout>
     </WebAppWrapper>
   )

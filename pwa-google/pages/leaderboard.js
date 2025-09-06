@@ -6,6 +6,7 @@ import { SmoothTransition, PageSkeleton } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient from '../lib/api'
+import QuickActions from '../components/QuickActions'
 
 export default function LeaderboardPage() {
   const router = useRouter()
@@ -524,6 +525,9 @@ export default function LeaderboardPage() {
             </div>
           </div>
         </SmoothTransition>
+        
+        {/* 快速操作按钮 */}
+        <QuickActions />
       </Layout>
     </WebAppWrapper>
   )

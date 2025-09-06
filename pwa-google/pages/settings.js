@@ -7,6 +7,7 @@ import WebAppWrapper from '../components/WebAppWrapper'
 import PWAClient from '../lib/api'
 import { smartCache } from '../lib/cache'
 import { InstallPWAButton } from '../components/PWAInstallPrompt'
+import QuickActions from '../components/QuickActions'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -904,6 +905,9 @@ export default function SettingsPage() {
             </div>
           </div>
         </SmoothTransition>
+        
+        {/* 快速操作按钮 */}
+        <QuickActions />
       </Layout>
     </WebAppWrapper>
   )

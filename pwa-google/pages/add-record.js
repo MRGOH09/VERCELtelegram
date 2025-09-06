@@ -6,6 +6,7 @@ import { SmoothTransition } from '../components/SmoothTransition'
 import WebAppWrapper from '../components/WebAppWrapper'
 import BrandHeader, { PageHeader } from '../components/BrandHeader'
 import PWAClient, { formatCurrency } from '../lib/api'
+import QuickActions from '../components/QuickActions'
 
 // 中文到英文分类代码映射表 - 与数据库一致
 const CATEGORY_CODE_MAP = {
@@ -1014,6 +1015,9 @@ export default function AddRecordPage() {
             </div>
           </div>
         </SmoothTransition>
+        
+        {/* 快速操作按钮 */}
+        <QuickActions />
       </Layout>
     </WebAppWrapper>
   )
