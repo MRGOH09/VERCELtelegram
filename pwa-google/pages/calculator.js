@@ -564,36 +564,45 @@ export default function CalculatorPage() {
               onBack={() => router.back()}
             />
             
-            <div className="px-4 pb-8 -mt-8 space-y-6">
+            <div className="px-4 pb-8 -mt-12 space-y-6">
               
-              {/* 标签页选择器 */}
-              <ModernCard className="p-2">
+              {/* 标签页选择器 - 放在顶部 */}
+              <ModernCard className="p-2 relative z-20">
                 <div className="flex space-x-2">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => !tab.disabled && setActiveTab(tab.id)}
-                      disabled={tab.disabled}
-                      className={`
-                        flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg
-                        font-medium transition-all duration-200
-                        ${activeTab === tab.id 
-                          ? `bg-gradient-to-r from-${tab.color}-500 to-${tab.color}-600 text-white shadow-lg transform scale-105` 
-                          : tab.disabled 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md'
-                        }
-                      `}
-                    >
-                      <span className="text-lg">{tab.icon}</span>
-                      <span className="text-sm">{tab.name}</span>
-                      {tab.disabled && (
-                        <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">
-                          即将推出
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  {tabs.map((tab) => {
+                    const isActive = activeTab === tab.id
+                    const activeClasses = {
+                      'loan': 'bg-gradient-to-r from-blue-500 to-blue-600',
+                      'epf': 'bg-gradient-to-r from-green-500 to-green-600',
+                      'more': 'bg-gradient-to-r from-gray-500 to-gray-600'
+                    }
+                    
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                        disabled={tab.disabled}
+                        className={`
+                          flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-lg
+                          font-medium transition-all duration-200
+                          ${isActive 
+                            ? `${activeClasses[tab.id]} text-white shadow-lg transform scale-105` 
+                            : tab.disabled 
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white text-gray-700 hover:bg-gray-50 hover:shadow-md'
+                          }
+                        `}
+                      >
+                        <span className="text-lg">{tab.icon}</span>
+                        <span className="text-sm">{tab.name}</span>
+                        {tab.disabled && (
+                          <span className="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full ml-1">
+                            即将推出
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               </ModernCard>
 
